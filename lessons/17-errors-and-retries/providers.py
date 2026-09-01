@@ -14,6 +14,8 @@ import os
 
 import httpx
 
+from retry import with_retries
+
 
 def parse_arguments(raw):
     """Return (arguments, error). See lesson 05 for why we do not hide this."""
@@ -21,6 +23,21 @@ def parse_arguments(raw):
         return json.loads(raw or "{}"), ""
     except json.JSONDecodeError as problem:
         return {}, f"arguments were not valid JSON ({problem})"
+
+
+def open_stream(client, url, payload, headers, attempts=4):
+    """Open a streaming request, retrying the failures worth retrying."""
+
+    def once():
+        request = client.build_request("POST", url, json=payload, headers=headers)
+        response = client.send(request, stream=True)
+        if response.status_code >= 400:
+            response.read()
+            response.close()
+            response.raise_for_status()
+        return response
+
+    return with_retries(once, attempts=attempts)
 
 
 class OpenAICompatProvider:
@@ -41,10 +58,13 @@ class OpenAICompatProvider:
         text_parts = []
         partial = {}
         with httpx.Client(timeout=120) as client:
-            with client.stream(
-                "POST", f"{self.base_url}/chat/completions", json=payload, headers=headers
-            ) as response:
-                response.raise_for_status()
+            # Only opening the request is retried. Once bytes have arrived the
+            # caller has already seen part of an answer, and replaying would
+            # splice a second answer onto the first.
+            response = open_stream(
+                client, f"{self.base_url}/chat/completions", payload, headers
+            )
+            try:
                 for line in response.iter_lines():
                     if not line.startswith("data: "):
                         continue
@@ -72,6 +92,8 @@ class OpenAICompatProvider:
                             slot["name"] = function["name"]
                         if function.get("arguments"):
                             slot["arguments"] += function["arguments"]
+            finally:
+                response.close()
 
         calls = []
         for _, s in sorted(partial.items()):
@@ -149,10 +171,8 @@ class AnthropicProvider:
         text_parts = []
         blocks = {}
         with httpx.Client(timeout=120) as client:
-            with client.stream(
-                "POST", f"{self.base_url}/messages", json=payload, headers=headers
-            ) as response:
-                response.raise_for_status()
+            response = open_stream(client, f"{self.base_url}/messages", payload, headers)
+            try:
                 for line in response.iter_lines():
                     if not line.startswith("data: "):
                         continue
@@ -178,6 +198,8 @@ class AnthropicProvider:
                                 on_text(delta["text"])
                         elif delta.get("type") == "input_json_delta":
                             blocks[event["index"]]["json"] += delta["partial_json"]
+            finally:
+                response.close()
 
         calls = []
         for _, s in sorted(blocks.items()):

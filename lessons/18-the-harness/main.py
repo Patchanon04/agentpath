@@ -62,6 +62,12 @@ def main():
     cancellation = Cancellation()
     usage = Usage()
 
+    # One token, shared. A second flag somewhere else is a second thing to
+    # forget to check.
+    import tools
+
+    tools.CANCELLATION = cancellation
+
     def handle_interrupt(signum, frame):
         if cancellation.cancelled:
             raise KeyboardInterrupt

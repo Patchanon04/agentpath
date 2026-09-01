@@ -208,11 +208,20 @@ import subprocess  # noqa: E402
 SHELL_TIMEOUT = 60
 
 
+CANCELLATION = None
+
+
 def run_shell(command):
     # The confirmation that used to live here moved to permissions.py in
     # lesson 12. Asking in both places would ask the same question twice,
     # and a tool that asks its own questions cannot be reused by anything
     # that is not a terminal.
+    #
+    # The cancellation check is here as well as in the loop because a command
+    # started after the person pressed the interrupt key is exactly the
+    # failure a cancellation token exists to prevent.
+    if CANCELLATION is not None and CANCELLATION.cancelled:
+        return "Cancelled before the command started."
     try:
         completed = subprocess.run(
             command,
