@@ -79,3 +79,12 @@ def test_the_result_is_the_same_whatever_the_worker_count(workers):
 def test_a_worker_count_of_zero_does_not_hang():
     """Zero threads and a queue nobody fills is a wait that never ends."""
     assert len(list(run_in_parallel([("a", steps("a", 2))], workers=0))) == 2
+
+
+def test_a_malformed_job_does_not_hang_the_batch():
+    """The worker died before posting its sentinel, and the main loop counts
+    sentinels, so it waited for one that was never coming."""
+    events = list(run_in_parallel([("broken",), ("good", steps("good", 1))], workers=1))
+    labels = [label for label, _ in events]
+    assert "good" in labels
+    assert any(isinstance(event, FanoutError) for _, event in events)

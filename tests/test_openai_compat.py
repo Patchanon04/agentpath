@@ -1,6 +1,6 @@
 from agentpath.providers.base import parse_arguments
 from agentpath.providers.openai_compat import OpenAICompatProvider
-from agentpath.types import Message, TextDelta, TurnDone
+from agentpath.types import Message, TextDelta, ToolCall, TurnDone
 
 TOOLS = [
     {
@@ -99,3 +99,22 @@ def test_a_missing_index_starts_a_new_call_rather_than_merging():
         ("a", {"x": 1}),
         ("b", {"y": 2}),
     ]
+
+
+def test_missing_tool_call_ids_are_filled_in_and_made_unique():
+    """A server that leaves the id off gives every call the same empty one.
+
+    Every API rejects a tool result whose id matches nothing, and two calls
+    sharing an id makes it impossible to say which result belongs to which.
+    """
+    from agentpath.providers.base import ensure_ids
+
+    calls = [
+        ToolCall(id="", name="a", arguments={}),
+        ToolCall(id="", name="b", arguments={}),
+        ToolCall(id="keep", name="c", arguments={}),
+    ]
+    identifiers = [call.id for call in ensure_ids(calls)]
+    assert len(set(identifiers)) == 3
+    assert "" not in identifiers
+    assert "keep" in identifiers

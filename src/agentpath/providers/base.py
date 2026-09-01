@@ -44,6 +44,22 @@ def open_stream(client, url, payload, headers, attempts=4):
     return with_retries(once, attempts=attempts)
 
 
+def ensure_ids(calls):
+    """Give every tool call an id, and make sure no two share one.
+
+    Some servers leave the id off. Every API rejects a tool result whose id
+    matches nothing, and two calls sharing an id makes it impossible to say
+    which result belongs to which call, so a missing one has to be invented
+    rather than passed along.
+    """
+    seen = set()
+    for index, call in enumerate(calls):
+        if not call.id or call.id in seen:
+            call.id = f"call_{index + 1}"
+        seen.add(call.id)
+    return calls
+
+
 def parse_arguments(raw: str) -> tuple[dict, str]:
     """Turn streamed argument text into a dict, or report why it could not.
 

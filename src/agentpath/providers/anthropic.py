@@ -12,7 +12,12 @@ from collections.abc import Iterator
 
 import httpx
 
-from agentpath.providers.base import Provider, open_stream, parse_arguments
+from agentpath.providers.base import (
+    Provider,
+    ensure_ids,
+    open_stream,
+    parse_arguments,
+)
 from agentpath.types import Message, TextDelta, ToolCall, TurnDone
 
 API_VERSION = "2023-06-01"
@@ -181,6 +186,10 @@ class AnthropicProvider(Provider):
                 )
             )
         yield TurnDone(
-            message=Message(role="assistant", content="".join(text_parts), tool_calls=calls),
+            message=Message(
+                role="assistant",
+                content="".join(text_parts),
+                tool_calls=ensure_ids(calls),
+            ),
             usage=usage,
         )

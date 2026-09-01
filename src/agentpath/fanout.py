@@ -39,10 +39,18 @@ def run_in_parallel(jobs, workers=4):
 
     def work():
         while True:
+            label = None
             try:
                 label, produce = pending.get_nowait()
             except queue.Empty:
                 return
+            except Exception as error:
+                # A malformed job must not kill the worker before it posts
+                # its sentinel, because the main loop counts sentinels and
+                # would wait for one that never arrives.
+                results.put((label, FanoutError(label, error)))
+                results.put((label, DONE))
+                continue
             try:
                 for event in produce():
                     results.put((label, event))

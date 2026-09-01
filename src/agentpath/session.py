@@ -34,10 +34,28 @@ def from_json(line: str) -> Message:
     return Message(**raw)
 
 
+def safe_name(name):
+    """Turn a session name into something that cannot leave the folder.
+
+    The name reaches us from a command line argument, so a name of
+    ../../notes would have written outside the sessions directory. Keeping
+    only the last part and refusing the two dot names is enough, and it
+    keeps the file name readable, which matters because reading these
+    files by eye is what they are for.
+    """
+    last = str(name).replace(chr(92), "/").rstrip("/").split("/")[-1]
+    cleaned = "".join(
+        character if character.isalnum() or character in "-_." else "-"
+        for character in last
+    )
+    cleaned = cleaned.strip(".-")
+    return cleaned or "session"
+
+
 class Session:
     def __init__(self, name, directory=None):
-        self.name = name
-        self.path = Path(directory or default_directory()) / f"{name}.jsonl"
+        self.name = safe_name(name)
+        self.path = Path(directory or default_directory()) / f"{self.name}.jsonl"
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def append(self, message: Message) -> None:

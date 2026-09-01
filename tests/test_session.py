@@ -54,3 +54,16 @@ def test_thai_and_other_non_ascii_text_is_readable_in_the_file(tmp_path):
     session = Session("demo", directory=tmp_path)
     session.append(Message(role="user", content="สวัสดี"))
     assert "สวัสดี" in session.path.read_text(encoding="utf-8")
+
+
+def test_a_session_name_cannot_leave_the_folder(tmp_path):
+    """The name arrives from a command line argument, so it is untrusted."""
+    sneaky = Session("../../escaped", directory=tmp_path)
+    assert sneaky.path.parent.resolve() == tmp_path.resolve()
+    assert sneaky.name == "escaped"
+
+
+def test_an_awkward_session_name_is_still_readable(tmp_path):
+    """These files are read by eye, so the name must survive being made safe."""
+    assert Session("fix login bug", directory=tmp_path).name == "fix-login-bug"
+    assert Session("...", directory=tmp_path).name == "session"
