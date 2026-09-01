@@ -58,6 +58,7 @@ class OpenAICompatProvider(Provider):
 
         text_parts: list[str] = []
         partial: dict[int, dict] = {}
+        usage: dict = {}
 
         with self.client.stream(
             "POST",
@@ -72,7 +73,12 @@ class OpenAICompatProvider(Provider):
                 data = line[len("data: ") :]
                 if data == "[DONE]":
                     break
-                delta = json.loads(data)["choices"][0].get("delta", {})
+                chunk = json.loads(data)
+                if chunk.get("usage"):
+                    usage = chunk["usage"]
+                if not chunk.get("choices"):
+                    continue
+                delta = chunk["choices"][0].get("delta", {})
                 if delta.get("content"):
                     text_parts.append(delta["content"])
                     yield TextDelta(text=delta["content"])
@@ -100,5 +106,6 @@ class OpenAICompatProvider(Provider):
                 )
             )
         yield TurnDone(
-            message=Message(role="assistant", content="".join(text_parts), tool_calls=calls)
+            message=Message(role="assistant", content="".join(text_parts), tool_calls=calls),
+            usage=usage,
         )

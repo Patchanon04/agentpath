@@ -63,6 +63,12 @@ class ToolResult:
 
 @dataclass
 class TurnDone:
-    """The assistant finished a message."""
+    """The assistant finished a message.
+
+    usage is what the provider reported this request actually cost. It is a
+    plain dict rather than a typed object because every provider names the
+    fields slightly differently and pretending otherwise would hide that.
+    """
 
     message: Message
+    usage: dict = field(default_factory=dict)

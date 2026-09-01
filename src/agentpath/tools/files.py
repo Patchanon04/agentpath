@@ -84,6 +84,7 @@ def file_tools(root) -> list[Tool]:
                 "required": ["path"],
             },
             fn=read_file,
+            safe=True,
         ),
         Tool(
             name="write_file",
@@ -132,5 +133,6 @@ def file_tools(root) -> list[Tool]:
                 "required": [],
             },
             fn=list_files,
+            safe=True,
         ),
     ]

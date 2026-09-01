@@ -107,6 +107,7 @@ def search_tools(root) -> list[Tool]:
                 "required": ["pattern"],
             },
             fn=glob_files,
+            safe=True,
         ),
         Tool(
             name="grep_files",
@@ -126,5 +127,6 @@ def search_tools(root) -> list[Tool]:
                 "required": ["pattern"],
             },
             fn=grep_files,
+            safe=True,
         ),
     ]

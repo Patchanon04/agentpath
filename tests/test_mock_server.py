@@ -191,3 +191,42 @@ def test_multiple_directives_are_answered_one_at_a_time(mock):
         f"{mock}/v1/chat/completions", json={"model": "mock", "messages": history}
     ).json()
     assert not third["choices"][0]["message"].get("tool_calls")
+
+
+def test_failure_can_be_requested_by_header(mock):
+    response = httpx.post(
+        f"{mock}/v1/chat/completions",
+        json={"model": "mock", "messages": [{"role": "user", "content": "hi"}]},
+        headers={"X-Mock-Fail": "429"},
+    )
+    assert response.status_code == 429
+    assert response.headers.get("retry-after") == "2"
+
+
+def test_failure_can_be_made_to_stop_after_a_number_of_calls(mock):
+    headers = {"X-Mock-Fail": "500", "X-Mock-Fail-Times": "2"}
+    body = {"model": "mock", "messages": [{"role": "user", "content": "hi"}]}
+    codes = [
+        httpx.post(f"{mock}/v1/chat/completions", json=body, headers=headers).status_code
+        for _ in range(3)
+    ]
+    assert codes == [500, 500, 200]
+
+
+def test_responses_report_token_usage(mock):
+    response = httpx.post(
+        f"{mock}/v1/chat/completions",
+        json={"model": "mock", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    usage = response.json()["usage"]
+    assert usage["prompt_tokens"] > 0
+    assert usage["completion_tokens"] > 0
+
+
+def test_streamed_responses_report_usage_on_the_last_chunk(mock):
+    response = httpx.post(
+        f"{mock}/v1/chat/completions",
+        json={"model": "mock", "messages": [{"role": "user", "content": "hi"}], "stream": True},
+    )
+    events = read_sse(response)
+    assert events[-1]["usage"]["prompt_tokens"] > 0

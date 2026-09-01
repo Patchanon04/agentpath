@@ -93,6 +93,7 @@ class AnthropicProvider(Provider):
 
         text_parts: list[str] = []
         blocks: dict[int, dict] = {}
+        usage: dict = {}
 
         with self.client.stream(
             "POST",
@@ -108,6 +109,8 @@ class AnthropicProvider(Provider):
                 if data == "[DONE]":
                     break
                 event = json.loads(data)
+                if event.get("usage"):
+                    usage = event["usage"]
                 kind = event.get("type")
                 if kind == "content_block_start":
                     block = event["content_block"]
@@ -134,5 +137,6 @@ class AnthropicProvider(Provider):
                 )
             )
         yield TurnDone(
-            message=Message(role="assistant", content="".join(text_parts), tool_calls=calls)
+            message=Message(role="assistant", content="".join(text_parts), tool_calls=calls),
+            usage=usage,
         )
