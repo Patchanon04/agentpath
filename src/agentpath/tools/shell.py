@@ -7,6 +7,7 @@ system. Here it is deliberately one function, so you can see that the idea
 is small even though it matters a lot.
 """
 import os
+import signal
 import subprocess
 from pathlib import Path
 
@@ -14,6 +15,38 @@ from agentpath.tools.base import Tool
 from agentpath.tools.files import truncate
 
 DEFAULT_TIMEOUT = 60
+
+
+def _new_process_group():
+    """Start the command in its own group so the whole tree can be killed.
+
+    Without this there is nothing to aim at. On Unix the shell and its
+    children share our group, so signalling the group would signal us too.
+    On Windows a new process group is what lets taskkill find the
+    descendants of the shell rather than only the shell.
+    """
+    if os.name == "posix":
+        return {"start_new_session": True}
+    return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+
+
+def _kill_tree(process):
+    """Kill the command and everything it started."""
+    try:
+        if os.name == "posix":
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        else:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                capture_output=True,
+                timeout=10,
+            )
+    except Exception:
+        # Last resort. Killing only the shell beats killing nothing.
+        try:
+            process.kill()
+        except Exception:
+            pass
 
 
 def always_allow(command: str) -> bool:
@@ -54,26 +87,41 @@ def shell_tools(
             return "Cancelled before the command started."
         if not confirm(command):
             return "The user refused to run this command. Do not try to run it again."
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            cwd=root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            **_new_process_group(),
+        )
         try:
-            completed = subprocess.run(
-                command,
-                shell=True,
-                cwd=root,
-                capture_output=True,
-                timeout=timeout,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
+            stdout, stderr = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            return f"Error: the command timed out after {timeout} seconds"
+            # shell=True means the thing we started is a shell, and the slow
+            # command is its child. Killing only the shell leaves the child
+            # running and still holding the pipes, so a call that was meant
+            # to give up after the timeout waits for the whole run anyway.
+            # The tree has to go, not just the root of it.
+            _kill_tree(process)
+            try:
+                stdout, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                stdout, stderr = "", ""
+            partial = truncate((stdout or "") + (stderr or ""), 500)
+            note = f"Error: the command timed out after {timeout} seconds and was killed"
+            return f"{note}\n{partial}" if partial.strip() else note
+
         parts = []
-        if completed.stdout:
-            parts.append(completed.stdout)
-        if completed.stderr:
-            parts.append(completed.stderr)
-        if completed.returncode != 0:
-            parts.append(f"[exit code {completed.returncode}]")
+        if stdout:
+            parts.append(stdout)
+        if stderr:
+            parts.append(stderr)
+        if process.returncode != 0:
+            parts.append(f"[exit code {process.returncode}]")
         return truncate("\n".join(parts) or "[no output]")
 
     return [

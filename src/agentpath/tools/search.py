@@ -7,6 +7,7 @@ them. Lesson 16 in part 3 explains when that stops being enough.
 """
 import fnmatch
 import re
+import time
 from pathlib import Path
 
 from agentpath.tools.base import Tool
@@ -14,6 +15,13 @@ from agentpath.tools.files import SKIP_DIRECTORIES, truncate
 from agentpath.tools.workspace import WorkspaceError, resolve_inside
 
 MAX_RESULTS = 200
+SEARCH_SECONDS = 10
+
+# Two quantifiers stacked on one group, as in (a+)+ or (a*)*, is the shape
+# that makes a regular expression take exponential time. A model writing one
+# by accident would otherwise wedge the whole process, and no cancellation
+# token can help because the matching never returns to check it.
+NESTED_QUANTIFIER = re.compile(r"\([^()]*[+*][^()]*\)\s*[+*{]")
 
 
 def _walk(root: Path):
@@ -82,8 +90,17 @@ def search_tools(root) -> list[Tool]:
             expression = re.compile(pattern)
         except re.error as error:
             return f"Error: {pattern} is not a valid regular expression ({error})"
+        if NESTED_QUANTIFIER.search(pattern):
+            return (
+                f"Error: {pattern} has one repeat wrapped in another, which can take "
+                "effectively forever to match. Write it without the nested repeat."
+            )
+        deadline = time.monotonic() + SEARCH_SECONDS
         hits = []
         for path in _walk(root):
+            if time.monotonic() > deadline:
+                hits.append(f"[search stopped after {SEARCH_SECONDS} seconds]")
+                break
             relative = path.relative_to(root).as_posix()
             if not path_matches(relative, path.name, glob):
                 continue

@@ -121,3 +121,15 @@ def test_the_report_is_readable():
     assert "pass  a" in text
     assert "FAIL  b" in text
     assert "1 of 2 tasks passed" in text
+
+
+def test_two_tasks_with_the_same_name_do_not_merge(mock_url):
+    """Keying results by name turned one task's verdict into the other's."""
+    tasks = [
+        Task("same", "Say hello.", lambda answer, workspace: (True, "first")),
+        Task("same", "Say hello.", lambda answer, workspace: (False, "second")),
+    ]
+    serial = [(r.passed, r.detail) for r in run_evals(tasks, builder(mock_url), workers=1)]
+    parallel = [(r.passed, r.detail) for r in run_evals(tasks, builder(mock_url), workers=2)]
+    assert serial == [(True, "first"), (False, "second")]
+    assert parallel == serial

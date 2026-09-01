@@ -92,13 +92,17 @@ def run_evals(tasks, build_agent, workers=1) -> list[Result]:
 
         return produce
 
+    # Jobs are labelled by position rather than by name. Two tasks are allowed
+    # to share a name, and keying on the name would quietly merge them, turning
+    # one task's verdict into the other's and changing the exit code with it.
+    labelled = [(str(index), make(task)) for index, task in enumerate(tasks)]
     collected = {}
-    for label, event in run_in_parallel([(task.name, make(task)) for task in tasks], workers):
+    for label, event in run_in_parallel(labelled, workers):
         if isinstance(event, Result):
             collected[label] = event
     return [
-        collected.get(task.name, Result(task.name, False, "the task produced no result"))
-        for task in tasks
+        collected.get(str(index), Result(task.name, False, "the task produced no result"))
+        for index, task in enumerate(tasks)
     ]
 
 

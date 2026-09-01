@@ -104,3 +104,25 @@ def test_a_link_cannot_be_used_to_read_outside_the_workspace(tmp_path):
     registry = ToolRegistry(search_tools(root))
     assert "LEAKEDVALUE" not in call(registry, "grep_files", pattern="value")
     assert "secrets.txt" not in call(registry, "glob_files", pattern="**/*")
+
+
+def test_a_pattern_that_could_run_forever_is_refused(tmp_path):
+    """A model can write (a+)+ by accident and wedge the whole process.
+
+    No cancellation token helps, because the matching never returns to check
+    one. The only place to stop it is before it starts.
+    """
+    (tmp_path / "small.txt").write_text("a" * 39 + "!\n", encoding="utf-8")
+    registry = ToolRegistry(search_tools(tmp_path))
+    import time as _time
+
+    started = _time.monotonic()
+    result = call(registry, "grep_files", pattern="(a+)+$")
+    assert _time.monotonic() - started < 1.0
+    assert "nested repeat" in result or "one repeat wrapped in another" in result
+
+
+def test_ordinary_patterns_with_one_quantifier_still_work(tmp_path):
+    (tmp_path / "a.py").write_text("def start():\n    pass\n", encoding="utf-8")
+    registry = ToolRegistry(search_tools(tmp_path))
+    assert "a.py:1:" in call(registry, "grep_files", pattern="def +start")

@@ -103,3 +103,59 @@ def test_repeating_the_same_failing_call_is_stopped_and_explained():
     )
     results = [e for e in agent.run("go") if isinstance(e, ToolResult)]
     assert any("going in circles" in r.content or "Stop repeating" in r.content for r in results)
+
+
+def test_stopping_mid_turn_leaves_no_tool_call_without_a_result():
+    """The pairing rule from lesson 14, enforced where it can be broken.
+
+    An assistant message with three tool calls followed by two results is
+    rejected outright on the next request, and that request is the one after
+    the interruption, so the error looks like it came from nowhere.
+    """
+    calls = [ToolCall(id=str(index), name="add", arguments={"a": index}) for index in range(3)]
+
+    class ThreeAtOnce:
+        def stream(self, messages, tools=None):
+            yield TurnDone(message=Message(role="assistant", tool_calls=list(calls)))
+
+    cancellation = Cancellation()
+    slow = Tool(
+        name="add",
+        description="d",
+        parameters={"type": "object", "properties": {}},
+        fn=lambda a=0: cancellation.cancel() or "done",
+        safe=True,
+    )
+    agent = Agent(
+        provider=ThreeAtOnce(),
+        tools=ToolRegistry([slow]),
+        permissions=Permissions(auto_approve=True),
+        cancellation=cancellation,
+        max_turns=2,
+    )
+    with pytest.raises(KeyboardInterrupt):
+        list(agent.run("go"))
+
+    requested = {call.id for message in agent.messages for call in message.tool_calls}
+    answered = {m.tool_call_id for m in agent.messages if m.role == "tool"}
+    assert requested == answered, f"orphaned tool calls {requested - answered}"
+
+
+def test_giving_up_on_a_loop_also_leaves_no_orphan():
+    calls = [ToolCall(id=str(index), name="add", arguments={"a": 1}) for index in range(3)]
+
+    class SameCallForever:
+        def stream(self, messages, tools=None):
+            yield TurnDone(message=Message(role="assistant", tool_calls=list(calls)))
+
+    agent = Agent(
+        provider=SameCallForever(),
+        tools=ToolRegistry([ADD]),
+        permissions=Permissions(auto_approve=True),
+        max_turns=6,
+    )
+    events = list(agent.run("go"))
+    assert "Stopping" in events[-1].message.content
+    requested = {call.id for message in agent.messages for call in message.tool_calls}
+    answered = {m.tool_call_id for m in agent.messages if m.role == "tool"}
+    assert requested == answered, f"orphaned tool calls {requested - answered}"

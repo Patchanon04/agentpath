@@ -60,3 +60,27 @@ def test_a_cancelled_run_does_not_start_the_command(tmp_path):
     result = ToolRegistry(tools).run(call).content
     assert "Cancelled" in result
     assert not (tmp_path / "started.txt").exists()
+
+
+def test_a_timeout_really_kills_the_command(tmp_path):
+    """The message was always right. The killing was not.
+
+    With shell=True the thing started is a shell and the slow command is its
+    child, so killing only the shell left the child running and holding the
+    pipes, and the call waited for the whole run anyway.
+    """
+    import time
+
+    marker = (tmp_path / "finished.txt").as_posix()
+    command = (
+        f'"{sys.executable}" -c "import time; time.sleep(5); '
+        f"open(r'{marker}','w').write('x')" + '"'
+    )
+    started = time.monotonic()
+    result = run(tmp_path, command, timeout=1)
+    elapsed = time.monotonic() - started
+
+    assert "timed out" in result
+    assert elapsed < 3.0, f"the call waited {elapsed:.1f}s for a 1 second timeout"
+    time.sleep(6)
+    assert not (tmp_path / "finished.txt").exists(), "the command survived its own timeout"

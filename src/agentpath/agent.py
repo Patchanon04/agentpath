@@ -85,26 +85,50 @@ class Agent:
                 yield TurnDone(message=assistant)
                 return
 
+            # Every tool call in the message above needs a result, even the
+            # ones we are about to abandon. An assistant message carrying
+            # three tool calls followed by two results is rejected outright
+            # by the API on the next request, and that request is the one
+            # after the interruption, so the error looks unrelated to it.
+            # This is the same pairing rule the context chapter is about.
+            answered = 0
+            stop_after_this_turn = False
             for call in assistant.tool_calls:
-                self.cancellation.raise_if_cancelled()
+                if self.cancellation.cancelled:
+                    break
                 yield ToolCallRequest(tool_call=call)
                 result = self._run_one(call, recent)
                 yield result
                 self._remember(
                     Message(role="tool", content=result.content, tool_call_id=call.id)
                 )
+                answered += 1
                 if self._stuck_on and signature(call) == self._stuck_on:
-                    giving_up = Message(
-                        role="assistant",
-                        content=(
-                            f"Stopping. {call.name} was called with the same arguments "
-                            "repeatedly, it was warned once, and it repeated anyway. "
-                            "Nothing is changing, so continuing would only cost money."
-                        ),
+                    stop_after_this_turn = True
+                    break
+
+            for call in assistant.tool_calls[answered:]:
+                self._remember(
+                    Message(
+                        role="tool",
+                        content="Not run. The run was stopped before this call.",
+                        tool_call_id=call.id,
                     )
-                    self._remember(giving_up)
-                    yield TurnDone(message=giving_up)
-                    return
+                )
+
+            if stop_after_this_turn:
+                giving_up = Message(
+                    role="assistant",
+                    content=(
+                        "Stopping. A tool was called with the same arguments repeatedly, "
+                        "it was warned once, and it repeated anyway. Nothing is changing, "
+                        "so continuing would only cost money."
+                    ),
+                )
+                self._remember(giving_up)
+                yield TurnDone(message=giving_up)
+                return
+            self.cancellation.raise_if_cancelled()
         raise RuntimeError(f"agent stopped after max turns ({self.max_turns})")
 
     def _run_one(self, call, recent: list[str]) -> ToolResult:
