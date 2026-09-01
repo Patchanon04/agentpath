@@ -22,7 +22,7 @@ from pathlib import Path
 
 from agentpath.tools.base import Tool
 from agentpath.tools.files import SKIP_DIRECTORIES, truncate
-from agentpath.tools.workspace import looks_like_a_secret
+from agentpath.tools.workspace import WorkspaceError, resolve_inside
 
 WORD = re.compile(r"[A-Za-z0-9_]+")
 TOP_RESULTS = 5
@@ -52,9 +52,14 @@ def build_index(root: Path, pattern="*.md") -> list[dict]:
     """Read the documents once and remember their words."""
     index = []
     for path in sorted(root.rglob(pattern)):
-        if any(part in SKIP_DIRECTORIES for part in path.relative_to(root).parts):
+        relative = path.relative_to(root)
+        if any(part in SKIP_DIRECTORIES for part in relative.parts):
             continue
-        if looks_like_a_secret(path.name):
+        try:
+            # The same gate every other tool uses. See _walk in search.py for
+            # why filtering on the name alone is not enough.
+            resolve_inside(root, relative)
+        except WorkspaceError:
             continue
         for line_number, text in passages_in(path):
             index.append(

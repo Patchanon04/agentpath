@@ -23,7 +23,7 @@ from agentpath.tools.base import ToolRegistry
 from agentpath.tools.files import file_tools
 from agentpath.tools.retrieval import retrieval_tools
 from agentpath.tools.search import search_tools
-from agentpath.tools.shell import shell_tools
+from agentpath.tools.shell import always_allow, shell_tools
 from agentpath.types import TextDelta, ToolCallRequest, ToolResult, TurnDone
 
 REQUIRED = ["AGENTPATH_BASE_URL", "AGENTPATH_MODEL"]
@@ -31,10 +31,17 @@ DEFAULT_BUDGET = 100_000
 
 
 def build_tools(root, cancellation=None):
-    """Every tool the command line gives the agent."""
+    """Every tool the command line gives the agent.
+
+    The shell tool is built with always_allow rather than with a question of
+    its own. Permissions already decide whether a command may run, and a
+    tool that asks again would ask twice for one command, ignore an answer
+    of always, and refuse everything when the run was started with --yes.
+    One gate, in one place.
+    """
     return ToolRegistry(
         file_tools(root)
-        + shell_tools(root, cancellation=cancellation)
+        + shell_tools(root, confirm=always_allow, cancellation=cancellation)
         + search_tools(root)
         + retrieval_tools(root)
     )
@@ -88,8 +95,14 @@ def new_session_name() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
 
-def build_agent(arguments, session):
-    """Assemble the agent with every part of the harness attached."""
+def build_agent(arguments, session, system=True):
+    """Assemble the agent with every part of the harness attached.
+
+    system is turned off when resuming, because the saved conversation
+    already begins with one. Adding another would append a second copy to
+    the session file on every resume, and fit_to_budget keeps every system
+    message, so the duplicates could never be trimmed away again.
+    """
     root = Path(arguments.workspace).resolve()
     permissions = Permissions(
         ask=ask_in_terminal,
@@ -104,7 +117,7 @@ def build_agent(arguments, session):
     agent = Agent(
         provider=build_provider(arguments.provider),
         tools=tools,
-        system=build_system_prompt(root),
+        system=build_system_prompt(root) if system else None,
         permissions=permissions,
         on_message=session.append,
         budget=arguments.budget,
@@ -170,9 +183,15 @@ def command_chat(arguments) -> int:
             continue
         try:
             show(agent.run(user_input))
+        except RuntimeError as error:
+            # Running out of turns is an outcome, not a crash.
+            print(f"\n{error}")
         except KeyboardInterrupt:
             print("\nstopped")
-            agent.cancellation = Cancellation()
+            # Clear the flag in place rather than swapping in a new object.
+            # The tools closed over this one, so replacing it would leave
+            # them watching a token nothing ever cancels again.
+            agent.cancellation.reset()
             install_interrupt_handler(agent)
 
 
@@ -186,6 +205,9 @@ def command_run(arguments) -> int:
         show(agent.run(arguments.task))
     except KeyboardInterrupt:
         print("\nstopped")
+    except RuntimeError as error:
+        # The person still wants the session name and what it cost.
+        print(f"\n{error}")
     return finish(agent, session)
 
 
@@ -203,7 +225,7 @@ def command_resume(arguments) -> int:
     if not history:
         print(f"Session {arguments.session} is empty or does not exist.", file=sys.stderr)
         return 1
-    agent, root = build_agent(arguments, session)
+    agent, root = build_agent(arguments, session, system=False)
     agent.messages = history
     install_interrupt_handler(agent)
     print(f"Working in {root}")
@@ -213,6 +235,8 @@ def command_resume(arguments) -> int:
             show(agent.run(arguments.task))
         except KeyboardInterrupt:
             print("\nstopped")
+        except RuntimeError as error:
+            print(f"\n{error}")
     return finish(agent, session)
 
 

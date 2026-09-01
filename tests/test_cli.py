@@ -126,3 +126,63 @@ def test_mcp_tools_join_the_registry_through_the_command_line(monkeypatch, tmp_p
         assert registry.get("agentpath-mock.echo").safe is False
     finally:
         client.close()
+
+
+def test_the_shell_tool_is_not_gated_twice(tmp_path):
+    """Permissions decide. A tool that also asks would refuse a --yes run.
+
+    The failure this prevents is not theoretical. With its own question in
+    place, agentpath run --yes refused every command it had already been
+    told to approve.
+    """
+    import sys
+
+    from agentpath.types import ToolCall
+
+    registry = build_tools(tmp_path)
+    call = ToolCall("1", "run_shell", {"command": f'"{sys.executable}" -c "print(42)"'})
+    assert registry.run(call).content.strip() == "42"
+
+
+def test_clearing_a_cancellation_keeps_the_tools_working(tmp_path):
+    """The tools hold the token, so it has to be cleared rather than replaced."""
+    import sys
+
+    from agentpath.cancel import Cancellation
+    from agentpath.types import ToolCall
+
+    cancellation = Cancellation()
+    registry = build_tools(tmp_path, cancellation=cancellation)
+    call = ToolCall("1", "run_shell", {"command": f'"{sys.executable}" -c "print(42)"'})
+
+    assert registry.run(call).content.strip() == "42"
+    cancellation.cancel()
+    assert "Cancelled" in registry.run(call).content
+    cancellation.reset()
+    assert registry.run(call).content.strip() == "42"
+
+
+def test_resuming_does_not_add_a_second_system_prompt(monkeypatch, tmp_path):
+    """A duplicate system message can never be trimmed, so it must never be added."""
+    import types as _types
+
+    monkeypatch.setenv("AGENTPATH_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("AGENTPATH_BASE_URL", "http://127.0.0.1:1/v1")
+    monkeypatch.setenv("AGENTPATH_MODEL", "mock")
+    from agentpath.cli import build_agent
+    from agentpath.session import Session
+    from agentpath.types import Message
+
+    arguments = _types.SimpleNamespace(
+        workspace=str(tmp_path), provider="openai", session="s",
+        budget=1000, yes=True, mcp=None, verbose=False,
+    )
+    session = Session("s")
+    build_agent(arguments, session)
+    session.append(Message(role="user", content="hello"))
+
+    for _ in range(3):
+        agent, _ = build_agent(arguments, session, system=False)
+        agent.messages = session.load()
+
+    assert sum(1 for m in session.load() if m.role == "system") == 1

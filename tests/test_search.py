@@ -73,3 +73,34 @@ def test_a_workspace_living_inside_a_skipped_directory_still_works(tmp_path):
     (workspace / "main.py").write_text("def start():\n    pass\n", encoding="utf-8")
     registry = ToolRegistry(search_tools(workspace))
     assert "main.py" in call(registry, "glob_files", pattern="**/*.py")
+
+
+def test_a_link_cannot_be_used_to_read_outside_the_workspace(tmp_path):
+    """rglob follows symlinks and Windows junctions.
+
+    A link planted inside the workspace, which the shell tool can create,
+    would otherwise let search read anything on the machine while read_file
+    correctly refused. Filtering on the name of the link never sees the name
+    of the target, so the check has to resolve the path.
+    """
+    import subprocess
+    import sys
+
+    root = tmp_path / "workspace"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secrets.txt").write_text("value=LEAKEDVALUE\n", encoding="utf-8")
+    (root / "ok.txt").write_text("nothing here\n", encoding="utf-8")
+
+    link = root / "vendor"
+    if sys.platform == "win32":
+        subprocess.run(f'mklink /J "{link}" "{outside}"', shell=True, capture_output=True)
+    else:
+        link.symlink_to(outside, target_is_directory=True)
+    if not link.exists():
+        pytest.skip("this system does not allow creating a link")
+
+    registry = ToolRegistry(search_tools(root))
+    assert "LEAKEDVALUE" not in call(registry, "grep_files", pattern="value")
+    assert "secrets.txt" not in call(registry, "glob_files", pattern="**/*")

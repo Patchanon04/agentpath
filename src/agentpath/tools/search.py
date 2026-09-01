@@ -11,7 +11,7 @@ from pathlib import Path
 
 from agentpath.tools.base import Tool
 from agentpath.tools.files import SKIP_DIRECTORIES, truncate
-from agentpath.tools.workspace import looks_like_a_secret
+from agentpath.tools.workspace import WorkspaceError, resolve_inside
 
 MAX_RESULTS = 200
 
@@ -28,6 +28,12 @@ def _walk(root: Path):
     The skip list is checked against the path inside the workspace rather
     than the whole path, because a project that happens to live in a folder
     called node_modules should still be searchable.
+
+    Every candidate goes through resolve_inside rather than being filtered
+    here. That matters because rglob follows symlinks and Windows junctions,
+    so a link planted inside the workspace would otherwise let search read
+    files the workspace was drawn to exclude. Filtering on the name of the
+    link never sees the name of the target.
     """
     for path in root.rglob("*"):
         if not path.is_file():
@@ -35,7 +41,9 @@ def _walk(root: Path):
         relative = path.relative_to(root)
         if any(part in SKIP_DIRECTORIES for part in relative.parts):
             continue
-        if looks_like_a_secret(path.name):
+        try:
+            resolve_inside(root, relative)
+        except WorkspaceError:
             continue
         yield path
 

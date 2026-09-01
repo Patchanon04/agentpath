@@ -19,6 +19,15 @@ class Cancellation:
     def cancel(self) -> None:
         self._event.set()
 
+    def reset(self) -> None:
+        """Clear the flag without replacing the object.
+
+        Tools hold a reference to this token. Handing them a new object
+        would leave them watching one that nothing ever cancels, so the
+        interrupt would appear to work and then quietly stop working.
+        """
+        self._event.clear()
+
     @property
     def cancelled(self) -> bool:
         return self._event.is_set()
