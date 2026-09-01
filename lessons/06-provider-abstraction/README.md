@@ -270,7 +270,7 @@ from a JSON string under `function.arguments` to a real parsed object under
 whole section on the fact that `arguments` arrives as a string containing
 JSON. In the Anthropic message format the assistant's own tool call is sent
 back to the server as a parsed object, so the translation layer has to call
-`json.loads` on the way out. You will see that line in section 5.
+`json.loads` on the way out. You will see that line in section 6.
 
 ### Difference four, the streaming format
 
@@ -374,7 +374,233 @@ Here is the whole comparison in one table, so you have something to point at.
 | Streaming text | `choices[0].delta.content` | `content_block_delta` with `text_delta` |
 | Streaming tool arguments | `choices[0].delta.tool_calls[].function.arguments` | `content_block_delta` with `input_json_delta` |
 
-## 3. What an interface is
+## 3. Thinking blocks, and the field you must not drop
+
+Section 2 counted three differences in the shape of the conversation and one
+more in the shape of the stream. That count is honest for the code in this
+lesson, and the conversation gains a fourth entry the moment you ask a model to
+think before it answers.
+
+This one gets a section of its own because it does not behave like the others.
+The three differences in section 2 announce themselves the first time you run
+the code. A wrong key gives you a 400 straight away, you fix it, you move on.
+This one is completely invisible while you do not use the feature. Then, on the
+first day somebody turns it on, a request that looks identical to the ones that
+have been working for months is rejected outright, and the cause is a field
+that every instinct you have says is safe to throw away.
+
+### What a thinking block is
+
+Several current models can be asked to do their working before they answer. You
+turn it on with a field in the request, called `thinking` in the Anthropic
+dialect, carrying an effort level or a budget in tokens. The model then spends
+part of its output producing the reasoning that leads up to the answer, rather
+than the answer itself.
+
+What matters here is not what is inside that reasoning. It is where it lands.
+The working does not arrive folded into the assistant's text. It arrives as its
+own kind of content block, a sibling of the text block and of the `tool_use`
+block you met in section 2, inside the same assistant message.
+
+Here is a realistic assistant message from a turn where the model thought and
+then called a tool.
+
+```json
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "The user is asking for 2 plus 3. I have an add tool and arithmetic is exactly what it is for, so I should call it rather than answer from memory.",
+      "signature": "ErUBCkYIBBgCIkBub3RfYV9yZWFsX3NpZ25hdHVyZV9leGFtcGxlEgxzaWduYXR1cmUtdjEaDGV4YW1wbGUtb25seQ"
+    },
+    {
+      "type": "tool_use",
+      "id": "call_mock_1",
+      "name": "add",
+      "input": {"a": 2, "b": 3}
+    }
+  ]
+}
+```
+
+Read the shape rather than the words. The block has a `type` of `thinking`, the
+readable working under a key of the same name, and a third key, `signature`,
+holding an opaque string the model did not write and you cannot interpret. It
+sits in the same list as the `tool_use` block, at the same level, in the order
+the model produced them.
+
+The OpenAI compatible dialect has no equivalent block. Some servers that speak
+it attach reasoning text to the delta under a field of their own invention, no
+two of them agree on the name, and none of them carry anything like a
+signature. That absence is itself the difference. One dialect gives reasoning a
+first class place in the message with rules attached, and the other has not
+standardised it at all.
+
+### The rule
+
+Every request to either API carries the whole conversation. The server keeps
+nothing between turns, which is the same fact lesson 02 built the history list
+on. So when the model produces a thinking block on one turn and you want a
+second turn, that block has to travel back to the server inside the history you
+send.
+
+The rule is that it goes back exactly as it arrived.
+
+Not summarised down to its first sentence because it was long. Not stripped out
+because your internal history format has nowhere to put it. Not re-serialised
+into a shape of your own with the keys renamed, the order changed, or the
+whitespace normalised. The block you received is the block you send, field for
+field, in the same position in the same message, in the same order relative to
+the other thinking blocks of that turn.
+
+That is stricter than most of an API, and it is worth knowing why it is that
+strict rather than merely strict. A thinking block is not ordinary conversation
+text that the model simply reads again. It is a record of a computation the
+server performed, and the server needs to be able to tell that the record it is
+handed back is the one it produced. Ordinary text it can read and take on
+trust. This it verifies.
+
+### The signature field
+
+Which brings us to the field that causes the bug.
+
+`signature` is that verification value. You cannot read it, you cannot generate
+it, and nothing in your own code will ever have a reason to look inside it. It
+is, in other words, exactly the kind of field a careful author decides is
+provider noise and drops on the way into their own internal format. It is the
+single most commonly dropped field in this whole area, and it is dropped by
+people being tidy rather than by people being careless.
+
+Here is what makes that expensive. If a thinking block goes back without its
+signature, or with a signature that no longer matches the thinking beside it,
+and there is a tool call in play on that same turn, the API does not ignore the
+missing field and carry on. It rejects the whole request. You get a 400 on a
+conversation that worked perfectly the turn before, pointing at a message you
+did not think you had touched, from code that has been correct since the day
+you wrote it.
+
+That is why it is worth knowing before you meet it. Everything else in this
+chapter you could rediscover in ten minutes from an error message and a schema.
+This one presents as a request that used to work and now does not, over a field
+you deliberately removed for good reasons, and the link between the cause and
+the symptom is not something a stack trace will hand you.
+
+### Redacted blocks
+
+There is a second kind of the same thing. Sometimes the working is not returned
+in readable form at all, and what arrives is a `redacted_thinking` block,
+carrying a single opaque `data` field and no text you can read.
+
+```json
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "redacted_thinking",
+      "data": "EroBCkYIBBgCKkBub3RfYV9yZWFsX3JlZGFjdGVkX3BheWxvYWQSDHJlZGFjdGVkLXYxGgxleGFtcGxlLW9ubHk"
+    },
+    {
+      "type": "tool_use",
+      "id": "call_mock_1",
+      "name": "add",
+      "input": {"a": 2, "b": 3}
+    }
+  ]
+}
+```
+
+The temptation is stronger here, because a block you cannot read looks even
+more like something safe to discard. The rule does not change. It goes back
+untouched, in place, exactly as it arrived. Your agent does not need to
+understand a block in order to carry it, and carrying things it does not
+understand is a large part of what a well behaved client does.
+
+### The caching consequence, which costs money instead of erroring
+
+The second half of this topic never produces an error at all, which is what
+makes it worse.
+
+Providers cache the front of your conversation. If the first several thousand
+tokens of this request are byte for byte the same as the first several thousand
+tokens of the last one, the server can reuse the work it already did on them
+and charge you much less for that part. An agent loop is close to the perfect
+case for it, because every turn resends the same system prompt, the same tool
+schemas, and the same history with a little added on the end.
+
+The catch is that the match has to be exact and it has to start at the
+beginning. Change anything near the front of the request and everything after
+the change is a miss.
+
+Turning thinking on, turning it off, moving the effort level, or raising the
+budget all change the shape of what gets sent. From that request onward the
+prefix stops matching what was cached, and every later request in the session
+pays full price for tokens that were nearly free the turn before. Nothing
+fails. Nothing logs a warning. The only place it appears is the bill, and by
+then nobody remembers which afternoon somebody nudged a budget from one number
+to another.
+
+So the practical rule is to choose the thinking setting when a session starts
+and leave it alone for the life of that session. If you need a different
+setting, that is a different session. Lesson 15 is where this gets measured
+properly, with real numbers pulled out of the usage fields and the full list of
+things that quietly break a cached prefix. For now, take the rule and the
+reason for it.
+
+### What our provider actually does, and does not
+
+Now the honest part.
+
+Look at the parse loop in `AnthropicProvider.stream` again. It handles exactly
+two kinds of content block. A `content_block_start` whose type is `tool_use`
+opens a slot, and a `content_block_delta` carrying `text_delta` or
+`input_json_delta` feeds visible text or argument fragments. Everything else
+falls through and is ignored, which section 6 will praise as the reason this
+parser survives a provider adding new event types.
+
+A thinking block is one of the things that falls through. It is not collected,
+it is not returned, and `stream` has nowhere in its return value to put it,
+because the agreement in section 4 promises text and calls and nothing else.
+`_to_wire` then rebuilds each assistant turn out of a text string and a list of
+tool calls, so even if a thinking block had survived the parser, there would be
+no way for it to get back onto the wire.
+
+That is a real limitation and this chapter is not going to pretend otherwise.
+It is fine here for one specific reason. Nothing in this course ever turns
+extended thinking on. `providers.py` never sends a `thinking` field, so no
+model ever produces a thinking block, so no block is ever dropped. The code is
+correct for the requests it actually makes.
+
+It would be a bug on the first day somebody changed that. Add a `thinking`
+field to the payload against a real model, let it call a tool, and the second
+turn fails, for exactly the reason given above.
+
+Naming that is better than papering over it. A half fix, where the parser
+collects thinking blocks and the loop still has nowhere to keep them, would be
+worse than nothing, because it would look handled. The real fix is not a patch
+to `_to_wire` either. It needs the internal conversation format to have a place
+to hold opaque provider blocks verbatim and hand them back untouched, which is
+precisely the neutral internal format that exercise three at the end of this
+chapter asks you to build. If you do that exercise, this is the requirement
+that makes it worth doing properly.
+
+### Why this belongs in this chapter
+
+Because it is a fourth real difference between the two dialects, of exactly the
+kind this chapter exists to isolate. One dialect has a content block with
+strict handling rules and a verification field on it. The other has nothing
+standard in that place at all. That difference has to live somewhere, and the
+only sane somewhere is inside a provider class.
+
+And because it teaches what the other three differences cannot. A missing
+`input_schema` tells you what is wrong the first time you run the code. A
+dropped signature tells you nothing until a feature you were not using gets
+switched on months later. A changed thinking budget never tells you anything at
+all. Those are the differences that decide whether an abstraction survives
+contact with a real product, and the honest way to handle the ones you have not
+implemented is to write them down where the next reader will find them.
+
+## 4. What an interface is
 
 You now have a list of differences and a loop that must not care about any of
 them. The tool for that job is an interface.
@@ -440,7 +666,7 @@ specific failure a shared function with flags always produces.
 
 **Translate everything into one format at the edges.** Keep a single HTTP
 client and write functions that convert requests and responses. This is closer
-to right, and in fact section 5 does exactly this conversion. The difference is
+to right, and in fact section 6 does exactly this conversion. The difference is
 where the converters live. Loose functions have to be selected by a caller,
 which puts a branch back into the caller. Attaching each converter to the class
 that needs it means selection happens once, when the object is constructed.
@@ -460,7 +686,7 @@ instinct most people are taught. Duplication is cheap. Wrong shared code is
 expensive. Two hundred lines you can read straight through beat a hundred
 lines you have to assemble in your head.
 
-## 4. Why the interface is streaming first
+## 5. Why the interface is streaming first
 
 The single method in the agreement is called `stream`, not `complete`. There
 is no non streaming method at all. That is a deliberate choice and it is the
@@ -527,7 +753,7 @@ calls `on_text` once with all of it, and returns. The output is less pleasant
 to watch and the interface does not have to change. That is the sign that the
 agreement was drawn at the right place.
 
-## 5. Writing providers.py class by class
+## 6. Writing providers.py class by class
 
 Open `providers.py`. It has one shared helper and two classes, in that order.
 
@@ -605,7 +831,7 @@ line because we chose the interface's tool format to be the inner function
 object, the part with `name`, `description` and `parameters`. This provider
 wraps each one in the `{"type": "function", ...}` envelope from section 2.
 `agent.py` unwraps `tools.SCHEMAS` down to that inner object before calling,
-which you will see in section 6.
+which you will see in section 7.
 
 ```python
         text_parts = []
@@ -965,7 +1191,7 @@ The ending is character for character the same idea as the other class. Sort by
 index, parse each accumulated string once, build the four key dictionaries the
 agreement promised. Two very different streams, one shape at the door.
 
-## 6. Changing the agent loop
+## 7. Changing the agent loop
 
 Open `agent.py` and compare it with lesson 05's. Two things changed, and one
 of them is an import that vanished.
@@ -1082,7 +1308,7 @@ in a loop. None of those requires editing `agent.py`.
 `providers.py`. Nothing already working is touched, so nothing already working
 can break. Compare that to adding a fourth branch to a shared function.
 
-## 7. Running check.py
+## 8. Running check.py
 
 `check.py` is the smallest program that could demonstrate the claim of this
 lesson.
@@ -1193,7 +1419,7 @@ tautology. If your translation is wrong in either direction, one half fails
 and the other passes, and the difference tells you where to look.
 
 `decide` also handles both shapes of tool result, which is worth seeing,
-because it proves the merge logic from section 5 arrived correctly.
+because it proves the merge logic from section 6 arrived correctly.
 
 ```python
     if role == "tool":
@@ -1315,7 +1541,7 @@ not a plumbing problem.
 If you see `KeyError: 'AGENTPATH_BASE_URL'`, the variable is not set in this
 shell. Setting it in one terminal does not set it in another.
 
-## 8. The end of part one
+## 9. The end of part one
 
 Stop and look at what you have.
 
@@ -1397,7 +1623,7 @@ provider interface stays. Only the tools get real.
 Three, in increasing order of difficulty. All of them are optional and all of
 them teach something the reading alone cannot.
 
-**One.** Write the `ScriptedProvider` from section 6 and use it to test `run`
+**One.** Write the `ScriptedProvider` from section 7 and use it to test `run`
 with no network at all. Make it return a tool call on the first turn and text
 on the second, and assert on the exact list of messages the loop built. Then
 make it return a call whose arguments failed to parse, and check that the loop

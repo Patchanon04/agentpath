@@ -145,7 +145,7 @@ One more thing to notice before we look at code. The model choosing to emit a
 tool call is still just prediction. It is not a decision in the sense a person
 makes decisions. It is the model producing the output that best fits the
 conversation plus the tool descriptions it was shown. That is why the wording
-of those descriptions turns out to matter enormously, which is section 4.
+of those descriptions turns out to matter enormously, which is section 5.
 
 ## 3. Reading a JSON Schema field by field
 
@@ -188,7 +188,7 @@ Stick to letters, digits, and underscores. This string is also read by the
 model as a hint, so `add` beats `f1` and `read_file` beats `rf`.
 
 **`function.description`.** One or two sentences of plain English explaining
-what the tool does. Section 4 is entirely about this field, because it does
+what the tool does. Section 5 is entirely about this field, because it does
 more work than any other part of the schema.
 
 **`function.parameters`.** A JSON Schema object describing the arguments. It
@@ -293,7 +293,202 @@ memory of your tools. Just like the conversation history in lesson 02, the
 tool list travels in full every time. If you stop sending it, the model stops
 knowing the tools exist.
 
-## 4. Why the description matters more than the code
+## 4. The same mechanism gives you structured output
+
+There is a second feature you will meet soon, in a different tutorial, under a
+different name. Providers call it structured output, or JSON mode, or a
+response format. It gets its own documentation page, its own helper in every
+framework, and its own chapter in most courses, sitting a long way from the
+chapter about tools. So people learn it as a separate thing. Two features, two
+names, two mental models. That impression is wrong, and it is expensive,
+because it makes you learn the same idea twice and carry two sets of code for
+it.
+
+Structured output and tool calling are the same mechanism. You have already
+built it. What follows is the machinery from section 2 and the schema from
+section 3 with exactly one step deleted.
+
+### What structured output means
+
+A model answers in prose by default, and prose is close to useless to the rest
+of your program. Ask a model to triage a support ticket and it says something
+like "This customer sounds quite frustrated about a late delivery." You cannot
+store that in a database column, you cannot branch on it in an `if` statement,
+and you cannot count how many tickets were negative this week. Parsing it with
+regular expressions works until the model phrases it differently, which it
+will.
+
+What you want instead is an answer shaped like data. A JSON object with the
+fields you decided on, in the types you decided on, every single time. That is
+the whole of what structured output means. You are not asking the model to be
+smarter. You are asking it to fill in a form instead of writing an essay.
+
+### A tool call already is structured output
+
+Read the tool call from section 2 again with fresh eyes.
+
+```json
+{"name": "add", "arguments": {"a": 2, "b": 3}}
+```
+
+The model produced a name and an arguments object that conforms to a JSON
+Schema you wrote. Producing that object was the entire contribution of the
+model. Running the matching Python function afterwards was a separate decision,
+taken in step 6, by code you own.
+
+So take a different decision in step 6. Do not run anything. Read
+`call["arguments"]` and treat that dictionary as the answer. There is your
+structured output, with no new API, no new field in the request body, and no
+new library. The tool was never really a tool. It was a form, and the model
+filled it in.
+
+### A worked example, sentiment as a form
+
+Say you want a sentiment reading for a piece of text, as data, so you can store
+it and count it later. Define a tool you never intend to run.
+
+```python
+RECORD_SENTIMENT = {
+    "type": "function",
+    "function": {
+        "name": "record_sentiment",
+        "description": (
+            "Record the sentiment of the message you were shown. "
+            "Call this exactly once for every message, and never answer in words."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "enum": ["positive", "negative", "neutral"],
+                    "description": "The overall sentiment of the message",
+                },
+                "confidence": {
+                    "type": "number",
+                    "description": "How certain you are, from 0.0 for a guess to 1.0 for certain",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "One sentence explaining the label, at most fifteen words",
+                },
+            },
+            "required": ["label", "confidence", "reason"],
+        },
+    },
+}
+```
+
+Three things in that schema deserve a note.
+
+`enum` is the fifth JSON Schema keyword that section 3 promised, and this is
+where it earns its place. It lists the only values the field is allowed to
+take. Without it, a plain `string` label invites `Positive`, `very negative`,
+`NEGATIVE` and `mixed`, and you spend the rest of your life normalising
+strings. With it, the contract the model reads says that three values exist and
+nothing else does. Why put the constraint in the schema rather than in a
+sentence of the prompt? Because the schema is the part the provider validates
+and the part a constrained decoder can enforce, while a sentence in the prompt
+is only a polite request.
+
+`confidence` is a `number` and not a `string`, so what arrives is a float you
+can compare against a threshold rather than text you have to convert. And
+`reason` states its length limit in its own description, because the word
+"short" on its own means nothing to a model or to a colleague.
+
+The tool description tells the model to call this every time and never to
+answer in words. That is bossier than section 5 would normally recommend, and
+it is deliberate. In ordinary tool calling you want the model to choose between
+prose and a call. In structured output you do not want a choice at all. You
+want the form, always.
+
+Now call the model with that one tool and take the arguments out.
+
+```python
+from llm import complete
+
+MESSAGE = "The parcel arrived two weeks late and nobody replied to my emails."
+
+text, calls = complete([{"role": "user", "content": MESSAGE}], [RECORD_SENTIMENT])
+sentiment = calls[0]["arguments"]
+print(sentiment)
+```
+
+What comes back is a plain Python dictionary, already parsed by the `json.loads`
+line in `llm.py`.
+
+```python
+{"label": "negative", "confidence": 0.95, "reason": "Parcel was very late and support emails went unanswered."}
+```
+
+Notice what is absent. There is no `record_sentiment` function anywhere in your
+code. `tools.FUNCTIONS` has no entry for that name, and `tools.run` is never
+called. Nothing executes. The only thing you ever wanted was the argument
+dictionary, and you are holding it.
+
+One practical detail. `calls` can come back empty, because a weaker model may
+answer in words anyway. Check the list before indexing it, exactly as
+`check.py` does, and treat an empty list as an extraction to retry rather than
+as a crash.
+
+### Why this is worth knowing
+
+This is not a party trick. It removes a whole category of work.
+
+Extraction, classification and form filling are most of what models are
+actually used for in production. Pull the invoice number, the date and the
+total out of this email. Decide whether this ticket is billing, bug or spam.
+Turn a rambling paragraph from a user into the six fields of a booking form.
+Every one of those is a schema, one call, and reading the arguments. You do not
+need a second mechanism, a second library or a second mental model for any of
+them, and you do not need to learn a new failure mode when one of them
+misbehaves.
+
+It also means that everything section 5 is about to say carries over here
+unchanged. The description is still the only thing the model sees. A vague
+field description produces a vague extraction in exactly the way a vague tool
+description produces a tool that never gets called. If your classifier keeps
+choosing `neutral`, rewrite the enum description before you touch anything
+else, for the same reason and with the same odds of success.
+
+And the plumbing knowledge transfers too. The output still arrives as a JSON
+string inside an `arguments` field, so it still needs `json.loads`, and a weak
+model can still produce malformed JSON there for the token by token reason
+section 7 explains.
+
+### The dedicated mode, and when it is better
+
+Being fair about the alternative matters here, because a never run tool is not
+always the right route.
+
+Every major provider does offer a purpose built mode for this. The names vary,
+`response_format` carrying a JSON Schema, JSON mode, structured outputs, but
+the idea is one idea. You put the schema in its own field of the request
+instead of inside the `tools` list, and the answer comes back as JSON in
+`content` rather than in `tool_calls`.
+
+The reason to prefer it, where you can, is not tidiness. It is that the good
+implementations constrain the model during generation. At every token the
+decoder may only pick from the tokens that keep the output valid against your
+schema, so a key you never defined cannot be emitted and a `label` outside your
+enum cannot be produced. Tool calling asks nicely and checks afterwards. A
+constrained decoder makes the invalid answer unreachable. In production that
+difference shows up as fewer retries.
+
+The reason to know the tool calling route anyway is coverage. It works on every
+endpoint that supports tools at all, including small local models and older
+gateways where the dedicated mode is missing, ignored, or accepted and then
+quietly not enforced. It needs nothing beyond what you have already written in
+this lesson. And it is the only one of the two that still lets the model choose
+between answering in prose and returning data, which is what you want the
+moment a single call has to serve both a conversation and an extraction.
+
+A reasonable default. Use the dedicated mode when your provider supports it
+properly and you always want data back. Reach for a tool you never run when you
+do not have it, when you are moving between providers, or when the same request
+has to serve both purposes.
+
+## 5. Why the description matters more than the code
 
 Your Python function could be a thousand lines of careful work. The model
 never sees a single character of it. The model sees the name, the description,
@@ -382,7 +577,7 @@ A second rule. When a model behaves badly with tools, edit the description
 before you touch anything else. It is the cheapest experiment you have, and it
 fixes the problem more often than any other change.
 
-## 5. Why the tools here are toys
+## 6. Why the tools here are toys
 
 The two tools in this lesson are a calculator and a dice roll. That is
 deliberate, and the reason is written in the docstring at the top of
@@ -424,7 +619,7 @@ writer, and a shell runner, and you will add the confirmation gate that turns
 a dangerous capability into a supervised one. The plumbing you are building
 today does not change when the tools get real. Only the tools do.
 
-## 6. Writing tools.py and llm.py line by line
+## 7. Writing tools.py and llm.py line by line
 
 ### tools.py
 
@@ -652,7 +847,7 @@ send the result back, and the result message must carry the matching
 `tool_call_id` so the model can pair the answer with the question it asked.
 Keeping the id now saves rewriting the parser later.
 
-## 7. Running check.py and reading the tool call
+## 8. Running check.py and reading the tool call
 
 `check.py` is short. It sends one prompt with the schemas attached, insists on
 getting a tool call back, verifies the tool name and arguments, runs the tool,
@@ -790,7 +985,7 @@ That starts a local fake endpoint, points the environment variables at it, and
 runs every lesson check in order. It is the same script continuous integration
 uses, which brings us to the strange looking text in the prompt.
 
-## 8. About the directive in the prompt
+## 9. About the directive in the prompt
 
 You have certainly noticed the odd suffix in `check.py`.
 
@@ -841,7 +1036,7 @@ is the part you can actually fix, and your suite runs in milliseconds for free.
 Keep a separate and much smaller set of tests that hit a real model, and run
 those on demand rather than on every commit.
 
-## 9. Troubleshooting when the model refuses to call a tool
+## 10. Troubleshooting when the model refuses to call a tool
 
 Sooner or later `check.py` will print this.
 
@@ -877,7 +1072,7 @@ export AGENTPATH_MODEL=qwen2.5:14b
 python check.py
 ```
 
-**Fix two, make the description clearer and more specific.** Section 4 said the
+**Fix two, make the description clearer and more specific.** Section 5 said the
 description is the only thing the model sees, and this is where that stops
 being theory. A borderline model needs a stronger nudge. Edit `tools.py` and
 try a description that states outright when the tool should be used.
@@ -914,17 +1109,17 @@ listed in `.gitignore`.
 If all three fail, fall back to the deterministic server with
 `python ci/run_lessons.py` from the repository root. That proves your plumbing
 is correct and isolates the problem to model capability, which is exactly the
-kind of isolation section 5 was arguing for.
+kind of isolation section 6 was arguing for.
 
 Two smaller problems worth knowing.
 
 If you see `TypeError: argument after ** must be a mapping, not str`, you
-dropped the `json.loads` call. Go back to section 6.
+dropped the `json.loads` call. Go back to section 7.
 
 If you see `KeyError: 'AGENTPATH_BASE_URL'`, the environment variable is not
 set in this shell. Setting it in one terminal does not set it in another.
 
-## 10. What you cannot do yet
+## 11. What you cannot do yet
 
 Run `check.py` once more and read the output with a critical eye.
 
