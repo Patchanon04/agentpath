@@ -22,7 +22,10 @@ import os
 import re
 from pathlib import Path
 
-from tools import SKIP_DIRECTORIES, looks_like_a_secret, truncate
+# Imported inside the functions rather than at the top of the file. tools.py
+# imports this module to register the tool, so importing it back here at
+# import time would be a circle and neither module could be loaded first.
+MAX_OUTPUT = 4000
 
 WORD = re.compile(r"[A-Za-z0-9_]+")
 TOP_RESULTS = 5
@@ -31,6 +34,13 @@ DEFAULT_PATTERN = "*.md"
 
 def words(text):
     return WORD.findall(text.lower())
+
+
+def _from_tools():
+    """Borrow the workspace rules without importing at module level."""
+    import tools
+
+    return tools.SKIP_DIRECTORIES, tools.looks_like_a_secret, tools.truncate
 
 
 def passages_in(path):
@@ -51,11 +61,12 @@ def passages_in(path):
 
 def build_index(root, pattern=DEFAULT_PATTERN):
     """Read the documents once and remember their words."""
+    skip, is_secret, _ = _from_tools()
     index = []
     for path in sorted(root.rglob(pattern)):
-        if any(part in SKIP_DIRECTORIES for part in path.relative_to(root).parts):
+        if any(part in skip for part in path.relative_to(root).parts):
             continue
-        if looks_like_a_secret(path.name):
+        if is_secret(path.name):
             continue
         for line_number, text in passages_in(path):
             index.append(
@@ -90,6 +101,7 @@ def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN
     if not best:
         return f"nothing in the documents mentions any of the words in {question!r}"
 
+    _, _, truncate = _from_tools()
     parts = [f"{entry['source']}\n{entry['text']}" for entry in best[: int(limit)]]
     return truncate("\n\n".join(parts))
 
