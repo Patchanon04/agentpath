@@ -1,4 +1,4 @@
-# agentpath — Design Document
+# agentpath Design Document
 
 วันที่ 2026-09-01 | สถานะ รอผู้ใช้อนุมัติ
 
@@ -14,7 +14,7 @@
 แต่ของจริงที่คนใช้ (Claude Code, OpenHands) คือ harness ที่มี permission, session,
 context management, MCP ซึ่งแทบไม่มีใครสอนสร้าง โปรเจกต์นี้พาไปถึงตรงนั้น
 และมีฉบับภาษาไทยซึ่งแทบไม่มีในตลาด
-- Tagline: "Learn how AI agents actually work by building a real one — from a single LLM call to a full agent harness."
+- Tagline: "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 - ภาษาโปรแกรม Python
 - เนื้อหาอังกฤษเป็นหลัก แปลไทยตอน ship แต่ละภาค
 - License MIT
@@ -45,7 +45,8 @@ agentpath/
 │   ├── 00-setup/
 │   │   ├── README.md       เนื้อหาบท (EN)
 │   │   ├── README.th.md    ฉบับไทย
-│   │   ├── agentpath/      โค้ด ณ จุดจบบทนี้ (บทที่มีโค้ด)
+│   │   ├── llm.py          โค้ด ณ จุดจบบทนี้ เป็นไฟล์แบนๆ ไม่ใช่ package
+│   │   ├── agent.py
 │   │   └── check.py        ผู้เรียนรันยืนยันว่าของที่สร้างทำงาน
 │   └── ...
 ├── src/agentpath/          framework ตัวเต็ม (pip install agentpath)
@@ -54,6 +55,23 @@ agentpath/
 ├── docs/                   ภาพรวม, roadmap, contributing, specs (EN/TH)
 └── pyproject.toml          uv + ruff
 ```
+
+โค้ดในโฟลเดอร์บทเรียนเป็นไฟล์แบนๆ ไม่ทำเป็น package ชื่อ `agentpath` เพราะจะชนกับ
+package ตัวจริงที่ผู้เรียนอาจ pip install ไว้แล้ว ผลของการชนคือ `import agentpath`
+ได้โค้ดคนละตัวขึ้นกับว่ารันจากโฟลเดอร์ไหน โดยไม่มี error เตือน ซึ่งเป็นความผิดพลาด
+เงียบๆ ที่มือใหม่แก้เองไม่ได้ ผู้เรียนจึง import ตรงๆ แบบ `from agent import Agent`
+
+### สัญญาระดับโปรเจกต์ เรื่อง configuration
+
+โค้ดทุกบทและ framework ตัวเต็มอ่านค่าเชื่อมต่อจาก environment variable สามตัวเท่านั้น
+
+- `AGENTPATH_BASE_URL` ปลายทาง API
+- `AGENTPATH_API_KEY` กุญแจ (ค่าว่างได้ถ้าใช้ Ollama)
+- `AGENTPATH_MODEL` ชื่อ model
+
+ห้าม hardcode URL หรือกุญแจในโค้ดบทเรียนเด็ดขาด เหตุผลมีสองชั้น ชั้นแรกคือ CI
+ต้องชี้โค้ดทุกบทไปที่ mock server ได้โดยไม่แก้โค้ด ถ้าฝัง URL ไว้ระบบ CI ทั้งหมด
+ที่ออกแบบไว้จะใช้ไม่ได้เลย ชั้นที่สองคือมันเป็นบทเรียนเรื่องการไม่ผูกความลับไว้กับโค้ด
 
 การตัดสินใจที่ปฏิเสธไปแล้ว
 
@@ -65,11 +83,11 @@ agentpath/
 
 หนึ่งภาคเท่ากับหนึ่ง release มีคุณค่าจบในตัว ป้องกันโปรเจกต์ตายกลางทาง
 
-### ภาค 1 — Foundations (v0.1)
+### ภาค 1 Foundations (v0.1)
 
 | บท | เนื้อหา |
 |----|---------|
-| 00 setup | ติดตั้ง Python/uv, หา API key, ลง Ollama, env var ครอบคลุม Windows/Mac/Linux ระบุ model ที่ tool calling ใช้ได้จริง (qwen3, llama3.1-8b ขึ้นไป) และ free tier cloud (Groq, OpenRouter) เป็นทางสายกลาง นี่คือด่านที่คนเลิกเยอะสุด ต้องเป็นบทเต็ม check.py ของบทนี้ตรวจ environment (Python version, ต่อ LLM endpoint ที่เลือกได้จริง) |
+| 00 setup | ติดตั้ง Python/uv, หา API key, ลง Ollama, env var ครอบคลุม Windows/Mac/Linux ระบุ model ที่ tool calling ใช้ได้จริง (qwen3, llama3.1-8b ขึ้นไป) และ free tier cloud (Groq, OpenRouter) เป็นทางสายกลาง นี่คือด่านที่คนเลิกเยอะสุด ต้องเป็นบทเต็ม check.py ของบทนี้ตรวจ Python version และตรวจว่า endpoint ที่ระบุใน `AGENTPATH_BASE_URL` ตอบกลับได้ ไม่ผูกกับ Ollama โดยเฉพาะ เพื่อให้ CI ชี้ไป mock server แล้วผ่านเหมือนกัน |
 | 01 first LLM call | ยิง OpenAI-compatible API ตรงๆ ด้วย httpx เห็น request/response ดิบ เข้าใจว่า LLM คือ text in, text out |
 | 02 conversation loop | เก็บ history, chat CLI โต้ตอบได้ |
 | 03 tool calling | เขียน JSON schema ด้วยมือ, LLM ขอเรียก tool, เรารันแล้วส่งผลกลับ ใช้ toy tools (เครื่องคิดเลข, ทอยลูกเต๋า, mock weather) เพราะผลลัพธ์คาดเดาได้ ผู้เรียนโฟกัสกลไก มีหัวข้อ "ถ้า model ไม่ยอมเรียก tool" เป็นบทเรียนไม่ใช่ bug |
@@ -83,17 +101,17 @@ agentpath/
 เหตุผลที่ streaming มาก่อน abstraction เพราะถ้า abstraction มาก่อนจะต้อง retrofit
 streaming เข้าสอง provider เท่ากับรื้อสองรอบ
 
-### ภาค 2 — Real Tools (v0.2)
+### ภาค 2 Real Tools (v0.2)
 
 | บท | เนื้อหา |
 |----|---------|
 | 07 file tools | read, write, list, และ edit แบบ string replace พร้อม path safety เหตุผลที่ต้องมี edit เพราะให้ agent เขียนไฟล์ทั้งไฟล์เพื่อแก้บรรทัดเดียวคือหายนะ และ harness จริงทุกตัวใช้วิธีนี้ |
-| 08 shell tool | subprocess, timeout, จับ output มี `input("Run this? [y/n]")` hardcode ตั้งแต่วันแรก บรรทัดเดียวปลอดภัยทันที และ foreshadow permission system ภาค 3 |
+| 08 shell tool | subprocess, timeout, จับ output มีคำถามยืนยันก่อนรันตั้งแต่วันแรก บรรทัดเดียวปลอดภัยทันที และ foreshadow permission system ภาค 3 ฟังก์ชันยืนยันต้องข้ามได้ด้วย `AGENTPATH_AUTO_APPROVE=1` ตั้งแต่บทนี้ ไม่งั้น check.py ใน CI จะเจอ EOFError เพราะไม่มีใครพิมพ์ตอบ และตัวสวิตช์นี้คือเมล็ดพันธุ์ของ permission mode ในภาค 3 |
 | 09 search tools | glob + grep ให้ agent หาโค้ดเจอ |
 | 10 system prompt & context | สอน agent ให้ทำงานเป็น, environment info |
 | 11 milestone: mini coding agent | ประกอบทุกอย่าง agent ที่แก้โค้ดในโฟลเดอร์ได้จริง |
 
-### ภาค 3 — The Harness (v0.3)
+### ภาค 3 The Harness (v0.3)
 
 | บท | เนื้อหา |
 |----|---------|
@@ -103,7 +121,7 @@ streaming เข้าสอง provider เท่ากับรื้อสอ
 | 15 errors & retries | API ล่ม, tool พัง, rate limit |
 | 16 milestone: the harness | CLI จริงจัง `agentpath` (chat, run, resume) ประกอบทุกระบบ |
 
-### ภาค 4 — Advanced (v1.0)
+### ภาค 4 Advanced (v1.0)
 
 | บท | เนื้อหา |
 |----|---------|
@@ -184,12 +202,15 @@ src/agentpath/
 
 ## 7. CI
 
-GitHub Actions สามงาน รันบน matrix Ubuntu + Windows (กลุ่มเป้าหมายใช้ Windows เยอะ)
+GitHub Actions สี่งาน รันบน matrix Ubuntu + Windows (กลุ่มเป้าหมายใช้ Windows เยอะ)
 
 1. ruff ตรวจโค้ดทุกโฟลเดอร์
 2. รัน check.py ของทุก lesson ต่อ mock server แบบ deterministic ไม่ยิง API จริง
-   ไม่ต้องมี secret ไม่เสียเงิน fork/PR รันได้
+   ไม่ต้องมี secret ไม่เสียเงิน fork/PR รันได้ CI ทำได้เพราะตั้ง `AGENTPATH_BASE_URL`
+   ชี้ไป mock server และตั้ง `AGENTPATH_AUTO_APPROVE=1`
 3. pytest ของ src/agentpath
+4. prose lint หา em-dash และ emoji ในไฟล์ md ทุกไฟล์แล้ว fail ถ้าเจอ เพราะกฎแบบนี้
+   คนลืมแน่นอน ต้องให้เครื่องบังคับ (เสปคฉบับแรกก็ละเมิดกฎตัวเองมาแล้ว)
 
 โค้ด CI กับ mock server อยู่ที่ `ci/` ระดับ root โฟลเดอร์บทเรียนมีแต่ของที่ผู้เรียนพิมพ์เอง
 (check.py อยู่ในโฟลเดอร์บทเพราะผู้เรียนเป็นคนรันเอง)
