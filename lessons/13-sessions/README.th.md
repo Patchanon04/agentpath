@@ -19,7 +19,7 @@ lessons/13-sessions/
   permissions.py unchanged from lesson 12
   providers.py   unchanged from lesson 06
   prompt.py      unchanged from lesson 10
-  tools.py       unchanged from lesson 09
+  tools.py       unchanged from lesson 12
   check.py       five claims, one of them a real run saved as it happened
   README.md      this file
 ```
@@ -253,8 +253,11 @@ def run(
             on_message(message)
 ```
 
-จากนั้น `messages.append(...)` ทุกอันในตัวฟังก์ชันกลายเป็น `remember(...)` มีทั้งหมดสี่อัน
-ข้อความ system ข้อความ user ข้อความ assistant ที่พก tool call มา และผลของ tool
+จากนั้น `messages.append(...)` ทุกอันในตัวฟังก์ชันกลายเป็น `remember(...)` มีทั้งหมดห้าอัน
+ข้อความ system ข้อความ user ข้อความ assistant ที่พก tool call มา ผลของ tool
+และคำตอบสุดท้ายของ assistant ตอนออกจาก loop อันสุดท้ายนั้นพลาดง่ายที่สุด
+เพราะมันนั่งอยู่ใน branch `if not calls` เหนือ `return` ขึ้นไปสองบรรทัด
+และการพลาดมันทำให้คุณเสียคำตอบท้ายสุดของทุก session ที่คุณเคยบันทึกไว้
 นั่นคือการแก้ไขทั้งหมด
 
 สังเกตสิ่งที่ไม่อยู่ใน `agent.py` ไม่มี `import session` ไม่มี `open` ไม่มี path ไม่มีชื่อไฟล์
@@ -806,8 +809,8 @@ workspace คือที่ที่ agent ได้รับอนุญาต
 
 ถ้าข้ออ้างแรกล้มเหลว round trip ทำอะไรบางอย่างหาย และผู้ต้องสงสัยคือข้อความที่มีค่าที่ไม่ใช่ JSON
 ถ้าข้อที่สามล้มเหลว `ensure_ascii` ถูกทิ้งไว้ที่ค่าเริ่มต้น ถ้าข้อที่สี่ล้มเหลว `on_message`
-ไม่ได้ถูกเรียกสำหรับทุกข้อความ และที่ที่ควรไปดูคือการเรียก `messages.append` ทั้งสี่จุดใน `agent.py`
-กลายเป็น `remember` แล้วหรือยัง
+ไม่ได้ถูกเรียกสำหรับทุกข้อความ และที่ที่ควรไปดูคือการเรียก `messages.append` ทั้งห้าจุดใน `agent.py`
+กลายเป็น `remember` แล้วหรือยัง รวมถึงอันที่อยู่ใน branch `if not calls` ด้วย
 
 ## 10. สิ่งที่คุณยังทำไม่ได้
 
@@ -843,8 +846,11 @@ session ทำให้เรื่องนั้นแย่ลงแทนท
 ให้คุณ `Session("fix-average")` ต้องให้คุณคิด string ขึ้นมาเองและจำมัน
 และวันที่คุณจำไม่ได้ว่าเมื่อวานคุณตั้งชื่อ session ว่าอะไร `Session.list_all()`
 ให้ลิสต์ชื่อที่เรียงแล้วกับคุณและไม่มีอะไรอื่น ไม่มีวันที่ ไม่มีข้อความแรก ไม่มีสัญญาณว่าอันไหนที่คุณอยู่ในนั้นเมื่อชั่วโมงก่อน
-นั่นเป็นปัญหาของ command line มากกว่าปัญหาของ session และบทที่ 18 แก้มันเมื่อ
-`agentpath resume` กลายเป็น subcommand จริง
+นั่นเป็นปัญหาของ command line มากกว่าปัญหาของ session และบทที่ 18 ก้าวแรกไปกับมัน
+`main.py` ของบทนั้นได้ flag `--resume` ที่รับชื่อ session แล้วโหลด history ของ session นั้น
+ก่อน loop จะเริ่ม บวกกับ flag `--session` และ timestamp ไว้ใช้เป็นชื่อเมื่อคุณไม่ให้ทั้งสองอย่าง
+แค่นั้นก็พอจะทำงานต่อจากเมื่อวานได้ แต่ยังไม่พอจะตอบคำถามว่า "อันไหนคือเมื่อวาน"
+และคอร์สนี้ไม่เคยสร้างส่วนนั้น
 
 ก่อนไปต่อ ทำหนึ่งอย่าง รัน agent กับอะไรจริงจัง ปล่อยให้มันทำงาน
 แล้วเปิดไฟล์ session ที่มันเขียนแล้วอ่านจากบนลงล่าง หา tool call ที่ทำให้คุณประหลาดใจ

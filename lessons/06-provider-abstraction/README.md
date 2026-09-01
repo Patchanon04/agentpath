@@ -1546,7 +1546,7 @@ shell. Setting it in one terminal does not set it in another.
 Stop and look at what you have.
 
 Six lessons ago you had nothing. Now you have a program that does all of the
-following, in about two hundred lines of Python you can read from top to
+following, in about three hundred lines of Python you can read from top to
 bottom, with no framework anywhere in it.
 
 - It sends a conversation to a language model over HTTP and reads the reply.

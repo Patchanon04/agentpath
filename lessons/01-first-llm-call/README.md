@@ -4,7 +4,7 @@
 
 At the end of lesson 00 you had a working Python environment and an endpoint that answered when the setup script knocked on it. You have not written a single line of your own code that talks to a model yet. That is what this lesson fixes.
 
-By the end you will have a file called `llm.py` with one function in it. You give the function a string, it gives you back the model's reply as a string. That function is thirty lines long and every agent you build in the remaining twenty three lessons sits on top of it.
+By the end you will have a file called `llm.py` with one function in it. You give the function a string, it gives you back the model's reply as a string. That function is nineteen lines long and every agent you build in the remaining twenty three lessons sits on top of it.
 
 ## 1. The problem. We have no way to talk to a model at all
 
@@ -155,7 +155,7 @@ Here `role` is `assistant`, because the model wrote it, and `content` is the tex
 
 Our function in this lesson ignores `finish_reason`, which is fine for one hello, and stops being fine the moment we build the agent loop. Remember it is there.
 
-**`usage`** counts the work done. A **token** is the unit models read and write, roughly three quarters of an English word, so "hello" is one token and "unbelievable" might be three. `prompt_tokens` counts what you sent, `completion_tokens` counts what came back, and `total_tokens` is the sum. You are billed per token, and models have a hard limit on how many tokens fit in one request, so this field is both your bill and your budget. Lesson 09 is about managing it.
+**`usage`** counts the work done. A **token** is the unit models read and write, roughly three quarters of an English word, so "hello" is one token and "unbelievable" might be three. `prompt_tokens` counts what you sent, `completion_tokens` counts what came back, and `total_tokens` is the sum. You are billed per token, and models have a hard limit on how many tokens fit in one request, so this field is both your bill and your budget. Lessons 14 and 15 are about managing it.
 
 **`system_fingerprint`** identifies the backend configuration that served you. It changes when the provider updates their serving stack. Most people never look at it.
 
@@ -582,7 +582,7 @@ Fail at the boundary, not three steps later. `raise_for_status()` sits exactly w
 
 That is the trade being made. One line of checking at the edge buys simplicity everywhere downstream. When you get to lesson 04 and the agent loop is calling this function dozens of times inside a `while` loop, a wrong error message would be buried under many iterations, and this line is what keeps it findable.
 
-A 500 from the server behaves the same way, and so does a 429 when you are rate limited. All of them stop here with their real name attached, rather than turning into a `KeyError` about `choices`. In lesson 12 we come back and turn the 429 case into an automatic retry, which is only possible because we can tell 429 apart from every other failure.
+A 500 from the server behaves the same way, and so does a 429 when you are rate limited. All of them stop here with their real name attached, rather than turning into a `KeyError` about `choices`. In lesson 17 we come back and turn the 429 case into an automatic retry, which is only possible because we can tell 429 apart from every other failure.
 
 ## 8. What you cannot do yet
 

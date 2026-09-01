@@ -21,7 +21,7 @@ lessons/13-sessions/
   permissions.py unchanged from lesson 12
   providers.py   unchanged from lesson 06
   prompt.py      unchanged from lesson 10
-  tools.py       unchanged from lesson 09
+  tools.py       unchanged from lesson 12
   check.py       five claims, one of them a real run saved as it happened
   README.md      this file
 ```
@@ -290,8 +290,11 @@ def run(
 ```
 
 Then every `messages.append(...)` in the body becomes `remember(...)`. There are
-four of them. The system message, the user message, the assistant message that
-carries tool calls, and the tool result. That is the whole edit.
+five of them. The system message, the user message, the assistant message that
+carries tool calls, the tool result, and the assistant's final answer on the way
+out of the loop. That last one is the easiest to miss, because it sits inside the
+`if not calls` branch two lines above a `return`, and missing it costs you the
+answer at the end of every session you ever save. That is the whole edit.
 
 Notice what is not in `agent.py`. There is no `import session`. There is no
 `open`. There is no path, no filename, no directory, no `AGENTPATH_HOME`. The
@@ -927,8 +930,9 @@ and running the check leaves nothing in your real `~/.agentpath`.
 If the first claim fails, the round trip lost something, and the likely culprit is
 a message containing a value that is not JSON. If the third fails, `ensure_ascii`
 has been left at its default. If the fourth fails, `on_message` is not being
-called for every message, and the place to look is whether all four
-`messages.append` calls in `agent.py` became `remember`.
+called for every message, and the place to look is whether all five
+`messages.append` calls in `agent.py` became `remember`, including the one in the
+`if not calls` branch.
 
 ## 10. What you cannot do yet
 
@@ -974,7 +978,11 @@ requires you to invent and remember a string, and the day you cannot remember wh
 you called yesterday's session, `Session.list_all()` gives you a sorted list of
 names and nothing else. No dates, no first message, no indication of which one you
 were in an hour ago. That is a command line problem rather than a session problem,
-and lesson 18 solves it when `agentpath resume` becomes a real subcommand.
+and lesson 18 takes the first step on it. Its `main.py` grows a `--resume` flag
+that takes a session name and loads that session's history before the loop
+starts, plus a `--session` flag and a timestamp for a name when you give neither.
+That is enough to carry on from yesterday. It is still not enough to answer
+"which one was yesterday", and this course never builds that part.
 
 Before you go on, do one thing. Run the agent on something real, let it work, and
 then open the session file it wrote and read it top to bottom. Find the tool call

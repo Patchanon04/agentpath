@@ -27,7 +27,8 @@ lessons/08-shell-tool/
 ```
 
 สังเกตสิ่งที่ไม่อยู่ในรายการนั้น ไม่มี provider ใหม่ ไม่มีการแก้ agent loop
-และไม่มีการแก้ file tool ทั้งสี่ตัวเลย ทุกอย่างที่ใหม่ในบทนี้คือโค้ดสี่สิบบรรทัดที่ท้ายไฟล์ `tools.py`
+และไม่มีการแก้ file tool ทั้งสี่ตัวเลย ทุกอย่างที่ใหม่ในบทนี้คือโค้ดเจ็ดสิบเก้าบรรทัดที่ต่อท้ายไฟล์
+`tools.py` โดยไม่แตะบรรทัดใดเหนือขึ้นไปเลยแม้แต่บรรทัดเดียว
 เปิดไฟล์แล้วเลื่อนไปที่คอมเมนต์ที่บอกว่าบทเรียนที่ 08 เริ่มตรงไหน
 
 ## 1. ปัญหาที่ค้างมาจากบทเรียนที่ 07
@@ -216,7 +217,7 @@ relative path ทุกอันที่โมเดลเขียนก็จ
 คุณเห็นมันทำงานได้ นี่คือผลลัพธ์จริงจากการรันคำสั่ง `cd` โดยไม่ใส่ argument ผ่าน tool บน Windows
 
 ```text
-C:\Users\usEr\Desktop\agentpath\lessons\08-shell-tool
+C:\Users\dev\Desktop\agentpath\lessons\08-shell-tool
 ```
 
 **มันไม่ใช่อะไร** `cwd` คือจุดเริ่มต้น ไม่ใช่รั้ว `cd ..` ใช้ได้
@@ -1075,7 +1076,7 @@ shell output คือตัวการที่แย่ที่สุดส�
 การรัน `cd` โดยไม่ใส่ argument ผ่าน tool ตัวนี้พอดีบน Windows ให้ผลนี้
 
 ```text
-C:\Users\usEr\Desktop\agentpath\lessons\08-shell-tool
+C:\Users\dev\Desktop\agentpath\lessons\08-shell-tool
 ```
 
 นั่นคือพฤติกรรมของ `cmd.exe` ใน PowerShell `cd` ที่ไม่ใส่ argument จะพาคุณไป home directory
@@ -1088,12 +1089,12 @@ Git for Windows มาพร้อมชุด utility ของ Unix แบบ�
 
 ```text
 total 36
-drwxr-xr-x 1 usEr 197121    0 Sep  1 11:50 .
-drwxr-xr-x 1 usEr 197121    0 Sep  1 11:47 ..
--rw-r--r-- 1 usEr 197121 1683 Sep  1 11:48 agent.py
--rw-r--r-- 1 usEr 197121 1771 Sep  1 11:49 check.py
--rw-r--r-- 1 usEr 197121 7816 Sep  1 11:47 providers.py
--rw-r--r-- 1 usEr 197121 9952 Sep  1 11:50 tools.py
+drwxr-xr-x 1 dev  197121    0 Sep  1 11:50 .
+drwxr-xr-x 1 dev  197121    0 Sep  1 11:47 ..
+-rw-r--r-- 1 dev  197121 1683 Sep  1 11:48 agent.py
+-rw-r--r-- 1 dev  197121 1771 Sep  1 11:49 check.py
+-rw-r--r-- 1 dev  197121 7816 Sep  1 11:47 providers.py
+-rw-r--r-- 1 dev  197121 9952 Sep  1 11:50 tools.py
 ```
 
 อย่าเพิ่งสบายใจกับเรื่องนั้น มันแปลว่าเครื่อง Windows ของคุณกับเครื่อง Windows ของเพื่อนร่วมงาน
@@ -1162,7 +1163,7 @@ path ของ Windows ที่แปะลงใน string คือทุ่�
 ```
 
 `marker.as_posix()` เปลี่ยน
-`C:\Users\usEr\AppData\Local\Temp\agentpath-lesson08-x9f\should-not-exist.txt`
+`C:\Users\dev\AppData\Local\Temp\agentpath-lesson08-x9f\should-not-exist.txt`
 ให้เป็น path เดียวกันที่ใช้ forward slash
 จึงไม่มี backslash ตัวไหนรอดไปให้ถูกตีความเป็น escape โดยชั้นต่าง ๆ ที่ string นี้ผ่าน
 ส่วน `r'...'` เพิ่ม raw string เป็นการป้องกันชั้นที่สอง Windows เปิดไฟล์ได้ถูกต้องทั้งสองทาง

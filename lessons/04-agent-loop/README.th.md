@@ -536,7 +536,7 @@ def run(user_input, max_turns=10):
 Python ธรรมดา มันอยู่บน stack ของฟังก์ชันนี้ และมันคือความทรงจำทั้งหมดของ agent
 เมื่อ `run` คืนค่า ความทรงจำนั้นก็ถูกทิ้ง การเก็บมันไว้ข้ามการเรียกเป็นเนื้อหาของบทหลัง
 
-ตรงนี้ไม่มี system message บทที่ 06 จะเพิ่มมันเข้ามา และมันเปลี่ยนพฤติกรรมของ agent
+ตรงนี้ไม่มี system message บทที่ 10 จะเพิ่มมันเข้ามา และมันเปลี่ยนพฤติกรรมของ agent
 อย่างมาก ตอนนี้ model ได้รับแค่คำถามกับ schema ของ tool เท่านั้น ไม่มีอย่างอื่น
 
 ### หัวของ loop
@@ -954,7 +954,7 @@ python check.py
 ```text
 [calling add with {'a': 2, 'b': 3}]
 [add returned 5]
-OK the agent ran the tool and answered with The result of add is 5.
+OK the agent ran the tool and answered with The tool returned 5.
 ```
 
 บรรทัด trace ปรากฏขึ้นเพราะ `agent.py` พิมพ์มัน ส่วนบรรทัด `OK` มาจาก `check.py`

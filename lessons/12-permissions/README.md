@@ -13,15 +13,16 @@ Files in this folder.
 lessons/12-permissions/
   permissions.py   new. the whole subject of the chapter, about seventy lines
   agent.py         the loop from lesson 10, plus one branch
-  tools.py         unchanged from lesson 09
+  tools.py         lesson 09's tools, with the confirmation taken out of run_shell
   providers.py     unchanged from lesson 06
   prompt.py        unchanged from lesson 10
   check.py         five claims about who is allowed to do what
   README.md        this file
 ```
 
-Three of the six Python files are byte for byte what they were in an earlier
-lesson. One new file, and one new branch in the loop.
+Two of the six Python files, `providers.py` and `prompt.py`, are byte for byte
+what they were in an earlier lesson. One new file, one deletion in `tools.py`,
+and one new branch in the loop.
 
 ## 1. Welcome to part 3
 
@@ -64,8 +65,9 @@ laptop with the network flapping.
 
 ## 2. The problem left over from part 2
 
-Here is the entire safety story of lesson 08, still sitting at the bottom of
-`tools.py` in this folder.
+Here is the entire safety story of lesson 08. Open
+`lessons/08-shell-tool/tools.py` and it is still there at the bottom, exactly
+as you wrote it, and it is what everything up to lesson 11 was running on.
 
 ```python
 def confirm(command):
@@ -131,8 +133,9 @@ nothing, for two separate reasons.
 
 The first is that it stopped doing its job while continuing to look like it is
 doing its job. The prompt still prints. The code still calls `confirm`. Anybody
-reading `tools.py` sees a human in the loop. But the human is a rubber stamp,
-and a rubber stamp with a keyboard is a slower version of `return True`.
+reading lesson 08's `tools.py` sees a human in the loop. But the human is a
+rubber stamp, and a rubber stamp with a keyboard is a slower version of
+`return True`.
 
 The second is worse. Because the gate is visibly there, you relax around
 everything upstream of it. You give the agent a broader task than you would
@@ -298,14 +301,38 @@ serialisation the arguments arrived in.
 
 ### A note about the file you are running
 
-`tools.py` in this folder is unchanged from lesson 09, which means `confirm` is
-still in it and `run_shell` still calls it. The gate has moved up into the loop,
-so running interactively without doing anything about that gets you asked twice
-for the same command, once by `Permissions` and once by `confirm`. Set
-`AGENTPATH_AUTO_APPROVE=1` to silence the lower one, or delete `confirm` and its
-call. It is left in place here so that `tools.py` stays byte identical across
-part 2 and you can see for yourself which file the change is actually in, which
-is the point section 1 was making about the loop.
+`tools.py` in this folder is lesson 09's file with one thing taken out.
+`confirm` is gone, and `run_shell` no longer calls anything before it runs the
+command. All that is left where the call used to be is a comment saying where
+the question went.
+
+```python
+def run_shell(command):
+    # The confirmation that used to live here moved to permissions.py in
+    # lesson 12. Asking in both places would ask the same question twice,
+    # and a tool that asks its own questions cannot be reused by anything
+    # that is not a terminal.
+    try:
+        completed = subprocess.run(
+```
+
+That deletion is the other half of the change, and it is worth being clear
+about why it is a deletion rather than an addition. If `confirm` had stayed,
+you would be asked the same question twice for the same command, once by
+`Permissions` in the loop and once by `run_shell` at the bottom of the stack.
+Two gates asking the same question is not twice the safety, it is twice the
+fatigue, which is the exact problem section 2 described.
+
+The deeper reason is the one to carry forward. A tool that calls `input` only
+works when there is a terminal attached to it. Put that same `run_shell` behind
+a web interface, inside a test, or inside a subagent that has no console, and it
+blocks forever on a question nobody can see. Moving the question up to the
+caller is what makes `run_shell` an ordinary function again, and an ordinary
+function is the only kind you can reuse.
+
+So the change in this chapter is one new file, one new branch in `agent.py`, and
+twenty five lines removed from `tools.py` in exchange for that four line
+comment. Everything else in the folder is what it was.
 
 ## 4. Why the arguments are part of what is remembered
 

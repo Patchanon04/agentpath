@@ -53,11 +53,11 @@ Files are identical
 เพราะสัญญาแคบขนาดนั้น ความสามารถใหม่ทุกอย่างใน part นี้จึงเป็น tool และเป็นแค่ tool การอ่านไฟล์คือ tool การแก้ไฟล์คือ tool การรันคำสั่ง shell ในบทที่ 08 คือ tool การค้นหาใน codebase ในบทที่ 09 คือ tool ไม่มีสักตัวที่ต้องแก้ `agent.py` แม้แต่บรรทัดเดียว
 
 ```text
-lesson 03    tools.py  ->  add, multiply, roll_dice        toy
+lesson 03    tools.py  ->  add, roll_dice                  toy
 lesson 07    tools.py  ->  read_file, write_file,          real
                            edit_file, list_files
-lesson 08    tools.py  ->  + run_command                   real and loud
-lesson 09    tools.py  ->  + find_files, search_text       real and fast
+lesson 08    tools.py  ->  + run_shell                     real and loud
+lesson 09    tools.py  ->  + glob_files, grep_files        real and fast
 
 agent.py     unchanged through all four
 providers.py unchanged through all four
@@ -84,15 +84,11 @@ def add(a, b):
     return a + b
 
 
-def multiply(a, b):
-    return a * b
-
-
-def roll_dice(sides=6):
+def roll_dice(sides):
     return random.randint(1, sides)
 ```
 
-ดูสิ่งที่ฟังก์ชันเหล่านี้มีร่วมกัน ทุก argument เป็นตัวเลข ทุกค่าที่คืนกลับเป็นตัวเลข ไม่มี input ใดที่ model ส่งมาแล้วจะทำอะไรได้แย่กว่าการให้คำตอบผิด ถ้า model ขอ `multiply(a=99999999, b=99999999)` คุณก็ได้จำนวนเต็มขนาดใหญ่ ถ้ามันขอ `roll_dice(sides=0)` คุณก็ได้ `ValueError` ที่ `tools.run` ดักไว้แล้วส่งกลับเป็น string
+ดูสิ่งที่ฟังก์ชันเหล่านี้มีร่วมกัน ทุก argument เป็นตัวเลข ทุกค่าที่คืนกลับเป็นตัวเลข ไม่มี input ใดที่ model ส่งมาแล้วจะทำอะไรได้แย่กว่าการให้คำตอบผิด ถ้า model ขอ `add(a=99999999, b=99999999)` คุณก็ได้จำนวนเต็มขนาดใหญ่ ถ้ามันขอ `roll_dice(sides=0)` คุณก็ได้ `ValueError` ที่ `tools.run` ดักไว้แล้วส่งกลับเป็น string
 
 เพราะแบบนั้น `tools.run` ในบทที่ 06 จึงเป็นฟังก์ชันที่เชื่อใจทุกอย่างโดยสมบูรณ์
 

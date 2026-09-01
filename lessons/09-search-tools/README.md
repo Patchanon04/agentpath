@@ -46,18 +46,18 @@ where the thing is. The agent cannot answer "where is the function that parses
 tool arguments" without you first answering it.
 
 Watch what actually happens if you ask anyway. The agent has `list_files`, so
-it can crawl. This repository has 31 directories and 78 Python files once you
+it can crawl. This repository has 42 directories and 251 Python files once you
 ignore the virtual environment and the git store. So the agent calls
 `list_files` on the root, sees `src/`, calls it again, sees
-`src/agentpath/`, calls it again, and so on down. That is 31 round trips to the
+`src/agentpath/`, calls it again, and so on down. That is 42 round trips to the
 model before it has read a single line of code. Every one of those round trips
 is a full HTTP request carrying the entire conversation so far.
 
 Then it starts guessing which files to open. `read_file` returns up to 4000
-characters, which was the `MAX_OUTPUT` cap you wrote in lesson 07. Those 78
-files hold 227,786 characters of source in total, which is roughly 57,000
+characters, which was the `MAX_OUTPUT` cap you wrote in lesson 07. Those 251
+files hold 987,154 characters of source in total, which is roughly 247,000
 tokens. If the agent reads them all looking for one function, it has poured
-57,000 tokens into the conversation, and because the conversation is resent in
+247,000 tokens into the conversation, and because the conversation is resent in
 full on every subsequent request, it pays for those tokens again on every turn
 for the rest of the session. Lesson 02 taught you that the model has no memory
 and the history is the memory. This is the bill for that arriving.
@@ -70,7 +70,7 @@ So in practice you do not let it crawl. You do this instead.
 
 ```text
 You: the tool argument parsing is in src/agentpath/providers/base.py,
-     around line 21, add a check for a null argument object
+     around line 47, add a check for a null argument object
 ```
 
 Look carefully at what just happened there. You opened your editor, you
@@ -218,10 +218,10 @@ first, because there is nothing in the result that tells you how to ask better.
 The agent loop is the opposite of that. Watch a real sequence.
 
 ```text
-grep_files("ProviderError")            -> 3 hits in 2 files
-read_file("src/agentpath/providers/base.py")
-grep_files("raise ProviderError", "*.py")  -> 1 hit, the only place it is thrown
-glob_files("test_provider*.py")        -> the test that covers it
+grep_files("MCPError")                        -> 30 hits in 6 files
+grep_files("class MCPError", "src/**/*.py")   -> 1 hit, src/agentpath/mcp.py:27
+read_file("src/agentpath/mcp.py")
+glob_files("test_mcp*.py")                    -> tests/test_mcp.py, the test that covers it
 read_file the test
 ```
 
@@ -313,19 +313,28 @@ visiting. That gets its own function.
 
 ```python
 def _walk():
-    """Yield every file in the workspace, skipping directories nobody searches."""
+    """Yield every file in the workspace that a search is allowed to look at."""
     for path in WORKSPACE.rglob("*"):
-        if any(part in SKIP_DIRECTORIES for part in path.parts):
+        if not path.is_file():
             continue
-        if path.is_file():
-            yield path
+        relative = path.relative_to(WORKSPACE)
+        if any(part in SKIP_DIRECTORIES for part in relative.parts):
+            continue
+        if looks_like_a_secret(path.name):
+            continue
+        yield path
 ```
 
-`WORKSPACE` and `SKIP_DIRECTORIES` both come from lesson 07 and are reused
-unchanged. `rglob("*")` walks the whole tree recursively and yields both files
-and directories, which is why the `is_file()` check is there. The leading
-underscore on the name is the Python convention for "this is internal, it is
-not one of the tools".
+`WORKSPACE`, `SKIP_DIRECTORIES` and `looks_like_a_secret` all come from lesson 07
+and are reused unchanged. `rglob("*")` walks the whole tree recursively and
+yields both files and directories, which is why the `is_file()` check is there.
+The leading underscore on the name is the Python convention for "this is
+internal, it is not one of the tools".
+
+Two of those four lines are refusals rather than plumbing, and each gets its own
+section. The `SKIP_DIRECTORIES` test is section 6 and it is about cost. The
+`looks_like_a_secret` test is section 5 and it is about a key you can never take
+back out of a conversation.
 
 It is a generator, which matters more than it looks. `yield` means files come
 out one at a time as the walk proceeds rather than being collected into a list
@@ -659,17 +668,16 @@ minified JavaScript file is one line of ninety thousand characters and without
 the cap a single hit would fill the entire tool result. That is the third of
 three caps in these two functions, and section 7 puts them together.
 
-### One thing grep_files does not inherit
+### The one thing grep_files does not inherit for free
 
-Worth being honest about, because it is a real gap and you should know it is
-there.
+There is a check in `_walk` that has nothing to do with search, and it is the
+most important three lines in this chapter.
 
 In lesson 07 you built `resolve_inside`, and part of its job was refusing to
 read credential files, so that a key could never enter the conversation. The
 search tools do not go through `resolve_inside`. They walk the tree themselves
-and call `read_text` directly. So the refusal does not apply to them.
-
-You can demonstrate it in about ten seconds.
+and call `read_text` directly. Written the obvious way, they would inherit
+nothing from that refusal, and you would have this.
 
 ```text
 read_file(".env")   -> Error: this tool refuses to read .env because credential
@@ -677,34 +685,44 @@ read_file(".env")   -> Error: this tool refuses to read .env because credential
 grep_files("KEY")   -> .env:1: OPENAI_API_KEY=sk-secret-value
 ```
 
-The front door is locked and the window is open. This is not a subtle bug, it
-is a missing check, and it is exactly the kind of gap that appears when a
-safety rule lives in one function rather than in the walk that every tool
-shares. The fix is one line in `_walk`, reusing the `looks_like_a_secret`
-helper you already wrote.
+The front door locked and the window open. That is not a subtle bug, it is a
+missing check, and it is exactly the kind of gap that appears when a safety
+rule lives in one function rather than in the walk that every tool shares. So
+`_walk` reuses the `looks_like_a_secret` helper you already wrote.
 
 ```python
-def _walk():
-    for path in WORKSPACE.rglob("*"):
-        if any(part in SKIP_DIRECTORIES for part in path.parts):
-            continue
         if looks_like_a_secret(path.name):
             continue
-        if path.is_file():
-            yield path
 ```
 
-Add it. It is the first exercise at the end of this chapter, and the general
-lesson is worth more than the line. A rule enforced at one entry point is not
-enforced. It has to live where every path passes through, and part three
-rebuilds the tools around exactly that idea.
+Try it against the real file in `lessons/09-search-tools/tools.py`. Put an
+`.env` in a scratch workspace and both doors are shut.
+
+```text
+read_file(".env")   -> Error: this tool refuses to read .env because credential
+                       files must not enter the conversation
+grep_files("KEY")   -> no matches for KEY
+glob_files("**/*")  -> the other files, and no .env in the list
+```
+
+Notice that `glob_files` is covered too, and it never reads a byte of any file.
+That is the point of putting the check in the walk rather than in each tool. A
+file name alone can be the leak. `secrets.prod.env` sitting in a listing tells
+an attacker reading the conversation exactly what to ask for next.
+
+The general lesson is worth more than the two lines. **A rule enforced at one
+entry point is not enforced.** It has to live where every path passes through.
+`resolve_inside` is that place for the file tools and `_walk` is that place for
+the search tools, which is two places for one rule, and two is already one too
+many. Part 3 rebuilds the tools around exactly that idea.
 
 ## 6. Why we skip directories such as .git and .venv
 
 This line appeared without comment in section 4.
 
 ```python
-        if any(part in SKIP_DIRECTORIES for part in path.parts):
+        relative = path.relative_to(WORKSPACE)
+        if any(part in SKIP_DIRECTORIES for part in relative.parts):
             continue
 ```
 
@@ -715,10 +733,19 @@ here without change.
 SKIP_DIRECTORIES = {".git", ".venv", "__pycache__", "node_modules", ".ruff_cache"}
 ```
 
-`path.parts` breaks a path into its components, so this skips a file if any
+`.parts` breaks a path into its components, so this skips a file if any
 directory anywhere above it is in the set. Checking every component rather than
 just the immediate parent is what makes it work at depth, since a file buried
 at `.venv/Lib/site-packages/httpx/_client.py` has `.venv` six levels up.
+
+The `relative_to` on the line before is doing quiet work. Ask for the parts of
+the absolute path and you are also testing every directory above the workspace,
+which are directories the user chose and the agent has no business having an
+opinion about. Put your project inside a folder that happens to be called
+`node_modules` and every file would be skipped, both tools would return nothing
+forever, and there would be no error message to tell you why. Comparing against
+the relative path is one call, and it confines the rule to the tree the agent
+is actually allowed to see.
 
 Now the numbers, because this argument is much more convincing with real
 figures than with the phrase "performance reasons".
@@ -727,14 +754,14 @@ This repository is small. It has one HTTP library and a test runner as
 dependencies. Here is what is actually on disk.
 
 ```text
-project Python files, ignoring .venv and .git       78
+project Python files, ignoring .venv and .git      251
 files inside .venv                                 999
 Python files inside .venv                          599
-files inside .git                                  238
+files inside .git                                  558
 size of .venv                                       41M
 ```
 
-So a walk that does not skip anything visits 1315 files instead of 78. Sixteen
+So a walk that does not skip anything visits 1808 files instead of 251. Seven
 times the work to find the same answers, on a project with two dependencies. A
 web application with a real dependency tree, or anything Node based with a
 `node_modules` directory, runs to tens of thousands of files and hundreds of
@@ -746,14 +773,14 @@ agent than it would for you at a terminal. Search for the word `def` in this
 repository's Python files and count the hits.
 
 ```text
-matches in the project                             293
+matches in the project                            1279
 matches inside .venv                              5935
 characters of output from the .venv matches     563745
 ```
 
-Twenty times more noise than signal, and roughly 140,000 tokens of it. That is
-larger than the entire context window of many models. It would not merely be
-unhelpful, it would fail outright.
+Nearly five times more noise than signal, and roughly 140,000 tokens of it.
+That is larger than the entire context window of many models. It would not
+merely be unhelpful, it would fail outright.
 
 But suppose you have a very large context window and it fits. Now put that
 result into the conversation and remember what lesson 02 taught you. The
@@ -768,12 +795,11 @@ A model given twenty irrelevant results and one relevant one is measurably
 worse at picking the relevant one than a model given three results. Filling the
 context with noise makes the agent dumber, not just slower.
 
-There is one honest caveat. Because the check looks at every component of an
-absolute path, it also looks at directories above your workspace. If you
-happened to put your project inside a folder called `node_modules`, every file
-would be skipped and both tools would always return nothing. That is unlikely
-enough that this course accepts it, and the fix is to compare against the parts
-of the relative path instead. It is the second exercise.
+There is one honest caveat left, and it points the other way. The set is hard
+coded, so a project that keeps its bulk somewhere this course never heard of,
+`vendor` or `target` or `.next` or `dist`, gets none of this protection. The
+rule does not learn and it does not read your `.gitignore`. It is the second
+exercise at the end of the chapter.
 
 ## 7. Why we cap the number of results
 
@@ -1035,7 +1061,7 @@ model will eventually call them is irrelevant to whether they work. Testing
 tools separately from the loop is one of the quiet benefits of the shape this
 course has been building.
 
-If the second line fails, your `_walk` is not checking `path.parts`. If the
+If the second line fails, your `_walk` is not checking `relative.parts`. If the
 third fails and prints a result containing `src/main.py` but no `:1:`, your
 format string lost the line number. If the fourth fails and includes
 `main.py`, the glob filter is not being applied.
@@ -1086,16 +1112,25 @@ change code in a folder, and part two ends.
 
 ### Exercises before you move on
 
-**One.** Close the gap from section 5. Add the `looks_like_a_secret` check to
-`_walk` so that credential files cannot be reached through search either, then
-write a check that creates a `.env` in a temporary workspace and asserts that
-`grep_files` cannot see its contents. This is the most valuable of the three
-because it is a real hole, not an invented exercise.
+**One.** Make the cut off from section 7 visible. Right now both tools stop at
+`MAX_RESULTS` and say nothing about it, so a search that found four thousand
+matches and a search that found exactly two hundred produce output the model
+cannot tell apart. It reads two hundred lines, concludes it has seen everything,
+and narrows in the wrong direction. Change both tools to append a line such as
+`[stopped at 200 results, narrow the pattern or the glob]`, which means
+`grep_files` has to count past the cap rather than break on it, then write a
+check that creates three hundred matching lines and asserts the note is there.
+This is the most valuable of the three because it is a real defect and the
+symptom is a confidently wrong answer rather than an error.
 
-**Two.** Fix the absolute path issue from section 6. Change the skip test so it
-looks at the components of the path relative to the workspace rather than the
-absolute path, then verify by creating a workspace inside a directory called
-`node_modules` and confirming the tools still find files.
+**Two.** Make `SKIP_DIRECTORIES` stop being a guess. Section 6 admitted that the
+set is hard coded, so `vendor`, `target`, `.next` and `dist` are walked in full
+on the projects that have them. Read the workspace's `.gitignore` at import time
+and add every directory name it lists to the set, falling back to the current
+constant when there is no such file. The hard part is deciding how much of the
+`.gitignore` format you are willing to implement, because the full specification
+has negation and anchoring and per directory files, and stopping early on purpose
+is a real engineering decision rather than laziness.
 
 **Three.** Build the `ripgrep` fallback from section 8. Detect `rg` with
 `shutil.which` at import time, shell out to it when it is present, and use the

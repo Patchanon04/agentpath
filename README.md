@@ -122,10 +122,11 @@ silently depends on an edit you made in chapter two is a course people abandon.
 `src/agentpath/` holds the finished framework, which is the same ideas written
 once and properly, with tests.
 
-`ci/` holds the fake model server and the script that runs every chapter check.
+`ci/` holds the script that runs every chapter check and the prose style check.
+The fake model server it runs against lives in `src/agentpath/testing/`.
 
-`docs/` holds the design document, the implementation plan and the notes on
-real provider behaviour.
+`docs/` holds the design document, the implementation plans and the topic ideas
+kept back for a second version.
 
 ## Running the checks yourself
 

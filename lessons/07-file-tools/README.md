@@ -86,11 +86,11 @@ Running a shell command in lesson 08 is a tool. Searching a codebase in lesson
 09 is a tool. Not one of them requires a line of change in `agent.py`.
 
 ```text
-lesson 03    tools.py  ->  add, multiply, roll_dice        toy
+lesson 03    tools.py  ->  add, roll_dice                  toy
 lesson 07    tools.py  ->  read_file, write_file,          real
                            edit_file, list_files
-lesson 08    tools.py  ->  + run_command                   real and loud
-lesson 09    tools.py  ->  + find_files, search_text       real and fast
+lesson 08    tools.py  ->  + run_shell                     real and loud
+lesson 09    tools.py  ->  + glob_files, grep_files        real and fast
 
 agent.py     unchanged through all four
 providers.py unchanged through all four
@@ -132,18 +132,14 @@ def add(a, b):
     return a + b
 
 
-def multiply(a, b):
-    return a * b
-
-
-def roll_dice(sides=6):
+def roll_dice(sides):
     return random.randint(1, sides)
 ```
 
 Look at what these functions have in common. Every argument is a number. Every
 return value is a number. There is no input a model could send that would do
 anything worse than produce a wrong answer. If the model asks for
-`multiply(a=99999999, b=99999999)` you get a large integer. If it asks for
+`add(a=99999999, b=99999999)` you get a large integer. If it asks for
 `roll_dice(sides=0)` you get a `ValueError` that `tools.run` catches and hands
 back as a string.
 

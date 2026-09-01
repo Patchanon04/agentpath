@@ -587,7 +587,7 @@ Python list, it lives on the stack of this function, and it is the agent's
 entire memory. When `run` returns, that memory is discarded. Persisting it
 across calls is a later lesson.
 
-There is no system message here. Lesson 06 adds one, and it changes agent
+There is no system message here. Lesson 10 adds one, and it changes agent
 behaviour considerably. For now the model gets the question and the tool
 schemas and nothing else.
 
@@ -1035,7 +1035,7 @@ python check.py
 ```text
 [calling add with {'a': 2, 'b': 3}]
 [add returned 5]
-OK the agent ran the tool and answered with The result of add is 5.
+OK the agent ran the tool and answered with The tool returned 5.
 ```
 
 The trace lines appear because `agent.py` prints them, and the `OK` line comes

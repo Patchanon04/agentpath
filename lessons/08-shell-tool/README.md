@@ -28,8 +28,9 @@ lessons/08-shell-tool/
 
 Notice what is not in that list. There is no new provider, no change to the
 agent loop, and no change to any of the four file tools. Everything new in this
-lesson is forty lines at the bottom of `tools.py`. Open it and scroll to the
-comment that says where lesson 08 begins.
+lesson is seventy nine lines appended to the bottom of `tools.py`, with not one
+line above them touched. Open it and scroll to the comment that says where
+lesson 08 begins.
 
 ## 1. The problem left over from lesson 07
 
@@ -237,7 +238,7 @@ You can see it work. This is a real result from running the command `cd`, with
 no arguments, through the tool on Windows.
 
 ```text
-C:\Users\usEr\Desktop\agentpath\lessons\08-shell-tool
+C:\Users\dev\Desktop\agentpath\lessons\08-shell-tool
 ```
 
 **What it is not.** `cwd` is a starting point, not a fence. `cd ..` works.
@@ -1172,7 +1173,7 @@ tool. Running `cd` with no arguments through this exact tool on Windows gave
 this.
 
 ```text
-C:\Users\usEr\Desktop\agentpath\lessons\08-shell-tool
+C:\Users\dev\Desktop\agentpath\lessons\08-shell-tool
 ```
 
 That is `cmd.exe` behaviour. In PowerShell, `cd` with no argument moves you to
@@ -1187,12 +1188,12 @@ real Unix output.
 
 ```text
 total 36
-drwxr-xr-x 1 usEr 197121    0 Sep  1 11:50 .
-drwxr-xr-x 1 usEr 197121    0 Sep  1 11:47 ..
--rw-r--r-- 1 usEr 197121 1683 Sep  1 11:48 agent.py
--rw-r--r-- 1 usEr 197121 1771 Sep  1 11:49 check.py
--rw-r--r-- 1 usEr 197121 7816 Sep  1 11:47 providers.py
--rw-r--r-- 1 usEr 197121 9952 Sep  1 11:50 tools.py
+drwxr-xr-x 1 dev  197121    0 Sep  1 11:50 .
+drwxr-xr-x 1 dev  197121    0 Sep  1 11:47 ..
+-rw-r--r-- 1 dev  197121 1683 Sep  1 11:48 agent.py
+-rw-r--r-- 1 dev  197121 1771 Sep  1 11:49 check.py
+-rw-r--r-- 1 dev  197121 7816 Sep  1 11:47 providers.py
+-rw-r--r-- 1 dev  197121 9952 Sep  1 11:50 tools.py
 ```
 
 Do not take comfort from that. It means your Windows machine and a colleague's
@@ -1265,7 +1266,7 @@ And `check.py` converts a path before embedding it in a command.
 ```
 
 `marker.as_posix()` turns
-`C:\Users\usEr\AppData\Local\Temp\agentpath-lesson08-x9f\should-not-exist.txt`
+`C:\Users\dev\AppData\Local\Temp\agentpath-lesson08-x9f\should-not-exist.txt`
 into the same path with forward slashes, so no backslash survives to be
 interpreted as an escape by the layers this string passes through. The `r'...'`
 adds a raw string as a second layer of protection. Windows opens the file
