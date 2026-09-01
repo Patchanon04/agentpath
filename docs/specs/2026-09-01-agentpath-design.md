@@ -79,7 +79,7 @@ package ตัวจริงที่ผู้เรียนอาจ pip inst
 - ไม่แยก 2 repo เพราะ sync กันคือฝันร้าย
 - ไม่สร้าง tooling sync โค้ดข้าม lesson folders ตอนนี้ แก้ bug ต้อง propagate มือ CI จับพัง พอเจ็บจริงค่อยสร้าง
 
-## 5. หลักสูตร (22 บท 4 ภาค)
+## 5. หลักสูตร (24 บท 4 ภาค)
 
 หนึ่งภาคเท่ากับหนึ่ง release มีคุณค่าจบในตัว ป้องกันโปรเจกต์ตายกลางทาง
 
@@ -108,7 +108,7 @@ streaming เข้าสอง provider เท่ากับรื้อสอ
 | 07 file tools | read, write, list, และ edit แบบ string replace พร้อม path safety เหตุผลที่ต้องมี edit เพราะให้ agent เขียนไฟล์ทั้งไฟล์เพื่อแก้บรรทัดเดียวคือหายนะ และ harness จริงทุกตัวใช้วิธีนี้ |
 | 08 shell tool | subprocess, timeout, จับ output มีคำถามยืนยันก่อนรันตั้งแต่วันแรก บรรทัดเดียวปลอดภัยทันที และ foreshadow permission system ภาค 3 ฟังก์ชันยืนยันต้องข้ามได้ด้วย `AGENTPATH_AUTO_APPROVE=1` ตั้งแต่บทนี้ ไม่งั้น check.py ใน CI จะเจอ EOFError เพราะไม่มีใครพิมพ์ตอบ และตัวสวิตช์นี้คือเมล็ดพันธุ์ของ permission mode ในภาค 3 |
 | 09 search tools | glob + grep ให้ agent หาโค้ดเจอ |
-| 10 system prompt & context | สอน agent ให้ทำงานเป็น, environment info |
+| 10 anatomy of a prompt | อะไรควรอยู่ใน system prompt อะไรควรอยู่ใน user message และอะไรควรอยู่ใน description ของ tool ประเด็นสำคัญคือ description ของ tool ก็คือ prompt engineering เหมือนกัน คนส่วนใหญ่มองข้าม รวมเรื่อง environment info ที่ agent ต้องรู้ เช่น cwd, OS, วันที่ |
 | 11 milestone: mini coding agent | ประกอบทุกอย่าง agent ที่แก้โค้ดในโฟลเดอร์ได้จริง |
 
 ### ภาค 3 The Harness (v0.3)
@@ -117,19 +117,21 @@ streaming เข้าสอง provider เท่ากับรื้อสอ
 |----|---------|
 | 12 permission system | ask/allow/deny ก่อนรัน tool อันตราย รวมหัวข้อ prompt injection พื้นฐาน ทำไมต้องถามก่อนรัน shell |
 | 13 sessions | บันทึก/resume เป็น JSONL ธรรมดา |
-| 14 context management | truncate/summarize เมื่อยาวเกิน รวมหัวข้อ token/cost awareness |
-| 15 errors & retries | API ล่ม, tool พัง, rate limit |
-| 16 milestone: the harness | CLI จริงจัง `agentpath` (chat, run, resume) ประกอบทุกระบบ |
+| 14 context management | truncate/summarize เมื่อบทสนทนายาวเกินหน้าต่าง |
+| 15 token economy | ทำไมบทสนทนาเดิมถึงแพงขึ้นเรื่อยๆ และลดยังไง เรียงตามผลกระทบจริง prompt caching และกฎว่าของนิ่งต้องอยู่หน้า ของเปลี่ยนต้องอยู่ท้าย ไม่งั้น cache พังทุกรอบ, การตัด output ของ tool ก่อนส่งกลับ, การอ่านไฟล์เฉพาะช่วงแทนทั้งไฟล์, การใช้ model ถูกกับงานย่อย, การไม่ส่ง tool schema ที่ไม่ได้ใช้ |
+| 16 retrieval and when not to use it | บทที่สอนการตัดสินใจ ไม่ใช่บทสอนทำ vector database ลำดับคำถามสี่ข้อ ข้อมูลเล็กพอใส่ context ไหม, มีโครงสร้างและรู้ query ไหมให้ใช้ SQL, เป็น text ที่ agent เดินหาเองได้ไหมให้ใช้ grep ซึ่งคือบท 09 ที่สร้างไปแล้ว, ถ้าไม่เข้าสามข้อแรกจริงๆ ค่อยใช้ vector search อธิบายว่าทำไม coding agent ที่คนใช้จริงเกือบไม่ใช้ vector RAG และลงมือทำ retrieval เป็น tool ตัวหนึ่งเพื่อให้เห็นว่ามันไม่ใช่ระบบพิเศษอะไร |
+| 17 errors & retries | API ล่ม, tool พัง, rate limit |
+| 18 milestone: the harness | CLI จริงจัง `agentpath` (chat, run, resume) ประกอบทุกระบบ |
 
 ### ภาค 4 Advanced (v1.0)
 
 | บท | เนื้อหา |
 |----|---------|
-| 17 MCP client | เขียน MCP client แบบ sync เอง (stdio เท่านั้น) |
-| 18 subagents | agent spawn agent |
-| 19 multi-agent | orchestrator, parallel workers ผ่าน thread + queue |
-| 20 evals | task runner + LLM-as-judge, mock server ช่วยทดสอบฟรี |
-| 21 ship it | packaging, ต่อยอด, ทิศทางถัดไป |
+| 19 MCP client | เขียน MCP client แบบ sync เอง (stdio เท่านั้น) |
+| 20 subagents | agent spawn agent |
+| 21 multi-agent | orchestrator, parallel workers ผ่าน thread + queue |
+| 22 evals and choosing a model | task runner + LLM-as-judge, mock server ช่วยทดสอบฟรี และรวมเรื่องการเลือก model ไว้ที่นี่เพราะหลักคือเลือกด้วยการวัดไม่ใช่ด้วยความรู้สึก การบอกว่า model ไหนดีกว่าโดยไม่มีชุดทดสอบคือการเดา ครอบคลุมการแบ่ง tier ตามงาน งานถูกอย่างจัดหมวดหรือสรุปไม่ต้องใช้ตัวแพงสุด |
+| 23 ship it | packaging, ต่อยอด, ทิศทางถัดไป |
 
 โครงภาค 4 หลวมได้ ship ทีละภาคอยู่แล้ว ถึงตอนนั้นค่อยแตกบทถ้าแน่นไป
 
@@ -232,6 +234,7 @@ GitHub Actions สี่งาน รันบน matrix Ubuntu + Windows (ก�
 ## 9. สิ่งที่ตัดสินใจว่าไม่ทำ (บันทึกกันเถียงซ้ำ)
 
 - ไม่ทำ TypeScript ควบ Python (งาน x2 ทุกบท)
+- ไม่มีบทสอนสร้าง vector database หรือ RAG pipeline แบบเต็มรูปแบบ บทที่ 16 สอนการตัดสินใจว่าเมื่อไหร่ต้องใช้อะไร และลงมือทำ retrieval เป็น tool ตัวหนึ่งเท่านั้น เหตุผลคือหลักการข้อ 3 บทที่สอน vector database จะกลายเป็นการแข่งกับ tutorial RAG ที่มีเป็นร้อย และไม่ตอบว่าสอนอะไรที่ harness ต้องรู้
 - ไม่แข่ง feature กับ production framework (หลักการข้อ 3)
 - ไม่รองรับ MCP HTTP transport ใน v1
 - ไม่ทำ async (จนกว่าจะมีเหตุผลเชิงการสอน)
