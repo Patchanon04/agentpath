@@ -19,7 +19,9 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
-DIRECTIVE = re.compile(r"\[\[tool:([A-Za-z_][A-Za-z0-9_]*):(\{.*?\})\]\]", re.DOTALL)
+# Tool names may contain dots and dashes because MCP tools are prefixed
+# with the name of the server they came from.
+DIRECTIVE = re.compile(r"\[\[tool:([A-Za-z_][A-Za-z0-9_.-]*):(\{.*?\})\]\]", re.DOTALL)
 GREETING = "Hello from the mock server."
 CALL_ID = "call_mock_1"
 
