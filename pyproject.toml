@@ -1,6 +1,6 @@
 [project]
 name = "agentpath"
-version = "1.0.0"
+version = "1.0.1"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.0.1
+
+Everything found by a full review of the finished course. Nothing here was
+caught by the test suite, which is the part worth noticing.
+
+Security. The search and retrieval tools walked the workspace themselves
+instead of going through the one gate every file tool uses. Because rglob
+follows symlinks and Windows junctions, a link planted inside the workspace
+let them read anything on the machine while read_file correctly refused.
+
+Correctness. A run started with --yes refused every shell command it had
+already approved, because the shell tool asked a second question of its own.
+The shell timeout reported a timeout and killed nothing, so the call waited
+for the whole command anyway. Stopping mid turn left tool calls with no
+matching result, which makes the next request fail. One interrupt disabled
+the shell for the rest of a chat session. Running out of turns printed a
+traceback. Resuming added a second system prompt every time. Parallel evals
+merged tasks that share a name. A model supplied regular expression could
+wedge the process forever. And the loop detector missed a model retrying
+with its arguments nudged, which is the case it was written for.
+
+Content. Roughly forty factual errors across the chapters, including two
+chapters telling readers to look for code that had already been removed and
+two telling them to add code that was already there. The two mandatory
+topics the specification asked for and the chapters had missed are now
+written. The prose lint enforces all three content rules rather than two.
+
 ## 1.0.0
 
 Part 4, Advanced. The course is complete at 24 chapters.
