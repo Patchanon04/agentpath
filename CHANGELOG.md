@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.3
+
+Eleven bugs from a second review, and one of them was introduced by the
+first. The no progress check added in 1.0.1 decided a run had stalled when a
+tool returned the same text three times, which a command that succeeds
+quietly does for every different thing it does, so it stopped real work.
+Reading progress from the shape of the output is not something a cheap check
+can do correctly and it has been removed. The case it was written for, a
+model retrying with the arguments nudged, is handled soundly now with a
+fingerprint blind to whitespace and letter case.
+
+Also. Abandoned tool calls are filled in even when an interrupt lands inside
+a tool, which is the one path where it matters. The search deadline runs in a
+separate process, because neither a check between lines nor a thread can stop
+a regular expression that is already running. The MCP client honours its
+timeout and its servers are closed when a run ends. Anthropic usage is read
+from both places it appears rather than one. A tool call delta with no index
+starts a new call instead of merging. Reusing a session name no longer adds a
+second system prompt. An eval task whose agent fails to build is one failure
+rather than a lost report. Retrieval survives an unreadable path.
+
 ## 1.0.2
 
 Sixteen tests that run the command line as a real process, which is the gap
