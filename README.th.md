@@ -29,8 +29,8 @@ agent loop ที่ถูกห้อมล้อมด้วยการตร
 |------|--------------|--------|
 | 1 Foundations | agent ที่ทำ streaming ได้ เรียก tool ได้ วนลูปจนกว่างานจะเสร็จ และสลับ model provider ได้ | ใช้ได้แล้ว |
 | 2 Real Tools | การอ่านและแก้ไขไฟล์ การรันคำสั่ง shell การค้นหาโค้ด และ coding agent ขนาดเล็กที่ใช้งานได้จริง | ใช้ได้แล้ว |
-| 3 The Harness | สิทธิ์การเข้าถึง การบันทึก session การจัดการ context การบริหาร token การทำ retrieval และการกู้คืนจากข้อผิดพลาด | กำลังทำอยู่ |
-| 4 Advanced | MCP client, subagent, รูปแบบการทำงานแบบ multi agent, การทำ eval และการเลือก model | มีแผนไว้ |
+| 3 The Harness | สิทธิ์การเข้าถึง การบันทึก session การจัดการ context การบริหาร token การทำ retrieval และการกู้คืนจากข้อผิดพลาด | ใช้ได้แล้ว |
+| 4 Advanced | MCP client, subagent, รูปแบบการทำงานแบบ multi agent, การทำ eval และการเลือก model | กำลังทำอยู่ |
 
 ## เริ่มต้นอย่างรวดเร็ว
 
@@ -73,6 +73,13 @@ environment variable สามตัวที่ใช้ตลอดทั้�
 | [09 search tools](lessons/09-search-tools/) | การค้นหาไฟล์และข้อความ และเหตุผลที่วิธีนี้ดีกว่า vector database สำหรับโค้ด |
 | [10 anatomy of a prompt](lessons/10-anatomy-of-a-prompt/) | สามจุดที่คำของคุณเดินทางไปถึง model รวมถึงจุดที่ทุกคนลืมนึกถึง |
 | [11 mini coding agent](lessons/11-mini-coding-agent/) | ทุกอย่างถูกต่อเข้าด้วยกันเป็น agent ที่แก้ bug จริงได้ |
+| [12 permissions](lessons/12-permissions/) | ประตูที่จำคำตอบของคุณได้ เพื่อไม่ให้มันฝึกคุณจนเลิกอ่านมัน |
+| [13 sessions](lessons/13-sessions/) | บทสนทนาที่อยู่บนดิสก์ ซึ่งเป็นเครื่องมือ debug ที่ดีที่สุดที่คุณมีด้วย |
+| [14 context management](lessons/14-context-management/) | การตัดบทสนทนาโดยไม่ทิ้งผลลัพธ์ของ tool ไว้กลางทาง ซึ่งเป็นกับดักที่ทุกคนเจอ |
+| [15 token economy](lessons/15-token-economy/) | ทำไมบทสนทนาเดิมถึงแพงขึ้นทุกเทิร์น และอะไรที่ลดมันได้จริง |
+| [16 retrieval](lessons/16-retrieval/) | สี่คำถามที่บอกคุณว่าคุณต้องใช้ RAG หรือไม่ ซึ่งส่วนใหญ่แล้วคุณไม่ต้อง |
+| [17 errors and retries](lessons/17-errors-and-retries/) | การเอาตัวรอดจาก rate limit จาก model ที่ติดหนึบ และจากคนที่เปลี่ยนใจ |
+| [18 the harness](lessons/18-the-harness/) | ทุกอย่างถูกต่อเข้าด้วยกันเป็นเครื่องมือที่คุณเอาไปใช้งานได้จริง |
 
 ## การใช้ framework ฉบับสมบูรณ์
 
@@ -88,6 +95,9 @@ export AGENTPATH_BASE_URL=http://localhost:11434/v1
 export AGENTPATH_MODEL=qwen3
 agentpath chat
 ```
+
+ตอนนี้คำสั่งนี้มีคำสั่งย่อยสามตัว `chat` คือ session แบบโต้ตอบ `run` ทำงานหนึ่งงานแล้วจบ และ
+`resume` ทำงานต่อจาก session ที่คุณบันทึกไว้ก่อนหน้า
 
 ## โครงสร้างของ repository นี้
 
