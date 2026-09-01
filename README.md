@@ -30,8 +30,8 @@ Every chapter also has a Thai version, which is rare for material at this depth.
 | Part | What it adds | Status |
 |------|--------------|--------|
 | 1 Foundations | An agent that streams, calls tools, loops until the work is done, and can switch model providers | Available now |
-| 2 Real Tools | File reading and editing, running shell commands, searching code, and a small coding agent that works | In progress |
-| 3 The Harness | Permissions, saved sessions, context management, token economy, retrieval, error recovery | Planned |
+| 2 Real Tools | File reading and editing, running shell commands, searching code, and a small coding agent that works | Available now |
+| 3 The Harness | Permissions, saved sessions, context management, token economy, retrieval, error recovery | In progress |
 | 4 Advanced | An MCP client, subagents, multi agent patterns, evaluation and model choice | Planned |
 
 ## Quickstart
@@ -60,7 +60,7 @@ Now read [lessons/00-setup/README.md](lessons/00-setup/README.md). It walks you
 through choosing where your model runs, which can be free and local if you want,
 and setting the three environment variables the whole course uses.
 
-## Part one, the lessons
+## The lessons
 
 | Lesson | What you build |
 |--------|----------------|
@@ -71,6 +71,11 @@ and setting the three environment variables the whole course uses.
 | [04 agent loop](lessons/04-agent-loop/) | Your first real agent, looping until the work is done |
 | [05 streaming](lessons/05-streaming/) | Answers that appear as they are written, including the hard part where tool arguments arrive in fragments |
 | [06 provider abstraction](lessons/06-provider-abstraction/) | One agent loop that works with two completely different APIs |
+| [07 file tools](lessons/07-file-tools/) | Reading and editing real files, with one gate deciding what may be touched |
+| [08 shell tool](lessons/08-shell-tool/) | Running commands, and asking a person first |
+| [09 search tools](lessons/09-search-tools/) | Finding files and text, and why this beats a vector database for code |
+| [10 anatomy of a prompt](lessons/10-anatomy-of-a-prompt/) | The three places your words reach the model, including the one everyone forgets |
+| [11 mini coding agent](lessons/11-mini-coding-agent/) | Everything wired together into an agent that fixes a real bug |
 
 ## Using the finished framework
 

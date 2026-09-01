@@ -1,3 +1,5 @@
+[อ่านภาษาไทย](README.th.md)
+
 # Lesson 09. Search tools
 
 This is the shortest lesson in part two and one of the most consequential. You
