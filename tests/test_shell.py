@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 from agentpath.tools.base import ToolRegistry
 from agentpath.tools.shell import always_allow, never_allow, shell_tools
 from agentpath.types import ToolCall
@@ -86,22 +88,42 @@ def test_a_timeout_really_kills_the_command(tmp_path):
     assert not (tmp_path / "finished.txt").exists(), "the command survived its own timeout"
 
 
-def test_output_is_decoded_rather_than_assumed_to_be_utf_8(tmp_path):
-    """Two encodings turn up on the same machine and both have to work.
+def test_output_that_is_utf_8_is_read_as_utf_8(tmp_path):
+    """The child writes bytes directly rather than printing.
 
-    A modern tool writes utf-8. Most of the ones that ship with Windows write
-    the old console codepage. Decoding the second as the first turns every
-    accented character into a replacement mark, and errors equals replace
-    means nothing complains about it.
+    print goes through the encoding of the child's own stdout, which on a
+    Windows machine with no console is often not utf-8 at all. The child
+    then dies encoding its own message and the test measures that instead
+    of measuring what we decode. Writing bytes takes the child's opinion
+    out of the question.
     """
-    legacy = (
+    thai = "สวัสดี"
+    command = (
         f'"{sys.executable}" -c "import sys; '
-        "sys.stdout.buffer.write('cafe resume'.replace('e','\u00e9').encode('cp437'))\""
+        "sys.stdout.buffer.write(bytes([224,184,170,224,184,167,224,184,177,"
+        "224,184,170,224,184,148,224,184,181]))\""
     )
-    assert "caf\u00e9 r\u00e9sum\u00e9" in run(tmp_path, legacy)
+    assert thai in run(tmp_path, command)
 
-    modern = f'"{sys.executable}" -c "print(\'\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35\')"'
-    assert "\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35" in run(tmp_path, modern)
+
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows has an OEM codepage")
+def test_output_in_the_old_windows_codepage_is_still_read(tmp_path):
+    """Two encodings turn up on the same Windows machine and both must work.
+
+    A modern tool writes utf-8. Most of the programs that ship with the
+    system write the old console codepage. Decoding the second as the
+    first turns every accented character into a replacement mark, and
+    errors equals replace means nothing complains about it.
+
+    Only Windows has that second encoding, so this is the one assertion
+    in the file that is about one operating system rather than about the
+    behaviour we want everywhere.
+    """
+    command = (
+        f'"{sys.executable}" -c "import sys; '
+        "sys.stdout.buffer.write(bytes([99,97,102,130,32,114,130,115,117,109,130]))\""
+    )
+    assert "café résumé" in run(tmp_path, command)
 
 
 def test_the_agent_can_see_a_file_name_it_cannot_spell(tmp_path):
