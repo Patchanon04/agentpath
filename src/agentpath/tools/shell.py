@@ -17,6 +17,103 @@ from agentpath.tools.files import truncate
 DEFAULT_TIMEOUT = 60
 
 
+def _output_encodings():
+    """The encodings to try on command output, in order.
+
+    Assuming utf-8 is wrong on Windows. A command that writes utf-8, which
+    most modern tools do, and a command that writes the old console
+    codepage, which most of the ones that ship with the system do, both
+    turn up on the same machine. Decoding the second as the first turns
+    every accented or non Latin character into a replacement mark, and
+    errors equals replace means it happens silently.
+
+    utf-8 goes first because it fails loudly on the wrong input. A single
+    byte encoding never fails, so trying one first would decode utf-8 text
+    into nonsense without complaining.
+    """
+    encodings = ["utf-8"]
+    if os.name == "nt":
+        import ctypes
+
+        for codepage in (
+            ctypes.windll.kernel32.GetOEMCP(),
+            ctypes.windll.kernel32.GetACP(),
+        ):
+            name = f"cp{codepage}"
+            if name not in encodings:
+                encodings.append(name)
+    return encodings
+
+
+def decode_output(raw):
+    """Turn the bytes a command produced into text."""
+    for encoding in _output_encodings():
+        try:
+            return raw.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
+_CONSOLE_READY = False
+
+
+def _use_utf8_console():
+    """Put this process's console into utf-8, once.
+
+    The chcp inside the command is not enough on its own. A shell builtin
+    such as dir reads the codepage when the shell starts, which happens
+    before the chcp in the same command line runs, so the first command of a
+    session still lost non ASCII names while every later one was fine. That
+    is a maddening thing to debug and the fix is to set it here instead,
+    before any shell exists.
+
+    This does change the codepage of the terminal the person is sitting in.
+    It is a display setting, it is what any modern tool wants anyway, and the
+    alternative is output that is quietly wrong.
+    """
+    global _CONSOLE_READY
+    if _CONSOLE_READY or os.name != "nt":
+        return
+    _CONSOLE_READY = True
+    try:
+        import ctypes
+
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        ctypes.windll.kernel32.SetConsoleCP(65001)
+    except Exception:
+        # No console attached, or not permitted. The chcp in the command is
+        # the fallback and still helps every program the shell launches.
+        pass
+
+
+def as_utf8_console(command):
+    """Ask the Windows shell to speak utf-8 before running the command.
+
+    Without this the shell itself does the damage before we ever see the
+    bytes. Listing a directory with a Thai name on a console set to the
+    old codepage prints question marks, because that codepage has no way
+    to write those characters at all. Decoding cannot recover what was
+    never encoded.
+
+    The prefix is a fixed string that the model cannot influence and that
+    changes nothing except the encoding. It is worth knowing that it makes
+    the command that runs differ by these few characters from the one the
+    person approved, which is the only reason it is written out here
+    rather than hidden.
+    """
+    if os.name != "nt":
+        return command
+    _use_utf8_console()
+    # What this does not fix. The shell reads the command line before the
+    # chcp takes effect, so non ASCII characters inside the command itself
+    # are still flattened. Writing a Thai string with echo loses it. File
+    # names, command output and everything the agent reads back are fine,
+    # which covers the cases that actually come up, and write_file is the
+    # right tool for putting text in a file anyway.
+    return f"chcp 65001 >nul & {command}"
+
+
 def _new_process_group():
     """Start the command in its own group so the whole tree can be killed.
 
@@ -93,18 +190,16 @@ def shell_tools(
         if not confirm(command):
             return "The user refused to run this command. Do not try to run it again."
         process = subprocess.Popen(
-            command,
+            as_utf8_console(command),
             shell=True,
             cwd=root,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             **_new_process_group(),
         )
         try:
-            stdout, stderr = process.communicate(timeout=timeout)
+            raw_out, raw_err = process.communicate(timeout=timeout)
+            stdout, stderr = decode_output(raw_out), decode_output(raw_err)
         except subprocess.TimeoutExpired:
             # shell=True means the thing we started is a shell, and the slow
             # command is its child. Killing only the shell leaves the child
@@ -113,7 +208,8 @@ def shell_tools(
             # The tree has to go, not just the root of it.
             _kill_tree(process)
             try:
-                stdout, stderr = process.communicate(timeout=5)
+                raw_out, raw_err = process.communicate(timeout=5)
+                stdout, stderr = decode_output(raw_out), decode_output(raw_err)
             except subprocess.TimeoutExpired:
                 stdout, stderr = "", ""
             partial = truncate((stdout or "") + (stderr or ""), 500)

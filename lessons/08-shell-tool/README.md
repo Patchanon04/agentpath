@@ -28,9 +28,9 @@ lessons/08-shell-tool/
 
 Notice what is not in that list. There is no new provider, no change to the
 agent loop, and no change to any of the four file tools. Everything new in this
-lesson is seventy nine lines appended to the bottom of `tools.py`, with not one
-line above them touched. Open it and scroll to the comment that says where
-lesson 08 begins.
+lesson is two hundred and twenty lines appended to the bottom of `tools.py`,
+with not one line above them touched. Open it and scroll to the comment that
+says where lesson 08 begins.
 
 ## 1. The problem left over from lesson 07
 
@@ -146,12 +146,27 @@ have predicted, feeding back into the next decision.
 That is what this chapter adds. It is a small amount of code and a large amount
 of consequence, in both directions.
 
-## 2. What subprocess.run does, field by field
+## 2. What subprocess.Popen does, field by field
 
 `subprocess` is the module in Python's standard library for starting other
-programs. `subprocess.run` is its simplest entry point. It starts a program,
-waits for it to finish, and returns a `CompletedProcess` object with three
-things you care about, which are `returncode`, `stdout` and `stderr`.
+programs. Most code reaches for `subprocess.run`, which starts a program, waits
+for it to finish, and hands back a `CompletedProcess` object carrying
+`returncode`, `stdout` and `stderr`. This file does not use it.
+
+`subprocess.Popen` is the layer underneath `run`. It starts the program and
+returns immediately, handing you the live process object, and you decide when to
+wait and what to do while you wait. That extra step buys two things `run` cannot
+give you, and this chapter needs both of them.
+
+The first is the ability to kill a whole tree of processes when a command
+overruns, which needs the process object in your hand while the command is still
+alive. Section 6 is that story, and it is the story of a timeout that used to
+report a timeout without stopping anything.
+
+The second is the ability to decode the output yourself. `run` can decode for
+you, but only by being told one encoding in advance, and one encoding is not
+enough on Windows. Section 8 is that story, and it is the story of accented
+characters arriving as black diamonds.
 
 Here is the call from `tools.py`, unabridged.
 
@@ -159,31 +174,36 @@ Here is the call from `tools.py`, unabridged.
 def run_shell(command):
     if not confirm(command):
         return "The user refused to run this command. Do not try to run it again."
+    process = subprocess.Popen(
+        as_utf8_console(command),
+        shell=True,
+        cwd=WORKSPACE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        **_new_process_group(),
+    )
     try:
-        completed = subprocess.run(
-            command,
-            shell=True,
-            cwd=WORKSPACE,
-            capture_output=True,
-            timeout=SHELL_TIMEOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except subprocess.TimeoutExpired:
-        return f"Error: the command timed out after {SHELL_TIMEOUT} seconds"
+        raw_out, raw_err = process.communicate(timeout=SHELL_TIMEOUT)
 ```
 
-Seven arguments. Every one of them is there for a reason, and several of them
-are wrong by default for this use case. Take them one at a time.
+Five arguments and one method call. Every one of them is there for a reason, and
+several of them are wrong by default for this use case. Take them one at a time.
 
-### command, the first argument
+### as_utf8_console(command), the first argument
 
 The thing to run. With `shell=True` this is a single string containing a whole
 command line, such as `python -m pytest -q`. With `shell=False`, which is the
 default, it would have to be a list such as `["python", "-m", "pytest", "-q"]`.
 
 That difference is not cosmetic and it decides the next argument.
+
+The wrapper around it does nothing at all on macOS and Linux, where it returns
+the command unchanged. On Windows it prepends `chcp 65001 >nul & ` so that the
+shell about to start speaks UTF-8. That prefix is a fixed string the model
+cannot influence, and it changes nothing except the encoding, but it does mean
+the command that runs differs by those few characters from the one the person
+approved. Section 8 explains why it is there and why it is written out in the
+open rather than hidden inside the call.
 
 ### shell=True
 
@@ -258,68 +278,100 @@ instructions do not exist yet at the moment you would inspect them.
 So `run_shell` has no path gate. It has a human gate instead. That is the whole
 design, and section 3 is about why the substitution is the right one.
 
-### capture_output=True
+### stdout and stderr as pipes
 
-**What it is.** Shorthand for `stdout=subprocess.PIPE, stderr=subprocess.PIPE`.
-It says collect what the program prints instead of letting it go to the
-terminal.
+**What it is.** `stdout=subprocess.PIPE, stderr=subprocess.PIPE` says collect
+what the program prints instead of letting it go to the terminal. If you were
+using `subprocess.run` you would write `capture_output=True`, which is shorthand
+for exactly these two.
 
-**Why it is there.** The model needs the output as a string it can read. Without
-this argument the output scrolls past on your screen, `completed.stdout` is
-`None`, and the tool returns nothing useful. The point of the tool is not to run
-a command, it is to bring the result back into the conversation.
+**Why it is there.** The model needs the output as text it can read. Without
+these two the output scrolls past on your screen, `communicate` hands back
+`None` for both streams, and the tool returns nothing useful. The point of the
+tool is not to run a command, it is to bring the result back into the
+conversation.
 
-There is a real trade-off buried here. Because output is captured, you do not
-see a long command's progress while it runs. A ninety second test suite looks
-like a frozen terminal. Real harnesses stream the output as it arrives, which
-takes `Popen` and a reader thread rather than `run`, and which is a chapter's
-worth of code by itself. This lesson takes the simple version on purpose.
+**Why two pipes rather than one.** You could merge them with
+`stderr=subprocess.STDOUT` and get a single stream in true chronological order.
+Keeping them apart costs you that ordering and buys the ability to say which
+stream a line came from. Section 7 argues that trade in full.
 
-### timeout=SHELL_TIMEOUT
+There is a real trade-off buried here too. Because output is captured, you do
+not see a long command's progress while it runs. A ninety second test suite
+looks like a frozen terminal. Real harnesses stream the output as it arrives,
+which takes a reader thread on each pipe instead of the single `communicate`
+call below, and which is a chapter's worth of code by itself. This lesson takes
+the simple version on purpose.
 
-**What it is.** A number of seconds after which Python kills the child process
-and raises `subprocess.TimeoutExpired`. `SHELL_TIMEOUT` is 60.
+### **_new_process_group()
 
-Section 6 is entirely about this one, because the interesting part is not the
+**What it is.** A small dictionary of keyword arguments that differs by
+platform, unpacked into the call with `**`.
+
+```python
+def _new_process_group():
+    if os.name == "posix":
+        return {"start_new_session": True}
+    return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+```
+
+**Why it is there.** So that the timeout has something to aim at. Without it
+there is nothing to kill but the shell, and the shell is not the slow part.
+
+**Why this way and not another way.** On Unix the shell and its children would
+otherwise sit in the agent's own process group, so signalling the group would
+signal the agent too, which is a spectacular way to end a session.
+`start_new_session=True` puts them in a group of their own. On Windows a new
+process group is what gives `taskkill /T` a tree to walk rather than a single
+process. Section 6 is where this is actually used.
+
+### communicate(timeout=SHELL_TIMEOUT)
+
+**What it is.** `communicate` reads both pipes until they close, waits for the
+process to exit, and returns the two buffers. The `timeout` is a number of
+seconds after which it gives up and raises `subprocess.TimeoutExpired`.
+`SHELL_TIMEOUT` is 60.
+
+**Why not read the pipes yourself.** Because `process.stdout.read()` followed by
+`process.stderr.read()` deadlocks. A pipe holds a fixed amount of data, and a
+program that fills the pipe you are not reading blocks until somebody drains it,
+which you will not do because you are blocked reading the other one. Both
+programs wait for each other forever. `communicate` reads both at once and is
+the reason you almost never see that bug in Python.
+
+Section 6 is entirely about the timeout, because the interesting part is not the
 argument, it is what you do with the exception.
 
-### text=True
+### Bytes rather than text
 
-**What it is.** Processes emit bytes. `text=True` tells Python to decode those
-bytes into a `str`.
+**What it is.** `subprocess` will decode the child's bytes for you if you ask it
+to, with `text=True` and its companions `encoding` and `errors`. None of those
+appear here. `communicate` hands back two `bytes` objects, and `decode_output`
+turns them into strings a few lines later.
 
-**Why it is there.** Without it, `completed.stdout` is a `bytes` object, and
-`b"2\n"` is not something you can put in a JSON message. You would end up
-calling `.decode()` yourself in two places and getting it slightly wrong in one
-of them.
+**Why it is there.** Because decoding takes a decision that `subprocess` cannot
+make for you. Asking for `text=True` alone means Python guesses an encoding from
+the system locale. Adding `encoding="utf-8"` replaces the guess with a single
+fixed answer. On Windows neither is right, because two different encodings turn
+up in the output of two different commands on the same machine within the same
+minute. Section 8 has the full account and the test that shows it.
 
-**Why this way.** The alternative is to leave it off and decode manually, which
-is more code for the same result, except that `text=True` also normalises line
-endings, so Windows output arriving as `\r\n` becomes `\n`. That is a free fix
-for a difference that would otherwise show up as stray characters in the
-conversation. If you read older code you will see `universal_newlines=True`,
-which is the same argument under its former name.
-
-### encoding="utf-8" and errors="replace"
-
-**What they are.** `text=True` on its own decodes using a guess. These two
-arguments replace the guess with a decision, and then say what to do about bytes
-that do not fit the decision.
-
-They are the single most Windows-specific thing in this file, and getting them
-wrong produces a crash that looks like a bug in your agent and is not. Section 8
-explains it properly.
+**What it costs.** `text=True` also normalises line endings, so Windows output
+arriving as `\r\n` would become `\n`. Decoding the bytes ourselves gives that up,
+and Windows output really does come back with carriage returns in it. That is
+visible in a tool result and it is worth knowing, but it is a cosmetic cost, and
+it is small next to output whose characters are wrong.
 
 ### What is deliberately not passed
 
-Three arguments you might expect are absent, and the absences are choices.
+Three things you might expect are absent, and the absences are choices.
 
-There is no `check=True`. That argument makes `subprocess.run` raise
-`CalledProcessError` when the exit code is not zero. For most scripts that is
-exactly right, because a failed command usually means the script should stop.
-Here it is exactly wrong. A failing test suite is not an accident, it is the
-answer to the question the agent asked. Raising on it would throw away the
-output the model needs most.
+There is no equivalent of `check=True`. On `subprocess.run` that argument raises
+`CalledProcessError` when the exit code is not zero. `Popen` has no such
+behaviour to switch off, which happens to suit us exactly, because raising here
+would be wrong. A failing test suite is not an accident, it is the answer to the
+question the agent asked. Treating it as an error would throw away the output the
+model needs most. Section 7 shows what happens to that exit code instead.
 
 There is no `env`. The command inherits the agent's environment, which is
 usually what you want, since it is how the model gets your `PATH`, your virtual
@@ -578,13 +630,17 @@ Finally, notice the ordering, since the whole property depends on it.
 ```python
     if not confirm(command):
         return "..."
-    try:
-        completed = subprocess.run(...)
+    process = subprocess.Popen(...)
 ```
 
-`confirm` is called before `subprocess.run`, and there is no other call to
-`subprocess.run` in the file. Section 9 explains how `check.py` proves that
-claim by looking at the filesystem rather than by trusting the message.
+`confirm` is called before `subprocess.Popen`, and there is no other call to
+`subprocess.Popen` in the file. There is one call to `subprocess.run`, inside
+`_kill_tree`, and it is worth checking rather than taking on trust. Its argument
+list is the fixed literal `["taskkill", "/F", "/T", "/PID", str(process.pid)]`,
+it never contains the model's command, it does not use `shell=True`, and it can
+only be reached from the timeout handler of a command that already got past
+`confirm`. Section 9 explains how `check.py` proves the main claim by looking at
+the filesystem rather than by trusting the message.
 
 Here is what it looks like in practice.
 
@@ -673,7 +729,7 @@ sets the variable? Say you approve something innocuous and the command is
 actually `pytest && set AGENTPATH_AUTO_APPROVE=1`. The answer is a plain fact
 about how processes work, on Windows and on Unix alike. A child process gets a
 copy of its parent's environment. It cannot write back into it. The `set` runs
-inside the `cmd.exe` that `subprocess.run` started, that `cmd.exe` exits a
+inside the `cmd.exe` that `subprocess.Popen` started, that `cmd.exe` exits a
 moment later, and the copy dies with it. `os.environ` in the agent process is
 unchanged, and since `confirm` reads it fresh on every call, the next command
 still asks. You can test this yourself in two minutes, and testing it is a
@@ -787,9 +843,9 @@ its two lines are.
 
 **Because a gate you can read is a gate you can verify.** Right now you can
 establish, by reading forty lines, that there is exactly one call to
-`subprocess.run` in the file, that `confirm` is called before it, that there is
-no branch that reaches the second without passing the first, and that every way
-`input()` can fail returns `False`. That is a complete audit and it takes a
+`subprocess.Popen` in the file, that `confirm` is called before it, that there
+is no branch that reaches the second without passing the first, and that every
+way `input()` can fail returns `False`. That is a complete audit and it takes a
 minute. Try doing the same for a rule engine with pattern matching and cached
 decisions. You will not do it, and neither will anyone else, and that is
 precisely why permission systems in real software have had famous bugs. Keeping
@@ -821,16 +877,26 @@ SHELL_TIMEOUT = 60
 ```
 
 ```python
-            timeout=SHELL_TIMEOUT,
-```
-
-```python
+        raw_out, raw_err = process.communicate(timeout=SHELL_TIMEOUT)
     except subprocess.TimeoutExpired:
-        return f"Error: the command timed out after {SHELL_TIMEOUT} seconds"
+        # shell=True means the thing we started is a shell and the slow
+        # command is its child. Killing only the shell leaves the child
+        # running and still holding the pipes, so a call meant to give up
+        # after the timeout waits for the whole run anyway.
+        _kill_tree(process)
+        try:
+            raw_out, raw_err = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            raw_out, raw_err = b"", b""
+        partial = truncate(decode_output(raw_out) + decode_output(raw_err), 500)
+        note = f"Error: the command timed out after {SHELL_TIMEOUT} seconds and was killed"
+        return f"{note}\n{partial}" if partial.strip() else note
 ```
 
-**What it is.** After 60 seconds, `subprocess.run` kills the child process and
-raises `subprocess.TimeoutExpired`. The tool catches that and returns a sentence.
+**What it is.** After 60 seconds, `communicate` gives up waiting and raises
+`subprocess.TimeoutExpired`. The tool catches that, kills the command and
+everything it started, collects whatever output had already arrived, and returns
+a sentence.
 
 **Why it is there.** Because commands that never finish are ordinary, not
 exotic. Here is a list of things a model reasonably tries that never return.
@@ -858,7 +924,7 @@ And remember from section 2 that `stdin` is not redirected, so the child
 inherits the agent's standard input. A command that asks a question is competing
 with your agent for the same terminal, which is a special kind of confusing.
 
-**What happens without a timeout.** `subprocess.run` blocks. Your agent loop in
+**What happens without a timeout.** `communicate` blocks. Your agent loop in
 `agent.py` is an ordinary synchronous `for` loop, so it never reaches the next
 iteration. Nothing prints. No exception is raised. Your terminal sits there
 looking like it is thinking. The only way out is Ctrl+C, which kills the agent
@@ -889,6 +955,12 @@ catch `TimeoutExpired`, the exception would travel up and land there, and the
 agent would survive anyway. That is true, and pretending otherwise would be
 dishonest. So why the specific catch?
 
+**Because the handler is where the killing happens.** This is the reason that
+did not exist in an earlier version of this file, and the next subsection is the
+story of how it got here. Nothing above the handler stops the command. If the
+exception simply escaped, the runaway process would still be running and the
+blanket handler would report a timeout that had not stopped anything.
+
 **Because a predicted condition should be handled where it happens.** A blanket
 `except Exception` is a safety net for the things you did not think of. A
 timeout is a thing you thought of. In fact it is a thing you configured, on the
@@ -909,7 +981,7 @@ Error: TimeoutExpired: Command 'python -m pytest tests/' timed out after 60 seco
 Through the specific handler it gets this.
 
 ```text
-Error: the command timed out after 60 seconds
+Error: the command timed out after 60 seconds and was killed
 ```
 
 The first leaks a Python exception class name, repeats the whole command back to
@@ -920,7 +992,8 @@ every subsequent request for the rest of the session.
 
 **And the general principle underneath both.** Inside an agent, an error you
 return is information and an error you raise is a stop. A model that reads
-"the command timed out after 60 seconds" can do something useful with it. It can
+"the command timed out after 60 seconds and was killed" can do something useful
+with it. It can
 run a subset of the tests. It can add a flag that makes the tool exit rather
 than watch. It can tell you the server needs to run in another window. A model
 that never gets the message because the process died can do none of that. This
@@ -929,18 +1002,90 @@ instead of raising it, and lesson 07's decision to return "the text to replace
 appears 3 times" instead of throwing. It keeps showing up because it is the
 central design instinct of tool building.
 
-### What the kill actually does
+### What the kill actually does, and what it used to not do
 
-On timeout, `subprocess.run` kills the child before re-raising, so the direct
-child process does not keep running behind your back. That is worth knowing
-because people assume otherwise.
+An earlier version of this file used `subprocess.run` with `timeout=60` and
+nothing else, and this chapter said the timeout stopped the command. That was
+wrong, and it is worth walking through why, because the wrong version looks
+completely convincing.
 
-It is also worth knowing the limit. It kills the direct child, which with
-`shell=True` is the shell. Programs the shell started may survive on some
-platforms, and a development server started with `&` almost certainly will. Real
-harnesses handle this with process groups on Unix and job objects on Windows,
-which is another item on the part three list. If a timed out command leaves
-something running, you may need to close it yourself.
+`subprocess.run` does kill the direct child on timeout. The trouble is what the
+direct child is. With `shell=True` the thing Python started is a shell, and the
+slow command is the shell's child. Killing the shell leaves that grandchild
+alive, still holding the write end of both pipes. `communicate` is reading those
+pipes until they close, and they do not close while somebody still holds them.
+So the call sat there waiting for the whole command, and then reported a timeout.
+
+Here is the measurement, run on the machine this chapter was written on. Both
+halves ask for a two second limit on a command that sleeps for twenty.
+
+```text
+old subprocess.run, timeout=2, returned after 20.1s
+new run_shell, SHELL_TIMEOUT=2, returned after 2.3s
+Error: the command timed out after 2 seconds and was killed
+```
+
+Twenty point one seconds. The limit was honoured in the sense that an exception
+was raised, and in no other sense at all. Notice how good the failure is at
+hiding. The message says the right thing. The exit path is the right one. The
+only symptom is that the agent felt slow, and agents feel slow for a hundred
+innocent reasons.
+
+The fix is two functions. `_new_process_group`, from section 2, puts the shell
+and everything it starts into a group of their own when the command begins, so
+that later there is a tree to aim at rather than one process. Then `_kill_tree`
+aims at it.
+
+```python
+def _kill_tree(process):
+    """Kill the command and everything it started."""
+    try:
+        if os.name == "posix":
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        else:
+            killed = subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                capture_output=True,
+                timeout=10,
+            )
+            if killed.returncode != 0:
+                raise OSError(f"taskkill exited {killed.returncode}")
+    except Exception:
+        # Last resort. Killing only the shell beats killing nothing.
+        try:
+            process.kill()
+        except Exception:
+            pass
+```
+
+**Why two platform branches.** Because there is no portable way to say kill that
+whole family. On Unix `os.killpg` signals every process in the group, which is
+why the group had to be created in advance. On Windows the equivalent is the
+built in `taskkill`, where `/T` means the process and its descendants and `/F`
+means do not ask nicely. Python has no wrapper for it, so you shell out to the
+tool Windows ships.
+
+**Why the fallback swallows everything.** Because a kill can fail for reasons
+that are nobody's fault, most often that the process finished on its own in the
+moment between the timeout firing and the signal arriving. Failing loudly there
+would turn a harmless race into a crashed tool. Killing only the shell beats
+killing nothing, and returning a timeout message beats returning a traceback.
+
+**Why we read the pipes a second time.** After the tree is dead the pipes close,
+so a short second `communicate` collects whatever the command managed to print
+before it was stopped. That is often the most useful part of a timeout, because
+a test suite that hangs usually prints the tests that passed first. The five
+second limit on that second read is there because a kill is not a guarantee, and
+the inner `except` that falls back to two empty byte strings is what stops a
+timeout handler from hanging in its own right. The partial output is capped at
+500 characters rather than the usual 4000, because output from a command that
+never finished has earned less of your context window than output from one that
+did.
+
+The honest limit that remains. A process that deliberately detaches itself from
+the group, or a Windows service the command asked somebody else to start, is
+outside the tree and survives. That is rare, and it is a different problem from
+the one this fixes.
 
 ### Why 60
 
@@ -971,17 +1116,19 @@ discovering the limit by hitting it.
 ## 7. Reporting the exit code and stderr
 
 ```python
+    stdout, stderr = decode_output(raw_out), decode_output(raw_err)
     parts = []
-    if completed.stdout:
-        parts.append(completed.stdout)
-    if completed.stderr:
-        parts.append(completed.stderr)
-    if completed.returncode != 0:
-        parts.append(f"[exit code {completed.returncode}]")
+    if stdout:
+        parts.append(stdout)
+    if stderr:
+        parts.append(stderr)
+    if process.returncode != 0:
+        parts.append(f"[exit code {process.returncode}]")
     return truncate("\n".join(parts) or "[no output]")
 ```
 
-Eight lines that decide what the model finds out. Every one of the four
+The first line turns the two byte buffers into text, which is section 8's
+subject. The rest decides what the model finds out. Every one of the four
 decisions in them has a wrong version that seems fine until it isn't.
 
 ### What an exit code is
@@ -1084,8 +1231,8 @@ it, because the consistency is what the model is reading.
 
 Answer first, complaint second, which matches how a person reads a terminal.
 
-The cost is that the interleaving is lost. `capture_output=True` gives you two
-separate buffers, so a warning printed to stderr in the middle of a test run
+The cost is that the interleaving is lost. Two pipes means two separate
+buffers, so a warning printed to stderr in the middle of a test run
 appears after all the stdout, not where it happened. For a long build log that
 is genuinely confusing.
 
@@ -1133,8 +1280,9 @@ which is what a person does with a wall of output anyway.
 
 ## 8. What is different on Windows
 
-Everything in this section is a real difference that will bite you, and the last
-part of it is a crash that looks like a bug in your agent and is not.
+Everything in this section is a real difference that will bite you. The last two
+parts of it are the reason `run_shell` is written the way it is, and both of
+them are bugs that look like a bug in your agent and are not.
 
 ### shell=True runs a different shell
 
@@ -1275,106 +1423,286 @@ correctly either way.
 The habit to take away is to prefer forward slashes and relative paths in
 anything you build into a command string, on every platform.
 
-### Why encoding is utf-8 and errors is replace
+### Two encodings on one machine
 
-This is the one that produces a bug report you cannot reproduce.
+**What the problem is.** Every byte a command prints has to be turned into
+characters before anything can read it, and the rule for doing that is called an
+encoding. Nothing in the bytes says which encoding was used. Somebody has to
+decide, and if they decide wrong the text is wrong.
 
-**What happens without them.** With `text=True` and no `encoding`, Python decodes
-the child's bytes using the system's preferred encoding, which is
-`locale.getencoding()`. On macOS and Linux in 2026 that is essentially always
-UTF-8, so nothing goes wrong and you never think about it.
-
-On Windows it is the system ANSI code page. That is `cp1252` in western
-locales, `cp932` in Japan, `cp1251` in Russia, `cp936` in China. Console programs
-sometimes use the OEM code page instead, which is `cp437` or `cp850`. And an
-increasing number of modern tools ignore all of that and emit UTF-8 regardless of
-what the system says.
-
-So Python assumes one encoding and the program used another. When the bytes
-happen to be plain ASCII, which they are for most of your testing, the two agree
-and everything looks fine. Then a tool prints a check mark, or a box-drawing
-character in a progress bar, or an accented character in a package author's
-name, or an arrow in a diff, and the bytes stop being ASCII.
-
-**What you get.** This.
+**Where the naive version lands.** Ask `subprocess` to decode for you with
+`text=True` and nothing else, and Python decodes using the system's preferred
+encoding. Here is what that does to a directory holding two ordinary files, one
+named `café.txt` and one named `résumé.txt`, on the Windows machine this chapter
+was written on.
 
 ```text
+Exception in thread Thread-1 (_readerthread):
 Traceback (most recent call last):
-  File "agent.py", line 44, in run
-    result = tools.run(call["name"], call["arguments"])
-  File "tools.py", line 197, in run
-    return str(function(**arguments))
-  File "tools.py", line 238, in run_shell
-    completed = subprocess.run(
-  File "subprocess.py", line 550, in run
-    stdout, stderr = process.communicate(input, timeout=timeout)
-  File "subprocess.py", line 1209, in communicate
-    stdout, stderr = self._communicate(endtime, orig_timeout)
-UnicodeDecodeError: 'charmap' codec can't decode byte 0x8f in position 41:
-character maps to <undefined>
+  File "subprocess.py", line 1615, in _readerthread
+    buffer.append(fh.read())
+  File "<frozen codecs>", line 325, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x82 in position 3:
+invalid start byte
+locale.getencoding() cp1252
+naive text=True -> None
 ```
 
-Four things make this a particularly nasty failure.
+Read the last line twice. The decode failed inside a reader thread that
+`subprocess` starts on your behalf, so the exception was printed and then
+discarded, and the call returned `None` for stdout as if the command had said
+nothing. Not a crash you can catch. Not an error you can report. Silence.
 
-The traceback bottoms out inside `subprocess.py` in the standard library. Nothing
-in it points at any decision you made, so it reads like Python is broken.
+**Where the previous version of this file landed.** It said
+`encoding="utf-8", errors="replace"`, and this chapter used to defend that
+choice at length. The argument was that it replaces a guess with a decision, and
+that any byte that does not fit becomes the Unicode replacement character rather
+than an exception, so decoding can never fail. Both halves of that are true. The
+conclusion was still wrong.
 
-It is data dependent. It works for a hundred commands and then fails on the one
-whose output contains a single unusual character, which makes it look random.
+It is wrong because a Windows machine does not have one encoding, it has two,
+and both of them show up in the same session. A modern tool writes UTF-8. Most
+of the programs that ship with Windows write the old console codepage. Ask this
+machine what its codepages are.
 
-It crashes the tool rather than returning an error, so depending on where it is
-caught you can lose a session over a check mark.
+```text
+OEMCP 437 ACP 1252 ConOutCP 437
+```
 
-And on your machine it may never happen, because if your locale is already UTF-8
-the guess is correct. So it is a bug that only your users have.
+So `dir` writes cp437 and `ruff` writes UTF-8, and a single fixed decision
+cannot be right for both. Decoding the first as the second turns every accented
+or non Latin character into a replacement mark, and `errors="replace"` is
+exactly what guarantees it happens without a word. Here is the same directory,
+decoded the old way and then the new way.
 
-**The fix, both halves.**
+```text
+--- old, encoding=utf-8 errors=replace ---
+caf�.txt
+r�sum�.txt
+--- new, decode_output ---
+café.txt
+résumé.txt
+```
 
-`encoding="utf-8"` replaces the guess with a decision. It says we are assuming
-UTF-8 everywhere, on every platform. That assumption is right most of the time
-because most modern tools emit UTF-8, and more importantly it is the same
-assumption on every machine, so behaviour stops depending on where the code is
-running.
+That is the shape of the failure. Nothing raised, nothing was logged, and the
+tool handed the model two file names it cannot open.
 
-`errors="replace"` handles the times it is wrong. Any byte sequence that is not
-valid UTF-8 becomes U+FFFD, the Unicode replacement character, which prints as a
-black diamond with a question mark in it. Decoding never raises.
+**What it does now.** One function decides the order to try, and one function
+tries them.
 
-**Why replace rather than the other options.** There are three settings you
-could choose and the differences matter.
+```python
+def _output_encodings():
+    encodings = ["utf-8"]
+    if os.name == "nt":
+        import ctypes
 
-`strict` is the default and it raises. That is the bug described above, so it is
-out.
+        for codepage in (
+            ctypes.windll.kernel32.GetOEMCP(),
+            ctypes.windll.kernel32.GetACP(),
+        ):
+            name = f"cp{codepage}"
+            if name not in encodings:
+                encodings.append(name)
+    return encodings
 
-`ignore` drops the offending bytes silently. That sounds tidy and it is the worst
-of the three. Output arrives looking completely normal, with characters missing
-and no indication that anything happened. A model reading it sees a plausible
-string and has no reason to doubt it. Silent data loss handed to something that
-makes decisions is a bad combination.
 
-`replace` leaves a visible mark. The output is still readable, the model still
-gets the file names and line numbers and error types it needs, and where
-something was lost there is a diamond saying so. The damage is bounded and it is
-visible.
+def decode_output(raw):
+    """Turn the bytes a command produced into text."""
+    for encoding in _output_encodings():
+        try:
+            return raw.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return raw.decode("utf-8", errors="replace")
+```
 
-The principle is the same one that has run through the last three sections.
-Garbled output the model can still read beats a crash it cannot recover from,
-and visible damage beats invisible damage. You will find the identical pair in
-lesson 07's `read_file`, for the identical reason, since a file on disk can be
-just as non-UTF-8 as a command's output.
+`GetOEMCP` is the codepage console programs use and `GetACP` is the one windowed
+programs use, and they are frequently different, which is why both are tried. On
+this machine the list comes out as follows.
+
+```text
+['utf-8', 'cp437', 'cp1252']
+```
+
+On macOS and Linux the list is just `['utf-8']`, and the loop makes one attempt
+and stops. None of this costs anything off Windows.
+
+**Why utf-8 goes first, and why the order is the whole trick.** Because UTF-8
+fails loudly on the wrong input and a single byte encoding never fails at all.
+
+UTF-8 has structure. A byte such as `0x82` cannot begin a character, so decoding
+cp437 bytes as UTF-8 raises `UnicodeDecodeError`, which is precisely the signal
+the loop needs in order to move on to the next candidate. cp437 has no structure
+to violate. All 256 byte values map to some character, so decoding UTF-8 bytes
+as cp437 always succeeds and always produces nonsense, silently, with no
+exception to catch.
+
+Try the single byte encoding first and the loop never reaches its second
+candidate, because the first one never complains. The ordering is not a
+preference for UTF-8. It is the only order in which the loop can work at all.
+Any list of encodings tried in sequence has to run from the strictest to the
+loosest, and the loosest one has to be last.
+
+**Why there is still a replacement fallback.** Because bytes can be neither. A
+command that prints part of a binary file, or two programs in a pipeline writing
+different encodings into one stream, produces something no candidate will
+accept. The last line decodes as UTF-8 with `errors="replace"` so that
+`decode_output` can never raise, whatever it is handed.
+
+That last line is also where the old argument about `errors` still lives, and it
+is worth keeping. There are three settings. `strict` raises, which is the failure
+above. `ignore` drops the offending bytes silently, which is the worst of the
+three, because output arrives looking completely normal with characters missing
+and nothing to say so, and a model reading it has no reason to doubt it.
+`replace` leaves a visible mark, so the output stays readable and the damage is
+bounded and obvious. Garbled output a model can still read beats a crash it
+cannot recover from, and visible damage beats invisible damage.
+
+You will find the same pair in lesson 07's `read_file`, and it is worth saying
+why that one does not need the loop.
 
 ```python
     return truncate(target.read_text(encoding="utf-8", errors="replace"))
 ```
 
-**What would be better, and why we do not do it.** You could detect the console
-code page on Windows with `ctypes` and `GetConsoleOutputCP`, or try UTF-8 first
-and fall back on failure, or set `PYTHONIOENCODING` in the child environment so
-that at least child Python processes emit UTF-8. All three are real techniques
-used in real tools. All three are more code, none of them is correct in every
-case, and every one of them still needs a fallback for the bytes that do not
-fit. Since you need the fallback anyway, this lesson ships the fallback and
-stops.
+A file on disk was written once, by somebody, in one encoding, and in 2026 that
+encoding is UTF-8 unless the file is old or strange. Command output on Windows
+is produced fresh by whichever program you happened to run, and that program
+made its own choice a moment ago. One case has a defensible default and the
+other does not.
+
+**What this still cannot do.** The whole buffer is decoded as one thing. A
+command that emits UTF-8 for half its output and cp437 for the other half, which
+a pipeline of two different tools can genuinely do, will decode as whichever
+candidate happens to accept the whole buffer, and the other half will be wrong.
+Fixing that properly means decoding line by line and guessing per line, which is
+more machinery than the problem deserves.
+
+### The characters the shell destroys before you see them
+
+Now a second problem, which took a while to recognise as a separate problem at
+all. Listing a directory holding a Thai file name printed this.
+
+```text
+??????.txt
+```
+
+The instinct is to go back to `decode_output` and make it cleverer. That is
+wasted effort, and understanding why is the useful part.
+
+Those question marks are not a decoding failure. They are real question marks.
+The console codepage cannot represent Thai characters at all, so when the shell
+went to write the file name it substituted a question mark for each character it
+could not express, and question marks are what came down the pipe. There is
+nothing to undo. Decoding cannot recover what was never encoded.
+
+**So the fix has to happen earlier.** Before the shell writes anything, the
+console it is writing to has to be one that can hold those characters, which
+means codepage 65001, which is UTF-8. Two things do that. `as_utf8_console`
+prepends `chcp 65001 >nul & ` to the command, and `_use_utf8_console` sets this
+process's own console to UTF-8, once, before any shell is started.
+
+**Why both, when the prefix looks sufficient.** This is the interesting part and
+it cost an afternoon, so it is worth telling properly.
+
+The prefix alone appeared to work. Run the test and the Thai name comes back
+correctly. Run it again the next day and it comes back correctly. Then somebody
+reports it broken, and it works on your machine, and you begin to doubt your own
+eyes.
+
+The mechanism is an ordering you cannot see. A shell builtin such as `dir` reads
+the console codepage when the shell starts. The `chcp` sitting at the front of
+the same command line runs after that, which is too late for the command it is
+attached to. So the first command of a session still lost the name. Every
+command after it was fine, because by then the `chcp` had changed the console
+and the next shell inherited the change. One failure, at the start of a session,
+and then nothing wrong ever again.
+
+Here is that measured. The same command run three times, in three fresh
+processes, with only the `chcp` prefix.
+
+```text
+chcp-only: '??????.txt'
+chcp-only: 'รายงาน.txt'
+chcp-only: 'รายงาน.txt'
+```
+
+One failure and two successes from identical code. That is non deterministic in
+exactly the way that wastes a day, because the first run of anything is the run
+you are least likely to repeat.
+
+Now the same three runs with the console set in the parent first.
+
+```text
+parent: 'รายงาน.txt'
+parent: 'รายงาน.txt'
+parent: 'รายงาน.txt'
+```
+
+**Why setting it in our own process fixes it.** Because our process exists before
+any shell does. There is no ordering problem left to lose.
+
+```python
+_CONSOLE_READY = False
+
+
+def _use_utf8_console():
+    global _CONSOLE_READY
+    if _CONSOLE_READY or os.name != "nt":
+        return
+    _CONSOLE_READY = True
+    try:
+        import ctypes
+
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        ctypes.windll.kernel32.SetConsoleCP(65001)
+    except Exception:
+        # No console attached, or not permitted. The chcp in the command is
+        # the fallback and still helps every program the shell launches.
+        pass
+```
+
+The module level flag makes it happen once rather than on every command, which
+matters only because it is a system call in a hot path, and the `os.name` check
+makes it a no-op everywhere else. The bare `except` covers a process with no
+console attached, where these calls fail and there is nothing to be done about
+it. In that case the `chcp` prefix is the fallback, and it still helps every
+program the shell launches even though it comes too late for the shell itself.
+
+**Why the prefix is kept at all.** Because the two cover different things. The
+parent side call fixes the console. The prefix fixes the shell's own idea of its
+codepage in the cases where the console call did not happen, and it also travels
+with the command into any nested shell the command starts.
+
+**What this changes for the person at the keyboard.** `SetConsoleOutputCP`
+changes the codepage of the terminal you are sitting in, and it stays changed
+after the agent exits. That is worth saying out loud rather than burying. It is
+a display setting. It does not touch a file, it does not change how anything is
+stored, and codepage 65001 is what every modern tool wants anyway. The
+alternative is output that is quietly wrong, which is a worse thing to hand
+somebody than a terminal that can now display more characters than it could
+before.
+
+**The honest limits.**
+
+The shell reads its command line before any `chcp` on that line takes effect. So
+in the case where the console cannot be set in the parent, non ASCII characters
+inside the command itself are flattened on the way in, not just on the way out.
+Forcing that case by leaving the console at 437 shows both halves at once, the
+Thai gone entirely and the accented character surviving as a cp437 byte.
+
+```text
+b'?????? \r\ncaf\x82\r\n'
+```
+
+Where a console does exist, which is any ordinary terminal, setting it in the
+parent covers the command line too. Where it does not, the prefix is all there
+is and the flattening stands.
+
+None of this is worth much worry, because it only affects non ASCII text typed
+into a command. File names and command output are the cases that actually come
+up, and both of them work. And if the model wants to put non ASCII text into a
+file, `write_file` is the right tool for that anyway, not `echo` through a shell.
 
 ### Running the checks on Windows
 
@@ -1483,7 +1811,7 @@ what that proves.
 
 It proves a string was returned. That is all.
 
-It would pass on a `run_shell` that called `subprocess.run` first and checked
+It would pass on a `run_shell` that called `subprocess.Popen` first and checked
 `confirm` afterwards. It would pass on one that consulted `confirm`, ignored the
 answer, ran the command, and returned the refusal message anyway. It would pass
 on a version where somebody moved two lines during a refactor and broke the only
@@ -1683,7 +2011,7 @@ Three, in increasing order of usefulness. All optional, all teaching something
 the reading cannot.
 
 **One. Break the check on purpose.** In `run_shell`, move the `confirm` call to
-after `subprocess.run`, so the command runs and then the answer is consulted. Run
+after `subprocess.Popen`, so the command runs and then the answer is consulted. Run
 `check.py`. Watch which assertion still passes and which one fails. Then put it
 back. Five minutes, and you will never again write a security test that reads
 only the return value.

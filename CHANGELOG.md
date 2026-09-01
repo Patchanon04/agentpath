@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.0.4
+
+Command output on Windows was decoded as utf-8 whatever the command actually
+wrote. Two encodings turn up on the same machine, because a modern tool
+writes utf-8 while most of the programs that ship with the system write the
+old console codepage, and decoding the second as the first turned every
+accented or non Latin character into a replacement mark without a word of
+complaint. Output is now decoded by trying utf-8 first, which fails loudly on
+the wrong input, then the codepages the machine actually uses.
+
+A second and separate problem sat behind it. Listing a directory holding a
+Thai file name printed question marks, which is not a decoding failure at
+all. The shell cannot write those characters in the old codepage, so they
+were destroyed before we saw the bytes, and decoding cannot recover what was
+never encoded. The console is now put into utf-8 once before any shell is
+started.
+
+Putting chcp at the front of the command, which is the obvious fix, does not
+work reliably and is worth knowing about. A shell builtin such as dir reads
+the codepage when the shell starts, which is before the chcp on the same
+command line runs, so the first command of a session still lost the name and
+every command after it was fine.
+
+Both fixes also reached the sixteen lesson copies of the shell tool, which
+had none of this and none of the timeout fix either, so the course was
+teaching two bugs.
+
 ## 1.0.3
 
 Eleven bugs from a second review, and one of them was introduced by the

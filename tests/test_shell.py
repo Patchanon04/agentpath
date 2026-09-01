@@ -84,3 +84,36 @@ def test_a_timeout_really_kills_the_command(tmp_path):
     assert elapsed < 3.0, f"the call waited {elapsed:.1f}s for a 1 second timeout"
     time.sleep(6)
     assert not (tmp_path / "finished.txt").exists(), "the command survived its own timeout"
+
+
+def test_output_is_decoded_rather_than_assumed_to_be_utf_8(tmp_path):
+    """Two encodings turn up on the same machine and both have to work.
+
+    A modern tool writes utf-8. Most of the ones that ship with Windows write
+    the old console codepage. Decoding the second as the first turns every
+    accented character into a replacement mark, and errors equals replace
+    means nothing complains about it.
+    """
+    legacy = (
+        f'"{sys.executable}" -c "import sys; '
+        "sys.stdout.buffer.write('cafe resume'.replace('e','\u00e9').encode('cp437'))\""
+    )
+    assert "caf\u00e9 r\u00e9sum\u00e9" in run(tmp_path, legacy)
+
+    modern = f'"{sys.executable}" -c "print(\'\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35\')"'
+    assert "\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35" in run(tmp_path, modern)
+
+
+def test_the_agent_can_see_a_file_name_it_cannot_spell(tmp_path):
+    """Listing a directory used to lose every non Latin name to question marks.
+
+    The console codepage cannot write those characters at all, so the shell
+    destroyed them before we saw the bytes. Decoding cannot recover what was
+    never encoded, which is why the shell is asked to speak utf-8 first.
+    """
+    (tmp_path / "\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35.txt").write_text("hi", encoding="utf-8")
+    (tmp_path / "plain.txt").write_text("hi", encoding="utf-8")
+
+    listing = run(tmp_path, "dir /b" if sys.platform == "win32" else "ls -1")
+    assert "plain.txt" in listing
+    assert "\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35.txt" in listing, listing

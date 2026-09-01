@@ -203,12 +203,142 @@ def run(name, arguments):
 
 # Lesson 08 adds the shell tool. Everything above is unchanged from lesson 07.
 
+import signal
 import subprocess  # noqa: E402
 
 SHELL_TIMEOUT = 60
 
 
 CANCELLATION = None
+
+
+def _new_process_group():
+    """Start the command in its own group so the whole tree can be killed.
+
+    Without this there is nothing to aim at. On Unix the shell and its
+    children share our group, so signalling the group would signal us too.
+    On Windows a new process group is what lets taskkill find the
+    descendants of the shell rather than only the shell.
+    """
+    if os.name == "posix":
+        return {"start_new_session": True}
+    return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+
+
+def _kill_tree(process):
+    """Kill the command and everything it started."""
+    try:
+        if os.name == "posix":
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        else:
+            killed = subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                capture_output=True,
+                timeout=10,
+            )
+            if killed.returncode != 0:
+                raise OSError(f"taskkill exited {killed.returncode}")
+    except Exception:
+        # Last resort. Killing only the shell beats killing nothing.
+        try:
+            process.kill()
+        except Exception:
+            pass
+
+
+def _output_encodings():
+    """The encodings to try on command output, in order.
+
+    Assuming utf-8 is wrong on Windows. A command that writes utf-8, which
+    most modern tools do, and a command that writes the old console codepage,
+    which most of the ones that ship with the system do, both turn up on the
+    same machine. Decoding the second as the first turns every accented or
+    non Latin character into a replacement mark, and errors equals replace
+    means it happens without a word.
+
+    utf-8 goes first because it fails loudly on the wrong input. A single
+    byte encoding never fails, so trying one of those first would decode
+    utf-8 text into nonsense and never complain.
+    """
+    encodings = ["utf-8"]
+    if os.name == "nt":
+        import ctypes
+
+        for codepage in (
+            ctypes.windll.kernel32.GetOEMCP(),
+            ctypes.windll.kernel32.GetACP(),
+        ):
+            name = f"cp{codepage}"
+            if name not in encodings:
+                encodings.append(name)
+    return encodings
+
+
+def decode_output(raw):
+    """Turn the bytes a command produced into text."""
+    for encoding in _output_encodings():
+        try:
+            return raw.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
+_CONSOLE_READY = False
+
+
+def _use_utf8_console():
+    """Put this process's console into utf-8, once.
+
+    The chcp inside the command is not enough on its own. A shell builtin
+    such as dir reads the codepage when the shell starts, which happens
+    before the chcp in the same command line runs, so the first command of a
+    session still lost non ASCII names while every later one was fine. That
+    is a maddening thing to debug and the fix is to set it here instead,
+    before any shell exists.
+
+    This does change the codepage of the terminal the person is sitting in.
+    It is a display setting, it is what any modern tool wants anyway, and the
+    alternative is output that is quietly wrong.
+    """
+    global _CONSOLE_READY
+    if _CONSOLE_READY or os.name != "nt":
+        return
+    _CONSOLE_READY = True
+    try:
+        import ctypes
+
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        ctypes.windll.kernel32.SetConsoleCP(65001)
+    except Exception:
+        # No console attached, or not permitted. The chcp in the command is
+        # the fallback and still helps every program the shell launches.
+        pass
+
+
+def as_utf8_console(command):
+    """Ask the Windows shell to speak utf-8 before running the command.
+
+    Without this the shell does the damage before we ever see the bytes.
+    Listing a directory that holds a Thai file name on a console set to the
+    old codepage prints question marks, because that codepage cannot write
+    those characters at all. Decoding cannot recover what was never encoded.
+
+    What this does not fix. When no console can be set, which happens when
+    the agent runs with none attached, the shell reads the command line
+    before the chcp takes effect and non ASCII characters inside the command
+    itself are flattened. With a console it works. File names and command
+    output are fine either way, which covers the cases that come up.
+
+    The prefix is a fixed string the model cannot influence, and it changes
+    nothing except the encoding. It is worth knowing that it makes the
+    command that runs differ by these few characters from the one the person
+    approved, which is why it is written out here rather than hidden.
+    """
+    if os.name != "nt":
+        return command
+    _use_utf8_console()
+    return f"chcp 65001 >nul & {command}"
 
 
 def run_shell(command):
@@ -222,26 +352,38 @@ def run_shell(command):
     # failure a cancellation token exists to prevent.
     if CANCELLATION is not None and CANCELLATION.cancelled:
         return "Cancelled before the command started."
+    process = subprocess.Popen(
+        as_utf8_console(command),
+        shell=True,
+        cwd=WORKSPACE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        **_new_process_group(),
+    )
     try:
-        completed = subprocess.run(
-            command,
-            shell=True,
-            cwd=WORKSPACE,
-            capture_output=True,
-            timeout=SHELL_TIMEOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
+        raw_out, raw_err = process.communicate(timeout=SHELL_TIMEOUT)
     except subprocess.TimeoutExpired:
-        return f"Error: the command timed out after {SHELL_TIMEOUT} seconds"
+        # shell=True means the thing we started is a shell and the slow
+        # command is its child. Killing only the shell leaves the child
+        # running and still holding the pipes, so a call meant to give up
+        # after the timeout waits for the whole run anyway.
+        _kill_tree(process)
+        try:
+            raw_out, raw_err = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            raw_out, raw_err = b"", b""
+        partial = truncate(decode_output(raw_out) + decode_output(raw_err), 500)
+        note = f"Error: the command timed out after {SHELL_TIMEOUT} seconds and was killed"
+        return f"{note}\n{partial}" if partial.strip() else note
+
+    stdout, stderr = decode_output(raw_out), decode_output(raw_err)
     parts = []
-    if completed.stdout:
-        parts.append(completed.stdout)
-    if completed.stderr:
-        parts.append(completed.stderr)
-    if completed.returncode != 0:
-        parts.append(f"[exit code {completed.returncode}]")
+    if stdout:
+        parts.append(stdout)
+    if stderr:
+        parts.append(stderr)
+    if process.returncode != 0:
+        parts.append(f"[exit code {process.returncode}]")
     return truncate("\n".join(parts) or "[no output]")
 
 

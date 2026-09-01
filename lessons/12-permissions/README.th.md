@@ -279,8 +279,10 @@ def run_shell(command):
     # lesson 12. Asking in both places would ask the same question twice,
     # and a tool that asks its own questions cannot be reused by anything
     # that is not a terminal.
-    try:
-        completed = subprocess.run(
+    process = subprocess.Popen(
+        as_utf8_console(command),
+        shell=True,
+        ...
 ```
 
 การลบนั้นคืออีกครึ่งหนึ่งของการเปลี่ยนแปลง และคุ้มที่จะพูดให้ชัดว่าทำไมมันจึงเป็นการลบ
