@@ -31,8 +31,8 @@ Every chapter also has a Thai version, which is rare for material at this depth.
 |------|--------------|--------|
 | 1 Foundations | An agent that streams, calls tools, loops until the work is done, and can switch model providers | Available now |
 | 2 Real Tools | File reading and editing, running shell commands, searching code, and a small coding agent that works | Available now |
-| 3 The Harness | Permissions, saved sessions, context management, token economy, retrieval, error recovery | In progress |
-| 4 Advanced | An MCP client, subagents, multi agent patterns, evaluation and model choice | Planned |
+| 3 The Harness | Permissions, saved sessions, context management, token economy, retrieval, error recovery | Available now |
+| 4 Advanced | An MCP client, subagents, multi agent patterns, evaluation and model choice | In progress |
 
 ## Quickstart
 
@@ -76,6 +76,13 @@ and setting the three environment variables the whole course uses.
 | [09 search tools](lessons/09-search-tools/) | Finding files and text, and why this beats a vector database for code |
 | [10 anatomy of a prompt](lessons/10-anatomy-of-a-prompt/) | The three places your words reach the model, including the one everyone forgets |
 | [11 mini coding agent](lessons/11-mini-coding-agent/) | Everything wired together into an agent that fixes a real bug |
+| [12 permissions](lessons/12-permissions/) | A gate that remembers your answer, so it does not train you to stop reading it |
+| [13 sessions](lessons/13-sessions/) | The conversation on disk, which is also the best debugging tool you have |
+| [14 context management](lessons/14-context-management/) | Trimming a conversation without stranding a tool result, which is the trap everyone hits |
+| [15 token economy](lessons/15-token-economy/) | Why the same conversation costs more every turn, and what actually reduces it |
+| [16 retrieval](lessons/16-retrieval/) | Four questions that tell you whether you need RAG at all, and usually you do not |
+| [17 errors and retries](lessons/17-errors-and-retries/) | Surviving rate limits, stuck models, and a person who changes their mind |
+| [18 the harness](lessons/18-the-harness/) | Everything wired together into a tool you could actually use |
 
 ## Using the finished framework
 
@@ -91,6 +98,10 @@ export AGENTPATH_BASE_URL=http://localhost:11434/v1
 export AGENTPATH_MODEL=qwen3
 agentpath chat
 ```
+
+The command now has three subcommands. `chat` is an interactive session,
+`run` does one task and exits, and `resume` carries on from a session you
+saved earlier.
 
 ## How this repository is laid out
 

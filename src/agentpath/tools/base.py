@@ -12,15 +12,27 @@ from agentpath.types import ToolCall, ToolResult
 
 @dataclass
 class Tool:
+    """One tool the model can ask for.
+
+    safe says whether this tool can be run without asking a person first.
+    It defaults to False because forgetting to think about a new tool must
+    lead to a question rather than to silence, and because the person who
+    writes a tool is the one who knows whether it can destroy something.
+    """
+
     name: str
     description: str
     parameters: dict
     fn: Callable[..., object]
+    safe: bool = False
 
 
 class ToolRegistry:
     def __init__(self, tools=()):
         self._tools = {tool.name: tool for tool in tools}
+
+    def get(self, name):
+        return self._tools.get(name)
 
     def schemas(self) -> list[dict]:
         return [

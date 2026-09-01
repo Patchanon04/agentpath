@@ -18,6 +18,7 @@ def run(provider, user_input, system=None, max_turns=10):
 
         if not calls:
             print()
+            messages.append({"role": "assistant", "content": text})
             return text, messages
 
         messages.append(

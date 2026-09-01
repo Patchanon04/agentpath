@@ -45,3 +45,18 @@ def test_timeout_is_reported_not_raised(tmp_path):
 
 def test_long_output_is_truncated(tmp_path):
     assert "truncated" in run(tmp_path, f"\"{sys.executable}\" -c \"print('x' * 9000)\"")
+
+
+def test_a_cancelled_run_does_not_start_the_command(tmp_path):
+    """An interrupt has to stop real work, not only the display."""
+    from agentpath.cancel import Cancellation
+
+    cancellation = Cancellation()
+    cancellation.cancel()
+    marker = (tmp_path / "started.txt").as_posix()
+    command = f"\"{sys.executable}\" -c \"open(r'{marker}', 'w').write('x')\""
+    tools = shell_tools(tmp_path, confirm=always_allow, cancellation=cancellation)
+    call = ToolCall(id="1", name="run_shell", arguments={"command": command})
+    result = ToolRegistry(tools).run(call).content
+    assert "Cancelled" in result
+    assert not (tmp_path / "started.txt").exists()
