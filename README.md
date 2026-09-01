@@ -32,7 +32,9 @@ Every chapter also has a Thai version, which is rare for material at this depth.
 | 1 Foundations | An agent that streams, calls tools, loops until the work is done, and can switch model providers | Available now |
 | 2 Real Tools | File reading and editing, running shell commands, searching code, and a small coding agent that works | Available now |
 | 3 The Harness | Permissions, saved sessions, context management, token economy, retrieval, error recovery | Available now |
-| 4 Advanced | An MCP client, subagents, multi agent patterns, evaluation and model choice | In progress |
+| 4 Advanced | An MCP client, subagents, multi agent patterns, evaluation and model choice | Available now |
+
+All four parts are finished, so the course is complete at 24 chapters.
 
 ## Quickstart
 
@@ -83,6 +85,11 @@ and setting the three environment variables the whole course uses.
 | [16 retrieval](lessons/16-retrieval/) | Four questions that tell you whether you need RAG at all, and usually you do not |
 | [17 errors and retries](lessons/17-errors-and-retries/) | Surviving rate limits, stuck models, and a person who changes their mind |
 | [18 the harness](lessons/18-the-harness/) | Everything wired together into a tool you could actually use |
+| [19 MCP client](lessons/19-mcp-client/) | Using tools somebody else wrote, and what they cost you on every request |
+| [20 subagents](lessons/20-subagents/) | Delegating a job to another agent, and the stale view that comes with it |
+| [21 multi agent](lessons/21-multi-agent/) | Running several agents at once without their output turning to noise |
+| [22 evals](lessons/22-evals/) | Measuring whether a change helped, and choosing a model by evidence |
+| [23 ship it](lessons/23-ship-it/) | Packaging it, publishing it, and what to build next |
 
 ## Using the finished framework
 
@@ -99,9 +106,11 @@ export AGENTPATH_MODEL=qwen3
 agentpath chat
 ```
 
-The command now has three subcommands. `chat` is an interactive session,
-`run` does one task and exits, and `resume` carries on from a session you
-saved earlier.
+The command now has four subcommands. `chat` is an interactive session,
+`run` does one task and exits, `resume` carries on from a session you
+saved earlier, and `eval` runs a file of tasks and reports which ones passed.
+An MCP server can be connected with `--mcp`, so the agent can use tools you
+did not write.
 
 ## How this repository is laid out
 
