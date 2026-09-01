@@ -22,6 +22,12 @@ from threading import Thread
 # Tool names may contain dots and dashes because MCP tools are prefixed
 # with the name of the server they came from.
 DIRECTIVE = re.compile(r"\[\[tool:([A-Za-z_][A-Za-z0-9_.-]*):(\{.*?\})\]\]", re.DOTALL)
+# The plural form asks for several tool calls in one assistant message,
+# which is what a real model does when the calls do not depend on each
+# other. Without it the loop over assistant.tool_calls is never exercised
+# with more than one item, and the paths that only appear when a turn is
+# abandoned part way through cannot be reached at all.
+PARALLEL = re.compile(r"\[\[tools:([A-Za-z_][A-Za-z0-9_.-]*):(\{.*?\})\]\]", re.DOTALL)
 GREETING = "Hello from the mock server."
 CALL_ID = "call_mock_1"
 
@@ -53,6 +59,19 @@ def decide(messages):
     the same message. We answer them one at a time, choosing which one by
     counting how many tool results have already come back.
     """
+    parallel = []
+    for message in messages:
+        parallel.extend(PARALLEL.findall(_text_of(message)))
+    if parallel and not any(_tool_result_of(m) is not None for m in messages):
+        return "", [
+            {
+                "id": f"call_mock_{index + 1}",
+                "name": name,
+                "arguments": json.loads(raw),
+            }
+            for index, (name, raw) in enumerate(parallel)
+        ]
+
     directives = []
     for message in messages:
         directives.extend(DIRECTIVE.findall(_text_of(message)))
