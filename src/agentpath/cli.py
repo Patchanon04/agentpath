@@ -40,6 +40,29 @@ def build_tools(root, cancellation=None):
     )
 
 
+OPEN_MCP_CLIENTS = []
+
+
+def connect_mcp(registry, command, index):
+    """Start one MCP server and add everything it offers to the registry.
+
+    Names are prefixed because two servers can easily both offer a tool
+    called search, and without a prefix the second one silently replaces the
+    first.
+    """
+    import shlex
+
+    from agentpath.mcp import MCPClient, mcp_tools
+
+    client = MCPClient(shlex.split(command))
+    client.connect()
+    OPEN_MCP_CLIENTS.append(client)
+    prefix = client.server_name or f"mcp{index}"
+    for tool in mcp_tools(client, prefix=prefix):
+        registry.add(tool)
+    return client
+
+
 def build_provider(kind: str):
     if kind == "anthropic":
         from agentpath.providers.anthropic import AnthropicProvider
@@ -73,9 +96,14 @@ def build_agent(arguments, session):
         auto_approve=os.environ.get("AGENTPATH_AUTO_APPROVE") == "1" or arguments.yes,
     )
     cancellation = Cancellation()
+    tools = build_tools(root, cancellation=cancellation)
+    for index, command in enumerate(getattr(arguments, "mcp", None) or []):
+        connect_mcp(tools, command, index)
+    if getattr(arguments, "verbose", False):
+        print(f"tool schemas cost {tools.schema_size()} characters on every request")
     agent = Agent(
         provider=build_provider(arguments.provider),
-        tools=build_tools(root, cancellation=cancellation),
+        tools=tools,
         system=build_system_prompt(root),
         permissions=permissions,
         on_message=session.append,
@@ -188,6 +216,41 @@ def command_resume(arguments) -> int:
     return finish(agent, session)
 
 
+def command_eval(arguments) -> int:
+    """Run a set of tasks and report which ones passed.
+
+    The exit code is what makes this useful rather than merely interesting.
+    A non zero exit lets continuous integration refuse a change that made
+    the agent worse, which is the only way a measurement changes anything.
+    """
+    check_environment()
+    import runpy
+
+    from agentpath.evals import run_evals
+    from agentpath.evals.runner import report
+
+    module = runpy.run_path(arguments.file)
+    tasks = module.get("TASKS")
+    if not tasks:
+        print(f"{arguments.file} does not define TASKS", file=sys.stderr)
+        return 2
+
+    root = Path(arguments.workspace).resolve()
+
+    def build(task):
+        return Agent(
+            provider=build_provider(arguments.provider),
+            tools=build_tools(task.workspace or root),
+            system=build_system_prompt(task.workspace or root),
+            permissions=Permissions(auto_approve=True),
+            budget=arguments.budget,
+        )
+
+    results = run_evals(tasks, build, workers=arguments.workers)
+    print(report(results))
+    return 0 if all(result.passed for result in results) else 1
+
+
 def add_common_arguments(parser):
     parser.add_argument("--provider", choices=["openai", "anthropic"], default="openai")
     parser.add_argument(
@@ -207,6 +270,18 @@ def add_common_arguments(parser):
         action="store_true",
         help="Approve every tool call without asking. Know what you are doing.",
     )
+    parser.add_argument(
+        "--mcp",
+        action="append",
+        default=None,
+        metavar="COMMAND",
+        help="Command that starts an MCP server. Repeat to connect several.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Report the fixed cost of the tool schemas before starting.",
+    )
 
 
 def main(argv=None):
@@ -220,6 +295,13 @@ def main(argv=None):
     run_parser.add_argument("task", help="What you want the agent to do")
     add_common_arguments(run_parser)
 
+    eval_parser = subcommands.add_parser(
+        "eval", help="Run a file of tasks and report which ones passed"
+    )
+    eval_parser.add_argument("file", help="A Python file that defines TASKS")
+    eval_parser.add_argument("--workers", type=int, default=1)
+    add_common_arguments(eval_parser)
+
     resume_parser = subcommands.add_parser(
         "resume", help="Continue a saved session, or list sessions when given no name"
     )
@@ -231,6 +313,7 @@ def main(argv=None):
         "chat": command_chat,
         "run": command_run,
         "resume": command_resume,
+        "eval": command_eval,
     }[arguments.command](arguments)
 
 

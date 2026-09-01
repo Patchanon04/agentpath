@@ -230,3 +230,18 @@ def test_streamed_responses_report_usage_on_the_last_chunk(mock):
     )
     events = read_sse(response)
     assert events[-1]["usage"]["prompt_tokens"] > 0
+
+
+def test_a_prefixed_tool_name_is_recognised(mock):
+    """MCP tools arrive prefixed with their server name, dots and all."""
+    response = httpx.post(
+        f"{mock}/v1/chat/completions",
+        json={
+            "model": "mock",
+            "messages": [
+                {"role": "user", "content": '[[tool:my-server.echo:{"text": "hi"}]]'}
+            ],
+        },
+    )
+    call = response.json()["choices"][0]["message"]["tool_calls"][0]
+    assert call["function"]["name"] == "my-server.echo"

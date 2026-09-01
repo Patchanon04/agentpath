@@ -79,3 +79,50 @@ def test_resuming_a_session_that_does_not_exist_reports_it(monkeypatch, tmp_path
     monkeypatch.setenv("AGENTPATH_MODEL", "mock")
     assert main(["resume", "--session", "nope"]) == 1
     assert "does not exist" in capsys.readouterr().err
+
+
+def test_the_eval_command_exists():
+    with pytest.raises(SystemExit) as exit_info:
+        main(["eval", "--help"])
+    assert exit_info.value.code == 0
+
+
+def test_eval_reports_failure_with_a_non_zero_exit_code(monkeypatch, tmp_path, capsys):
+    """The exit code is what lets continuous integration refuse a bad change."""
+    monkeypatch.setenv("AGENTPATH_BASE_URL", "http://127.0.0.1:1/v1")
+    monkeypatch.setenv("AGENTPATH_MODEL", "mock")
+    tasks_file = tmp_path / "tasks.py"
+    tasks_file.write_text(
+        "from agentpath.evals import Task\n"
+        "TASKS = [Task('always fails', 'hello', lambda answer, workspace: (False, 'no'))]\n",
+        encoding="utf-8",
+    )
+    assert main(["eval", str(tasks_file), "--workspace", str(tmp_path)]) == 1
+    assert "0 of 1 tasks passed" in capsys.readouterr().out
+
+
+def test_eval_refuses_a_file_with_no_tasks(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("AGENTPATH_BASE_URL", "http://127.0.0.1:1/v1")
+    monkeypatch.setenv("AGENTPATH_MODEL", "mock")
+    empty = tmp_path / "empty.py"
+    empty.write_text("NOTHING = 1\n", encoding="utf-8")
+    assert main(["eval", str(empty)]) == 2
+    assert "does not define TASKS" in capsys.readouterr().err
+
+
+def test_mcp_tools_join_the_registry_through_the_command_line(monkeypatch, tmp_path):
+    import sys as _sys
+
+    from agentpath.cli import build_tools, connect_mcp
+
+    registry = build_tools(tmp_path)
+    before = set(schema["name"] for schema in registry.schemas())
+    client = connect_mcp(
+        registry, f'"{_sys.executable}" -m agentpath.testing.mock_mcp_server', 0
+    )
+    try:
+        after = set(schema["name"] for schema in registry.schemas())
+        assert "agentpath-mock.echo" in after - before
+        assert registry.get("agentpath-mock.echo").safe is False
+    finally:
+        client.close()

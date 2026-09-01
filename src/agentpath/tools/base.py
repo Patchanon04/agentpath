@@ -4,6 +4,7 @@ The schema is written by hand rather than generated from type hints. Reading
 the schema is how a learner understands what the model actually receives, and
 hiding it behind a decorator would remove the most instructive part.
 """
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -33,6 +34,24 @@ class ToolRegistry:
 
     def get(self, name):
         return self._tools.get(name)
+
+    def add(self, tool):
+        """Put one more tool in. Used when tools are discovered at run time."""
+        self._tools[tool.name] = tool
+
+    def schema_size(self) -> int:
+        """How many characters of tool description travel on every request.
+
+        This is the fixed cost of having tools at all. It is paid on the
+        first request and on every request after it, before the model has
+        read a word of the actual task. Connect a handful of MCP servers and
+        this number can eat a large share of the context window on its own,
+        which is why it is worth being able to see it.
+        """
+        schemas = self.schemas()
+        if not schemas:
+            return 0
+        return len(json.dumps(schemas))
 
     def schemas(self) -> list[dict]:
         return [
