@@ -9,6 +9,11 @@
 ตัวจริงชื่อ `agentpath` ที่ pip install ใช้งานได้
 
 - ชื่อโปรเจกต์ `agentpath` (ตรวจแล้ว PyPI ว่าง, GitHub แทบไม่มีคู่แข่ง)
+
+ทำไมต้องมีอันนี้ในเมื่อ tutorial สอน agent มีเป็นสิบ เพราะเกือบทั้งหมดหยุดที่ agent loop
+แต่ของจริงที่คนใช้ (Claude Code, OpenHands) คือ harness ที่มี permission, session,
+context management, MCP ซึ่งแทบไม่มีใครสอนสร้าง โปรเจกต์นี้พาไปถึงตรงนั้น
+และมีฉบับภาษาไทยซึ่งแทบไม่มีในตลาด
 - Tagline: "Learn how AI agents actually work by building a real one — from a single LLM call to a full agent harness."
 - ภาษาโปรแกรม Python
 - เนื้อหาอังกฤษเป็นหลัก แปลไทยตอน ship แต่ละภาค
@@ -64,12 +69,12 @@ agentpath/
 
 | บท | เนื้อหา |
 |----|---------|
-| 00 setup | ติดตั้ง Python/uv, หา API key, ลง Ollama, env var ครอบคลุม Windows/Mac/Linux ระบุ model ที่ tool calling ใช้ได้จริง (qwen3, llama3.1-8b ขึ้นไป) และ free tier cloud (Groq, OpenRouter) เป็นทางสายกลาง นี่คือด่านที่คนเลิกเยอะสุด ต้องเป็นบทเต็ม |
+| 00 setup | ติดตั้ง Python/uv, หา API key, ลง Ollama, env var ครอบคลุม Windows/Mac/Linux ระบุ model ที่ tool calling ใช้ได้จริง (qwen3, llama3.1-8b ขึ้นไป) และ free tier cloud (Groq, OpenRouter) เป็นทางสายกลาง นี่คือด่านที่คนเลิกเยอะสุด ต้องเป็นบทเต็ม check.py ของบทนี้ตรวจ environment (Python version, ต่อ LLM endpoint ที่เลือกได้จริง) |
 | 01 first LLM call | ยิง OpenAI-compatible API ตรงๆ ด้วย httpx เห็น request/response ดิบ เข้าใจว่า LLM คือ text in, text out |
 | 02 conversation loop | เก็บ history, chat CLI โต้ตอบได้ |
 | 03 tool calling | เขียน JSON schema ด้วยมือ, LLM ขอเรียก tool, เรารันแล้วส่งผลกลับ ใช้ toy tools (เครื่องคิดเลข, ทอยลูกเต๋า, mock weather) เพราะผลลัพธ์คาดเดาได้ ผู้เรียนโฟกัสกลไก มีหัวข้อ "ถ้า model ไม่ยอมเรียก tool" เป็นบทเรียนไม่ใช่ bug |
 | 04 agent loop | วน tool call จนงานเสร็จ agent ตัวจริงตัวแรก |
-| 05 streaming | เปลี่ยน loop เป็น streaming ตอนโค้ดยังเล็ก การรื้อครั้งนี้คือบทเรียนว่าทำไม design ต้องเผื่อ streaming |
+| 05 streaming | เปลี่ยน loop เป็น streaming ตอนโค้ดยังเล็ก การรื้อครั้งนี้คือบทเรียนว่าทำไม design ต้องเผื่อ streaming บทนี้ยากสุดของภาค 1 ต้องแบ่งสองขยัก stream ข้อความก่อน แล้วค่อย stream tool call (arguments มาเป็นเศษ JSON ต้องสะสมเอง) หมายเหตุ implementation ต้อง verify พฤติกรรม streaming + tools ของ Ollama เป็นงานแรกๆ ถ้าไม่สมบูรณ์ให้มี fallback ไม่ stream ตอนมี tools |
 | 06 provider abstraction | อยากใช้ Claude แต่ schema ไม่เหมือน จึงต้อง abstract ออกแบบ interface โดยมี streaming อยู่ในนั้นตั้งแต่แรก รองรับ OpenAI-compat + native Anthropic |
 
 เหตุผลที่ภาค 1 ใช้ OpenAI-compatible API เพราะ Ollama, OpenRouter, Groq, OpenAI
@@ -115,7 +120,8 @@ streaming เข้าสอง provider เท่ากับรื้อสอ
 
 ## 6. สถาปัตยกรรม src/agentpath
 
-หลักการ หนึ่งโมดูลเท่ากับหนึ่งบทเรียน ผู้เรียนจบบทไหนชี้ได้ว่าไฟล์ไหนคือสิ่งที่เพิ่งสร้าง
+หลักการ ทุกบทชี้ได้ว่าสร้างไฟล์ไหนใน framework ตัวเต็ม (ไฟล์โครงสร้างอย่าง types.py,
+cli.py, mock_server.py โตข้ามหลายบท ไม่นับเป็น 1:1)
 
 ```
 src/agentpath/
@@ -138,6 +144,7 @@ src/agentpath/
 ├── evals/              task runner + LLM judge
 ├── testing/
 │   └── mock_server.py  mock LLM (stdlib http.server) สำหรับ CI และผู้เรียน
+│                       เป็น component จริงที่โตตามหลักสูตร ดูรายละเอียดท้ายข้อนี้
 └── cli.py              argparse (chat, run, resume)
 ```
 
@@ -166,6 +173,14 @@ src/agentpath/
 
 6. **ณ จุด ship แต่ละภาค src/agentpath เท่ากับสถานะจบบทล่าสุดของภาคนั้น**
    ไม่ใส่ของล้ำอนาคต
+
+7. **mock_server.py เป็น component จริงที่โตตามหลักสูตร** ไม่ใช่ script แปะข้าง
+   ความสามารถที่ต้องมีตามบทที่มาถึง
+   - ภาค 1 ตอบ OpenAI-compat ทั้งแบบปกติและ SSE streaming รวม tool call
+     และตอบ dialect ของ Anthropic ด้วย (ไม่งั้น check บท 06 ทดสอบ abstraction ไม่ได้จริง)
+   - ภาค 3 สั่งจำลอง failure ได้ (rate limit, 500, timeout) ผ่าน request header
+     ไม่งั้นบท 15 errors & retries ไม่มีอะไรตรวจ
+   - ภาค 4 โผล่เป็นเนื้อหาในบท evals ให้ผู้เรียนทดสอบ agent โดยไม่เสียเงิน
 
 ## 7. CI
 
