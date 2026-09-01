@@ -160,3 +160,34 @@ def test_anthropic_tool_result_block_is_echoed(mock):
         },
     )
     assert "5" in response.json()["content"][0]["text"]
+
+
+def test_multiple_directives_are_answered_one_at_a_time(mock):
+    prompt = (
+        'Fix it. [[tool:read_file:{"path": "a.py"}]]'
+        '[[tool:edit_file:{"path": "a.py", "old": "x", "new": "y"}]]'
+    )
+    first = httpx.post(
+        f"{mock}/v1/chat/completions",
+        json={"model": "mock", "messages": [{"role": "user", "content": prompt}]},
+    ).json()
+    assert first["choices"][0]["message"]["tool_calls"][0]["function"]["name"] == "read_file"
+
+    history = [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": "", "tool_calls": []},
+        {"role": "tool", "tool_call_id": "call_mock_1", "content": "x"},
+    ]
+    second = httpx.post(
+        f"{mock}/v1/chat/completions", json={"model": "mock", "messages": history}
+    ).json()
+    assert second["choices"][0]["message"]["tool_calls"][0]["function"]["name"] == "edit_file"
+
+    history += [
+        {"role": "assistant", "content": "", "tool_calls": []},
+        {"role": "tool", "tool_call_id": "call_mock_2", "content": "done"},
+    ]
+    third = httpx.post(
+        f"{mock}/v1/chat/completions", json={"model": "mock", "messages": history}
+    ).json()
+    assert not third["choices"][0]["message"].get("tool_calls")

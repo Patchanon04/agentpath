@@ -6,11 +6,22 @@ of the course, so they are deliberately absent here.
 import argparse
 import os
 import sys
+from pathlib import Path
 
 from agentpath.agent import Agent
+from agentpath.prompt import build_system_prompt
+from agentpath.tools.base import ToolRegistry
+from agentpath.tools.files import file_tools
+from agentpath.tools.search import search_tools
+from agentpath.tools.shell import shell_tools
 from agentpath.types import TextDelta, ToolCallRequest, ToolResult, TurnDone
 
 REQUIRED = ["AGENTPATH_BASE_URL", "AGENTPATH_MODEL"]
+
+
+def build_tools(root):
+    """Every tool the chat command gives the agent."""
+    return ToolRegistry(file_tools(root) + shell_tools(root) + search_tools(root))
 
 
 def build_provider(kind: str):
@@ -34,9 +45,15 @@ def check_environment():
         raise SystemExit(2)
 
 
-def chat(provider_kind: str):
+def chat(provider_kind: str, workspace="."):
     check_environment()
-    agent = Agent(provider=build_provider(provider_kind))
+    root = Path(workspace).resolve()
+    agent = Agent(
+        provider=build_provider(provider_kind),
+        tools=build_tools(root),
+        system=build_system_prompt(root),
+    )
+    print(f"Working in {root}")
     print("Type a message. Press Ctrl+C to leave.")
     while True:
         try:
@@ -62,9 +79,14 @@ def main(argv=None):
     subcommands = parser.add_subparsers(dest="command", required=True)
     chat_parser = subcommands.add_parser("chat", help="Talk to an agent in the terminal")
     chat_parser.add_argument("--provider", choices=["openai", "anthropic"], default="openai")
+    chat_parser.add_argument(
+        "--workspace",
+        default=".",
+        help="Directory the agent is allowed to work in. Defaults to the current directory.",
+    )
     arguments = parser.parse_args(argv)
     if arguments.command == "chat":
-        return chat(arguments.provider)
+        return chat(arguments.provider, arguments.workspace)
     return 0
 
 
