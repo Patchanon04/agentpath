@@ -461,8 +461,8 @@ done
 14-context-management        3b5ff3dc951bedc2578f8c81ab330d7d  91 lines
 15-token-economy             7751a3e429e71a0f305ccfeb0ddc6519  130 lines
 16-retrieval                 7751a3e429e71a0f305ccfeb0ddc6519  130 lines
-17-errors-and-retries        3fb92af29d8aa02403e0e76984b74aa4  140 lines
-18-the-harness               3fb92af29d8aa02403e0e76984b74aa4  140 lines
+17-errors-and-retries        6eb626bd7e5209fcec78dca971fb29bd  140 lines
+18-the-harness               6eb626bd7e5209fcec78dca971fb29bd  140 lines
 ```
 
 Read that table twice, because it says two different things.

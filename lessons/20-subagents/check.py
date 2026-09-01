@@ -84,7 +84,7 @@ def main():
 
     broken_tool, _ = run_subagent_factory(build_broken)
     result = broken_tool("anything")
-    if not result.startswith("Error") or "could not start" in result is None:
+    if not result.startswith("Error") or "could not start" not in result:
         fail(f"a failing child was not reported safely. Got {result!r}")
     print("OK a child that blew up left the parent standing")
 
