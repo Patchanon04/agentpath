@@ -83,6 +83,10 @@ class ToolRegistry:
             return ToolResult(
                 tool_call_id=call.id, name=call.name, content=str(tool.fn(**call.arguments))
             )
+        except KeyboardInterrupt:
+            # An interrupt is not a tool failure. Turning it into a readable
+            # result would swallow the thing the person just asked for.
+            raise
         except Exception as error:
             return ToolResult(
                 tool_call_id=call.id,

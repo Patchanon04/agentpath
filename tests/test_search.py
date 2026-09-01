@@ -126,3 +126,26 @@ def test_ordinary_patterns_with_one_quantifier_still_work(tmp_path):
     (tmp_path / "a.py").write_text("def start():\n    pass\n", encoding="utf-8")
     registry = ToolRegistry(search_tools(tmp_path))
     assert "a.py:1:" in call(registry, "grep_files", pattern="def +start")
+
+NEWLINE = "\n"
+
+def test_a_catastrophic_pattern_gives_up_instead_of_hanging(tmp_path):
+    """The pattern gate cannot catch every shape, so there is a hard deadline.
+
+    Two earlier attempts at that deadline did not work and both are worth
+    knowing. Checking between lines never gets a turn, because one line is
+    enough to go exponential. Moving the match to a thread does not help
+    either, because matching does not release the interpreter lock, so the
+    waiter cannot run. Only a separate process can be given up on.
+    """
+    import time as _time
+
+    (tmp_path / "one.txt").write_text(("a" * 40 + "!" + NEWLINE) * 20, encoding="utf-8")
+    registry = ToolRegistry(search_tools(tmp_path))
+
+    started = _time.monotonic()
+    result = call(registry, "grep_files", pattern="(a|a)+$")
+    elapsed = _time.monotonic() - started
+
+    assert elapsed < 20, f"the search ran for {elapsed:.1f} seconds"
+    assert "given up on" in result or "nested repeat" in result

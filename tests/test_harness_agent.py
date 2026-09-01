@@ -161,37 +161,36 @@ def test_giving_up_on_a_loop_also_leaves_no_orphan():
     assert requested == answered, f"orphaned tool calls {requested - answered}"
 
 
-def test_a_model_nudging_the_arguments_is_still_caught():
-    """The case the spec and lesson 04 promise, which a signature check misses.
+def test_a_model_nudging_the_whitespace_is_still_caught():
+    """The case a strict fingerprint misses.
 
-    A model that retries the same failing tool with the argument wiggled
-    produces a different fingerprint every single time, so a check that only
-    compares calls never fires. What gives it away is that the tool keeps
-    handing back exactly the same answer.
+    A model that retries with a space added or a word capitalised has not
+    changed anything, but a fingerprint taken from the exact arguments
+    says it has, so a strict check never fires.
     """
-    wiggles = iter(["six", "6", "six ", " six", "6 ", "six"])
+    wiggles = iter(["a.txt", "a.txt ", " a.txt", "A.TXT", "a.txt  ", "a.txt"])
 
-    class NudgesTheArguments:
+    class NudgesTheWhitespace:
         def stream(self, messages, tools=None):
             yield TurnDone(
                 message=Message(
                     role="assistant",
                     tool_calls=[
-                        ToolCall(id="c", name="roll", arguments={"sides": next(wiggles)})
+                        ToolCall(id="c", name="peek", arguments={"path": next(wiggles)})
                     ],
                 )
             )
 
-    roll = Tool(
-        name="roll",
+    peek = Tool(
+        name="peek",
         description="d",
         parameters={"type": "object", "properties": {}},
-        fn=lambda sides=None: "Error: sides must be a number",
+        fn=lambda path=None: "Error: no such file",
         safe=True,
     )
     agent = Agent(
-        provider=NudgesTheArguments(),
-        tools=ToolRegistry([roll]),
+        provider=NudgesTheWhitespace(),
+        tools=ToolRegistry([peek]),
         permissions=Permissions(auto_approve=True),
         max_turns=6,
     )
@@ -199,3 +198,87 @@ def test_a_model_nudging_the_arguments_is_still_caught():
     results = [e for e in events if isinstance(e, ToolResult)]
     assert any("going in circles" in r.content for r in results)
     assert "Stopping" in events[-1].message.content
+
+
+def test_a_tool_that_legitimately_returns_the_same_thing_is_left_alone():
+    """The false positive that an earlier version of this check produced.
+
+    A shell command that succeeds quietly returns the same empty output
+    for every different thing it does. Reading no progress from that
+    stopped real work half way through, and a wrong stop costs more than
+    a late one.
+    """
+    names = iter(["a", "b", "c", "d", "e"])
+    made = []
+
+    class DifferentWorkEachTime:
+        def stream(self, messages, tools=None):
+            try:
+                name = next(names)
+            except StopIteration:
+                yield TurnDone(message=Message(role="assistant", content="all done"))
+                return
+            yield TurnDone(
+                message=Message(
+                    role="assistant",
+                    tool_calls=[ToolCall(id="c", name="make", arguments={"name": name})],
+                )
+            )
+
+    make = Tool(
+        name="make",
+        description="d",
+        parameters={"type": "object", "properties": {}},
+        fn=lambda name: made.append(name) or "[no output]",
+        safe=True,
+    )
+    agent = Agent(
+        provider=DifferentWorkEachTime(),
+        tools=ToolRegistry([make]),
+        permissions=Permissions(auto_approve=True),
+        max_turns=8,
+    )
+    list(agent.run("make them all"))
+    assert made == ["a", "b", "c", "d", "e"], f"the run was stopped early, only made {made}"
+
+
+def test_an_interrupt_inside_a_tool_still_answers_the_calls_behind_it():
+    """The path that actually happens, and the one a plain loop misses.
+
+    A second interrupt is documented as forcing the stop, and it arrives
+    while a tool is running. Filling the gaps after the loop never runs,
+    so the calls behind it are left unanswered and written to the session
+    that way, which poisons every later resume of it.
+    """
+    calls = [ToolCall(id=str(i), name="boom", arguments={"n": i}) for i in range(3)]
+
+    class ThreeAtOnce:
+        def stream(self, messages, tools=None):
+            yield TurnDone(message=Message(role="assistant", tool_calls=list(calls)))
+
+    def explode(n=0):
+        if n == 1:
+            raise KeyboardInterrupt("the person pressed it again")
+        return "fine"
+
+    boom = Tool(
+        name="boom",
+        description="d",
+        parameters={"type": "object", "properties": {}},
+        fn=explode,
+        safe=True,
+    )
+    saved = []
+    agent = Agent(
+        provider=ThreeAtOnce(),
+        tools=ToolRegistry([boom]),
+        permissions=Permissions(auto_approve=True),
+        on_message=saved.append,
+        max_turns=2,
+    )
+    with pytest.raises(KeyboardInterrupt):
+        list(agent.run("go"))
+
+    requested = {c.id for m in saved for c in m.tool_calls}
+    answered = {m.tool_call_id for m in saved if m.role == "tool"}
+    assert requested == answered, f"orphaned in the session {sorted(requested - answered)}"

@@ -132,8 +132,21 @@ class AnthropicProvider(Provider):
                 if data == "[DONE]":
                     break
                 event = json.loads(data)
+                # Usage arrives in two places and neither one is complete.
+                # The input count rides inside message_start, nested under
+                # message, and only the output count appears later at the
+                # top level. Reading one and overwriting with the other is
+                # how the prompt count silently reads zero.
+                if event.get("type") == "message_start":
+                    usage.update(normalise_usage((event.get("message") or {}).get("usage")))
                 if event.get("usage"):
-                    usage = normalise_usage(event["usage"])
+                    usage.update(
+                        {
+                            key: value
+                            for key, value in normalise_usage(event["usage"]).items()
+                            if value
+                        }
+                    )
                 kind = event.get("type")
                 if kind == "content_block_start":
                     block = event["content_block"]
@@ -150,6 +163,12 @@ class AnthropicProvider(Provider):
                         yield TextDelta(text=delta["text"])
                     elif delta.get("type") == "input_json_delta":
                         blocks[event["index"]]["json"] += delta["partial_json"]
+            # The two halves were merged field by field, so the total that
+            # came with the second half was computed from that half alone.
+            if usage:
+                usage["total_tokens"] = (
+                    usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+                )
         finally:
             response.close()
 

@@ -75,3 +75,7 @@ def test_the_result_is_the_same_whatever_the_worker_count(workers):
     jobs = [(str(index), steps(str(index), 2)) for index in range(4)]
     seen = list(run_in_parallel(jobs, workers=workers))
     assert len(seen) == 8
+
+def test_a_worker_count_of_zero_does_not_hang():
+    """Zero threads and a queue nobody fills is a wait that never ends."""
+    assert len(list(run_in_parallel([("a", steps("a", 2))], workers=0))) == 2

@@ -65,6 +65,7 @@ class OpenAICompatProvider(Provider):
 
         text_parts: list[str] = []
         partial: dict[int, dict] = {}
+        opened = 0
         usage: dict = {}
 
         response = open_stream(
@@ -91,12 +92,24 @@ class OpenAICompatProvider(Provider):
                     text_parts.append(delta["content"])
                     yield TextDelta(text=delta["content"])
                 for chunk in delta.get("tool_calls", []):
+                    # index is how a server says which call a fragment
+                    # belongs to when several are streaming at once. Some
+                    # servers leave it out, and defaulting every fragment
+                    # to slot zero merges the calls, which destroys one and
+                    # loses the other without a word.
+                    function = chunk.get("function", {})
+                    if "index" in chunk:
+                        key = chunk["index"]
+                    elif chunk.get("id") or function.get("name"):
+                        key = len(partial)
+                        opened = key
+                    else:
+                        key = opened
                     slot = partial.setdefault(
-                        chunk.get("index", 0), {"id": "", "name": "", "arguments": ""}
+                        key, {"id": "", "name": "", "arguments": ""}
                     )
                     if chunk.get("id"):
                         slot["id"] = chunk["id"]
-                    function = chunk.get("function", {})
                     if function.get("name"):
                         slot["name"] = function["name"]
                     if function.get("arguments"):

@@ -44,9 +44,16 @@ class Result:
 
 
 def run_one(task: Task, build_agent) -> Result:
-    agent = build_agent(task)
+    """Run one task and turn whatever happened into a verdict.
+
+    Building the agent is inside the try because it can fail on its own,
+    for a bad workspace or a server that will not start, and one task
+    that cannot even begin must not take the whole report with it.
+    """
+    agent = None
     answer = ""
     try:
+        agent = build_agent(task)
         for event in agent.run(task.prompt):
             if isinstance(event, TurnDone):
                 answer = event.message.content
@@ -55,7 +62,6 @@ def run_one(task: Task, build_agent) -> Result:
             task=task.name,
             passed=False,
             detail=f"the run failed, {type(error).__name__}: {error}",
-            usage=dict(vars(agent.usage)) if hasattr(agent, "usage") else {},
         )
 
     try:
@@ -66,15 +72,15 @@ def run_one(task: Task, build_agent) -> Result:
         # half way through.
         passed, detail = False, f"the check itself failed, {type(error).__name__}: {error}"
 
-    usage = agent.usage
+    usage = getattr(agent, "usage", None)
     return Result(
         task=task.name,
         passed=bool(passed),
         detail=str(detail),
         usage={
-            "prompt_tokens": usage.prompt_tokens,
-            "completion_tokens": usage.completion_tokens,
-            "calls": usage.calls,
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0),
+            "completion_tokens": getattr(usage, "completion_tokens", 0),
+            "calls": getattr(usage, "calls", 0),
         },
         answer=answer,
     )

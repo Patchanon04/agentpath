@@ -160,7 +160,22 @@ def install_interrupt_handler(agent):
         pass
 
 
+def close_mcp_servers() -> None:
+    """Shut down every MCP server this run started.
+
+    They are separate processes. A server that does not happen to exit
+    when its input closes will otherwise outlive the command that started
+    it, and a person who runs the agent forty times has forty of them.
+    """
+    while OPEN_MCP_CLIENTS:
+        try:
+            OPEN_MCP_CLIENTS.pop().close()
+        except Exception:
+            pass
+
+
 def finish(agent, session) -> int:
+    close_mcp_servers()
     print(f"\nsession {session.name} saved to {session.path}")
     print(f"usage {agent.usage.summary()}")
     return 0
@@ -169,7 +184,10 @@ def finish(agent, session) -> int:
 def command_chat(arguments) -> int:
     check_environment()
     session = Session(arguments.session or new_session_name())
-    agent, root = build_agent(arguments, session)
+    # A session that already has messages already has a system prompt. The
+    # trimmer keeps every system message, so a second copy would be sent on
+    # every request from now until the end of time.
+    agent, root = build_agent(arguments, session, system=not session.load())
     install_interrupt_handler(agent)
     print(f"Working in {root}")
     print("Type a message. Press Ctrl+C to leave.")
@@ -198,7 +216,10 @@ def command_chat(arguments) -> int:
 def command_run(arguments) -> int:
     check_environment()
     session = Session(arguments.session or new_session_name())
-    agent, root = build_agent(arguments, session)
+    # A session that already has messages already has a system prompt. The
+    # trimmer keeps every system message, so a second copy would be sent on
+    # every request from now until the end of time.
+    agent, root = build_agent(arguments, session, system=not session.load())
     install_interrupt_handler(agent)
     print(f"Working in {root}")
     try:

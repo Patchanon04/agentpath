@@ -133,3 +133,21 @@ def test_two_tasks_with_the_same_name_do_not_merge(mock_url):
     parallel = [(r.passed, r.detail) for r in run_evals(tasks, builder(mock_url), workers=2)]
     assert serial == [(True, "first"), (False, "second")]
     assert parallel == serial
+
+def test_a_task_whose_agent_cannot_be_built_is_one_failure(mock_url):
+    """Building the agent sat outside the try, so one bad task lost the report."""
+
+    def build(task):
+        if task.name == "broken":
+            raise RuntimeError("could not connect to the server")
+        return builder(mock_url)(task)
+
+    results = run_evals(
+        [
+            Task("fine", "Say hello.", lambda answer, workspace: (True, "ok")),
+            Task("broken", "Say hello.", lambda answer, workspace: (True, "ok")),
+        ],
+        build,
+    )
+    assert [r.passed for r in results] == [True, False]
+    assert "could not connect" in results[1].detail

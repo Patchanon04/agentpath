@@ -6,8 +6,10 @@ uses, which are a way to find files by name and a way to find text inside
 them. Lesson 16 in part 3 explains when that stops being enough.
 """
 import fnmatch
+import json
 import re
-import time
+import subprocess
+import sys
 from pathlib import Path
 
 from agentpath.tools.base import Tool
@@ -15,7 +17,12 @@ from agentpath.tools.files import SKIP_DIRECTORIES, truncate
 from agentpath.tools.workspace import WorkspaceError, resolve_inside
 
 MAX_RESULTS = 200
-SEARCH_SECONDS = 10
+SEARCH_SECONDS = 5
+
+# A line longer than this is truncated before matching. Catastrophic
+# backtracking grows with the length of the input, so bounding the input is
+# the one guard that works whatever the pattern turns out to be.
+MAX_LINE = 2000
 
 # Two quantifiers stacked on one group, as in (a+)+ or (a*)*, is the shape
 # that makes a regular expression take exponential time. A model writing one
@@ -87,7 +94,7 @@ def search_tools(root) -> list[Tool]:
 
     def grep_files(pattern, glob="*"):
         try:
-            expression = re.compile(pattern)
+            re.compile(pattern)
         except re.error as error:
             return f"Error: {pattern} is not a valid regular expression ({error})"
         if NESTED_QUANTIFIER.search(pattern):
@@ -95,26 +102,38 @@ def search_tools(root) -> list[Tool]:
                 f"Error: {pattern} has one repeat wrapped in another, which can take "
                 "effectively forever to match. Write it without the nested repeat."
             )
-        deadline = time.monotonic() + SEARCH_SECONDS
-        hits = []
-        for path in _walk(root):
-            if time.monotonic() > deadline:
-                hits.append(f"[search stopped after {SEARCH_SECONDS} seconds]")
-                break
-            relative = path.relative_to(root).as_posix()
-            if not path_matches(relative, path.name, glob):
-                continue
-            try:
-                text = path.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
-                continue
-            for number, line in enumerate(text.splitlines(), start=1):
-                if expression.search(line):
-                    hits.append(f"{relative}:{number}: {line.strip()[:200]}")
-                    if len(hits) >= MAX_RESULTS:
-                        break
-            if len(hits) >= MAX_RESULTS:
-                break
+
+        # The search runs in a separate process. Two earlier attempts at
+        # this did not work and both are worth knowing about. Checking a
+        # deadline between lines never gets a turn, because one line is
+        # enough to go exponential and nothing interrupts a regular
+        # expression that is already running. Moving it to a thread does
+        # not help either, because matching does not release the global
+        # interpreter lock, so the thread waiting on the deadline cannot
+        # run until the matching it is waiting on has finished.
+        #
+        # A separate process can simply be killed, which is the only thing
+        # that actually works. The cost is about a tenth of a second of
+        # start up on every search.
+        request = json.dumps({"root": str(root), "pattern": pattern, "glob": glob})
+        try:
+            completed = subprocess.run(
+                [sys.executable, "-m", "agentpath.tools.search"],
+                input=request,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=SEARCH_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            return (
+                f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "
+                "seconds and was given up on. Try a simpler pattern, or narrow the "
+                "search with the glob argument."
+            )
+        if completed.returncode != 0:
+            return f"Error: the search failed. {completed.stderr.strip()[:200]}"
+        hits = json.loads(completed.stdout or "[]")
         if not hits:
             return f"no matches for {pattern}"
         return truncate("\n".join(hits))
@@ -155,3 +174,29 @@ def search_tools(root) -> list[Tool]:
             safe=True,
         ),
     ]
+
+
+def scan(root, pattern, glob):
+    """Do the searching. Runs in its own process so it can be killed."""
+    expression = re.compile(pattern)
+    root = Path(root)
+    hits = []
+    for path in _walk(root):
+        relative = path.relative_to(root).as_posix()
+        if not path_matches(relative, path.name, glob):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for number, line in enumerate(text.splitlines(), start=1):
+            if expression.search(line[:MAX_LINE]):
+                hits.append(f"{relative}:{number}: {line.strip()[:200]}")
+                if len(hits) >= MAX_RESULTS:
+                    return hits
+    return hits
+
+
+if __name__ == "__main__":
+    question = json.loads(sys.stdin.read())
+    print(json.dumps(scan(question["root"], question["pattern"], question["glob"])))

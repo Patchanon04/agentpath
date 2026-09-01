@@ -52,7 +52,8 @@ def run_in_parallel(jobs, workers=4):
                 results.put((label, DONE))
 
     threads = [
-        threading.Thread(target=work, daemon=True) for _ in range(min(workers, len(jobs)))
+        threading.Thread(target=work, daemon=True)
+        for _ in range(max(1, min(workers, len(jobs))))
     ]
     for thread in threads:
         thread.start()

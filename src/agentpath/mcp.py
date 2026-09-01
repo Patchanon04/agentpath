@@ -18,10 +18,26 @@ tools and cannot know what they do.
 import json
 import subprocess
 import threading
+import time
 
 from agentpath.tools.base import Tool
 
 PROTOCOL_VERSION = "2024-11-05"
+
+
+def _readline_with_deadline(stream, deadline):
+    """Read one line, giving up when the deadline passes.
+
+    A pipe read has no timeout of its own on either operating system that
+    works the same way, so the read happens on a short lived thread and
+    the caller waits with a deadline instead. Returning None means
+    nothing arrived yet and the caller should look at the clock again.
+    """
+    box = []
+    reader = threading.Thread(target=lambda: box.append(stream.readline()), daemon=True)
+    reader.start()
+    reader.join(max(0.05, min(1.0, deadline - time.monotonic())))
+    return box[0] if box else None
 
 
 class MCPError(Exception):
@@ -97,8 +113,20 @@ class MCPClient:
             self._send(
                 {"jsonrpc": "2.0", "id": identifier, "method": method, "params": params or {}}
             )
+            deadline = time.monotonic() + self.timeout
             while True:
-                line = self.process.stdout.readline()
+                if time.monotonic() > deadline:
+                    # A server that stops answering must not take the agent
+                    # with it. Reading with no deadline meant one wedged
+                    # server hung the whole run, and the interrupt key could
+                    # not help because the read never came back to check it.
+                    raise MCPError(
+                        f"the server did not answer {method} within "
+                        f"{self.timeout} seconds"
+                    )
+                line = _readline_with_deadline(self.process.stdout, deadline)
+                if line is None:
+                    continue
                 if not line:
                     raise MCPError(f"the server closed while waiting for {method}")
                 line = line.strip()

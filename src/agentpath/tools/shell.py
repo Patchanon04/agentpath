@@ -36,11 +36,16 @@ def _kill_tree(process):
         if os.name == "posix":
             os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         else:
-            subprocess.run(
+            killed = subprocess.run(
                 ["taskkill", "/F", "/T", "/PID", str(process.pid)],
                 capture_output=True,
                 timeout=10,
             )
+            # subprocess.run does not raise on a non zero exit, so without
+            # this the fallback below could never run for the case it was
+            # written for, which is taskkill failing.
+            if killed.returncode != 0:
+                raise OSError(f"taskkill exited {killed.returncode}")
     except Exception:
         # Last resort. Killing only the shell beats killing nothing.
         try:

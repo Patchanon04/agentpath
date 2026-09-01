@@ -91,3 +91,18 @@ def test_credential_files_are_not_indexed(tmp_path):
     (tmp_path / ".env.md").write_text("API_KEY=sk-supersecret\n", encoding="utf-8")
     registry = ToolRegistry(retrieval_tools(tmp_path))
     assert "sk-supersecret" not in call(registry, question="API_KEY")
+
+NEWLINE = "\n"
+PARAGRAPH = "\n\n"
+
+def test_one_unreadable_path_does_not_kill_the_whole_tool(tmp_path):
+    """A directory can match a file pattern, and then everything stops."""
+    (tmp_path / "archive.md").mkdir()
+    (tmp_path / "real.md").write_text(
+        "# Notes" + PARAGRAPH + "the refund window is thirty days" + NEWLINE,
+        encoding="utf-8",
+    )
+    registry = ToolRegistry(retrieval_tools(tmp_path))
+    result = call(registry, question="refund window")
+    assert "real.md" in result
+    assert "Error" not in result

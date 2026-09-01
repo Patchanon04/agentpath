@@ -52,6 +52,11 @@ def build_index(root: Path, pattern="*.md") -> list[dict]:
     """Read the documents once and remember their words."""
     index = []
     for path in sorted(root.rglob(pattern)):
+        # A directory can match a file pattern, and a file can be locked
+        # or deleted between the listing and the read. One of those must
+        # not take the whole tool down for the rest of the session.
+        if not path.is_file():
+            continue
         relative = path.relative_to(root)
         if any(part in SKIP_DIRECTORIES for part in relative.parts):
             continue
@@ -61,7 +66,11 @@ def build_index(root: Path, pattern="*.md") -> list[dict]:
             resolve_inside(root, relative)
         except WorkspaceError:
             continue
-        for line_number, text in passages_in(path):
+        try:
+            passages = passages_in(path)
+        except OSError:
+            continue
+        for line_number, text in passages:
             index.append(
                 {
                     "source": f"{path.relative_to(root).as_posix()}:{line_number}",

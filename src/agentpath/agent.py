@@ -14,7 +14,7 @@ from collections.abc import Iterator
 
 from agentpath.cancel import NEVER
 from agentpath.context import fit_to_budget
-from agentpath.permissions import Permissions, signature
+from agentpath.permissions import Permissions, loose_signature
 from agentpath.tools.base import ToolRegistry
 from agentpath.types import Message, ToolCallRequest, ToolResult, TurnDone
 from agentpath.usage import Usage
@@ -69,7 +69,6 @@ class Agent:
         recent: list[str] = []
         self._warned: set[str] = set()
         self._stuck_on = None
-        self._results: list[tuple[str, str]] = []
 
         for _ in range(self.max_turns):
             self.cancellation.raise_if_cancelled()
@@ -94,28 +93,35 @@ class Agent:
             # This is the same pairing rule the context chapter is about.
             answered = 0
             stop_after_this_turn = False
-            for call in assistant.tool_calls:
-                if self.cancellation.cancelled:
-                    break
-                yield ToolCallRequest(tool_call=call)
-                result = self._run_one(call, recent)
-                yield result
-                self._remember(
-                    Message(role="tool", content=result.content, tool_call_id=call.id)
-                )
-                answered += 1
-                if self._stuck_on and signature(call) == self._stuck_on:
-                    stop_after_this_turn = True
-                    break
-
-            for call in assistant.tool_calls[answered:]:
-                self._remember(
-                    Message(
-                        role="tool",
-                        content="Not run. The run was stopped before this call.",
-                        tool_call_id=call.id,
+            # The fill in below runs in a finally, not after the loop. An
+            # interrupt arriving while a tool is running raises straight
+            # through, and a plain loop would leave the calls behind it
+            # with no result at all. That poisons the next request and,
+            # because every message is written to the session as it
+            # happens, poisons the saved session for good.
+            try:
+                for call in assistant.tool_calls:
+                    if self.cancellation.cancelled:
+                        break
+                    yield ToolCallRequest(tool_call=call)
+                    result = self._run_one(call, recent)
+                    yield result
+                    self._remember(
+                        Message(role="tool", content=result.content, tool_call_id=call.id)
                     )
-                )
+                    answered += 1
+                    if self._stuck_on and loose_signature(call) == self._stuck_on:
+                        stop_after_this_turn = True
+                        break
+            finally:
+                for call in assistant.tool_calls[answered:]:
+                    self._remember(
+                        Message(
+                            role="tool",
+                            content="Not run. The run was stopped before this call.",
+                            tool_call_id=call.id,
+                        )
+                    )
 
             if stop_after_this_turn:
                 giving_up = Message(
@@ -144,37 +150,32 @@ class Agent:
         misunderstanding to clear up, it is a loop, and the caller is paying
         for every further turn.
         """
-        current = signature(call)
+        current = loose_signature(call)
         recent.append(current)
 
-        # Two different ways of going in circles, and a turn cap sees
-        # neither. The first is the same call over and over. The second is
-        # the same tool with the arguments nudged, which produces a
-        # different signature every time and so slips past any check that
-        # only compares calls. What gives it away is the result. If a tool
-        # keeps handing back exactly the same thing, nothing is changing,
-        # whatever the arguments say.
-        repeating = recent[-REPEAT_LIMIT:].count(current) >= REPEAT_LIMIT
-        stalled = (
-            len(self._results) >= REPEAT_LIMIT
-            and len(set(self._results[-REPEAT_LIMIT:])) == 1
-            and self._results[-1][0] == call.name
-        )
-        if repeating or stalled:
-            marker = current if repeating else f"no progress from {call.name}"
-            if marker in self._warned:
+        # The fingerprint here is deliberately blind to whitespace and
+        # letter case, because a model that retries with a space added has
+        # not changed anything and should not get a fresh fingerprint for
+        # it. That is the whole of the check.
+        #
+        # An earlier version also cried loop when a tool returned the same
+        # text three times running, on the theory that identical results
+        # mean no progress. That is not true and it stopped real work. A
+        # tool that legitimately prints nothing, such as a shell command
+        # that succeeds quietly, returns the same text for every different
+        # thing it does. Deciding a run has stalled from the shape of the
+        # output alone is not something a cheap check can do correctly,
+        # and a wrong stop costs more than a late one.
+        if recent[-REPEAT_LIMIT:].count(current) >= REPEAT_LIMIT:
+            if current in self._warned:
                 self._stuck_on = current
-            self._warned.add(marker)
-            reason = (
-                f"has been called with these exact arguments {REPEAT_LIMIT} times in a row"
-                if repeating
-                else f"has returned the same thing {REPEAT_LIMIT} times in a row"
-            )
+            self._warned.add(current)
             return ToolResult(
                 tool_call_id=call.id,
                 name=call.name,
                 content=(
-                    f"Error: {call.name} {reason} and nothing has changed. You are "
+                    f"Error: {call.name} has been called with the same arguments "
+                    f"{REPEAT_LIMIT} times in a row and nothing has changed. You are "
                     "going in circles. Stop repeating it and try a different approach."
                 ),
             )
@@ -186,6 +187,4 @@ class Agent:
                 name=call.name,
                 content="The user refused this call. Do not try it again, do something else.",
             )
-        result = self.tools.run(call)
-        self._results.append((call.name, result.content))
-        return result
+        return self.tools.run(call)

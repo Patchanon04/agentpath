@@ -54,3 +54,48 @@ def test_sends_tool_results_back_in_wire_format(mock_url):
     ]
     events = list(build(mock_url).stream(history))
     assert "5" in events[-1].message.content
+
+ESCAPED_X = '\\"x\\":'
+ESCAPED_Y = '\\"y\\":'
+SEPARATOR = "\n\n"
+
+def test_a_missing_index_starts_a_new_call_rather_than_merging():
+    """Some servers leave index off tool call deltas.
+
+    Defaulting every fragment to slot zero merged the calls, which destroyed
+    one and lost the other entirely. The model was handed a JSON error for a
+    call it never made, and never learned the first one had been dropped.
+    """
+    import httpx
+
+    from agentpath.types import TurnDone
+
+    events = [
+        '{"choices":[{"delta":{"tool_calls":[{"id":"call_1",'
+        '"function":{"name":"a","arguments":""}}]}}]}',
+        '{"choices":[{"delta":{"tool_calls":[{"function":{"arguments":"{QX 1}"}}]}}]}',
+        '{"choices":[{"delta":{"tool_calls":[{"id":"call_2",'
+        '"function":{"name":"b","arguments":""}}]}}]}',
+        '{"choices":[{"delta":{"tool_calls":[{"function":{"arguments":"{QY 2}"}}]}}]}',
+        '{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}',
+        "[DONE]",
+    ]
+    events = [event.replace("QX", ESCAPED_X).replace("QY", ESCAPED_Y) for event in events]
+    body = "".join("data: " + event + SEPARATOR for event in events).encode()
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200, content=body, headers={"content-type": "text/event-stream"}
+            )
+        )
+    )
+    provider = OpenAICompatProvider("http://x/v1", "k", "m", client=client)
+    done = [
+        event
+        for event in provider.stream([Message(role="user", content="hi")])
+        if isinstance(event, TurnDone)
+    ][0]
+    assert [(c.name, c.arguments) for c in done.message.tool_calls] == [
+        ("a", {"x": 1}),
+        ("b", {"y": 2}),
+    ]
