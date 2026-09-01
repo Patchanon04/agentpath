@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.2
+
+Sixteen tests that run the command line as a real process, which is the gap
+that let every bug in 1.0.1 through. Each one was verified by putting the
+bug it guards back and watching it fail, and two of them did not fail on the
+first attempt, which is the reason this release also changes the fake model
+server. It can now answer with several tool calls in one message, the way a
+real model does, so the paths that only appear when a turn is abandoned part
+way through can be reached at all.
+
 ## 1.0.1
 
 Everything found by a full review of the finished course. Nothing here was
