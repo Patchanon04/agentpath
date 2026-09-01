@@ -1,11 +1,12 @@
 """Check that lesson 20 works.
 
-Four things must be true. A subagent is an ordinary tool as far as the
-parent is concerned. It does real work that reaches the disk. Its
-conversation stays its own, which is the reason to use one at all. And a
-child that blows up leaves the parent standing.
+Five things must be true. A subagent is an ordinary tool as far as the
+parent is concerned. It does real work that reaches the disk. It holds a
+conversation of its own. None of that conversation lands in the parent,
+which is the reason to use one at all. And a child that blows up leaves the
+parent standing.
 
-The fifth thing this file demonstrates is not a feature. It is the trap that
+The sixth thing this file demonstrates is not a feature. It is the trap that
 comes with the isolation, which is that the parent keeps believing whatever
 it read before the child changed it.
 """

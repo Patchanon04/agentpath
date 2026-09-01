@@ -9,23 +9,30 @@
 
 ```text
 lessons/20-subagents/
-  subagent.py     new. sixty one lines, and sixteen of them are the docstring
-  check.py        new. five claims, and the fifth one is a warning
-  agent.py        identical to lesson 19
-  tools.py        identical to lesson 19
-  prompt.py       identical to lesson 19
-  permissions.py  identical to lesson 19
-  session.py      identical to lesson 19
-  context.py      identical to lesson 19
-  providers.py    identical to lesson 19
-  usage.py        identical to lesson 19
-  retrieval.py    identical to lesson 19
-  retry.py        identical to lesson 19
-  cancel.py       identical to lesson 19
-  README.md       this file
+  subagent.py         new. sixty one lines, and sixteen of them are the docstring
+  check.py            new. six claims, and the last one is a warning
+  agent.py            identical to lesson 19
+  tools.py            identical to lesson 19
+  prompt.py           identical to lesson 19
+  permissions.py      identical to lesson 19
+  session.py          identical to lesson 19
+  context.py          identical to lesson 19
+  providers.py        identical to lesson 19
+  usage.py            identical to lesson 19
+  retrieval.py        identical to lesson 19
+  retry.py            identical to lesson 19
+  cancel.py           identical to lesson 19
+  main.py             identical to lesson 19
+  mcp.py              identical to lesson 19
+  mock_mcp_server.py  identical to lesson 19
+  README.md           this file
 ```
 
-สิบเอ็ดจากสิบสามไฟล์ Python เหมือนเดิมทุก byte กับบทที่แล้ว นั่นเป็นสิ่งที่ตรวจสอบได้
+ทุกโฟลเดอร์ตั้งแต่บทที่ 19 เป็นต้นไปจะพกโค้ดทั้งคอร์สไว้ครบ เพื่อให้เปิดบทไหนขึ้นมาก็รันได้ด้วยตัวเอง
+โดยไม่ต้องคัดลอกไฟล์จากโฟลเดอร์ข้างเคียงเข้ามาก่อน นั่นคือเหตุผลที่ `mcp.py`,
+`mock_mcp_server.py` และ `main.py` นอนอยู่ตรงนี้ทั้งที่บทนี้ไม่เคยพูดถึงมันเลย
+
+สิบสี่จากสิบเจ็ดไฟล์ Python เหมือนเดิมทุก byte กับบทที่แล้ว นั่นเป็นสิ่งที่ตรวจสอบได้
 ไม่ใช่แค่กล่าวอ้าง
 
 ```bash
@@ -747,16 +754,17 @@ The tool returned Wrote 7 characters to shared.txt.
 OK the trap is real, the parent still believes 'original' while the file now says 'changed'
 ```
 
-บรรทัด `OK` ห้าบรรทัด และ docstring ของไฟล์เองบอกชัดว่าบรรทัดที่ห้าเป็นของ
-คนละชนิดกับอีกสี่บรรทัด
+บรรทัด `OK` หกบรรทัด และ docstring ของไฟล์เองบอกชัดว่าบรรทัดสุดท้ายเป็นของ
+คนละชนิดกับอีกห้าบรรทัด
 
 ```text
-Four things must be true. A subagent is an ordinary tool as far as the
-parent is concerned. It does real work that reaches the disk. Its
-conversation stays its own, which is the reason to use one at all. And a
-child that blows up leaves the parent standing.
+Five things must be true. A subagent is an ordinary tool as far as the
+parent is concerned. It does real work that reaches the disk. It holds a
+conversation of its own. None of that conversation lands in the parent,
+which is the reason to use one at all. And a child that blows up leaves the
+parent standing.
 
-The fifth thing this file demonstrates is not a feature. It is the trap that
+The sixth thing this file demonstrates is not a feature. It is the trap that
 comes with the isolation, which is that the parent keeps believing whatever
 it read before the child changed it.
 ```
@@ -815,7 +823,8 @@ builder ที่คืน child ที่โยน exception ทันที �
 เรื่อง `max_turns` ที่ควรแบ่งงานไม่ได้ ซึ่งคือข้อโต้แย้งที่หัวข้อ 7 ทำไว้ว่าทำไมชื่อคลาส
 ของ exception และข้อความถึงอยู่ในสตริงตั้งแต่แรก
 
-**หก ซึ่งไม่ใช่บรรทัด OK แต่ก็ถูกตรวจสอบอยู่ดี** การสาธิตกับดักมี guard ของตัวเอง
+**หก กับดักมีอยู่จริง** มันพิมพ์บรรทัด `OK` ของตัวเองเหมือนอีกห้าข้อ และการสาธิต
+ที่อยู่เบื้องหลังมันมี guard ของตัวเอง
 
 ```python
     if parent_saw == now:

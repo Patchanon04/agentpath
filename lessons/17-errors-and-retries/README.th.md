@@ -17,20 +17,22 @@ lessons/17-errors-and-retries/
   retry.py       new. which failures are worth retrying, and how long to wait
   cancel.py      new. one object that says stop
   agent.py       the loop, now consulting a cancellation token in two places
-  providers.py   unchanged since lesson 15
-  tools.py       unchanged since lesson 16
+  providers.py   lesson 15's providers, now opening the stream through retry
+  tools.py       lesson 16's tools, plus a cancellation check in run_shell
   permissions.py unchanged since lesson 12
   session.py     unchanged since lesson 13
   context.py     unchanged since lesson 14
   usage.py       unchanged since lesson 15
   retrieval.py   unchanged since lesson 16
   prompt.py      unchanged since lesson 10
-  check.py       five claims about failure, proved against the mock server
+  check.py       six claims about failure, proved against the mock server
   README.md      this file
 ```
 
 `retry.py` มีหกสิบเจ็ดบรรทัดและ `cancel.py` มีสามสิบเอ็ดบรรทัด การแก้ไข `agent.py`
-อย่างเดียวคือ keyword argument ใหม่กับสองบรรทัดที่อ่านมัน
+อย่างเดียวคือ keyword argument ใหม่กับสองบรรทัดที่อ่านมัน `providers.py` เพิ่ม
+`open_stream` ซึ่งเป็นที่เดียวที่ `with_retries` ถูกต่อสายไว้ และ `tools.py`
+เพิ่มการตรวจ cancellation ก่อนคำสั่ง shell จะเริ่มทำงาน
 ทุกอย่างที่เหลือในโฟลเดอร์นี้เป็นสำเนาแบบไบต์ต่อไบต์ของบทก่อนหน้า
 ซึ่งถึงตอนนี้คุณควรคาดไว้แล้ว และหัวข้อ 10 ก็จะลงมือทำอะไรกับมันเสียที
 
@@ -508,15 +510,26 @@ key ที่ทำให้มันถูกต้อง ตัวช่วย
 
 ### with_retries ควรไปอยู่ที่ไหนจริง ๆ
 
-ยังไม่มีอะไรในโฟลเดอร์นี้เรียกมัน ซึ่งเป็นเหตุผลที่ `check.py` เรียกมันตรง ๆ กับ mock server
-เมื่อคุณต่อสายมันจริง มีที่ที่ถูกต้องเพียงที่เดียว และมันคือภายใน provider
+มีที่ที่ถูกต้องเพียงที่เดียว และมันคือภายใน provider `providers.py`
+ในโฟลเดอร์นี้วางมันไว้ตรงนั้นแล้ว ในฟังก์ชันเล็ก ๆ ที่ provider ทั้งสองตัวเรียกใช้
 
 ```python
 from retry import with_retries
 
-# in OpenAICompatProvider
-def stream(self, messages, tools=None, on_text=None):
-    return with_retries(lambda: self._stream_once(messages, tools, on_text))
+
+def open_stream(client, url, payload, headers, attempts=4):
+    """Open a streaming request, retrying the failures worth retrying."""
+
+    def once():
+        request = client.build_request("POST", url, json=payload, headers=headers)
+        response = client.send(request, stream=True)
+        if response.status_code >= 400:
+            response.read()
+            response.close()
+            response.raise_for_status()
+        return response
+
+    return with_retries(once, attempts=attempts)
 ```
 
 provider คือ object เดียวในโปรแกรมที่รู้ว่ามันกำลังพูด HTTP มันคือที่ที่ `httpx`
@@ -525,10 +538,29 @@ provider คือ object เดียวในโปรแกรมที่ร
 แทนจะแปลว่า `agent.py` ต้อง import `httpx` เพื่อจะรู้ว่าความล้มเหลวแบบไหนสำคัญ
 และการที่ loop ยังไม่รู้เรื่องสายสัญญาณคือคุณสมบัติที่บทที่ 06 ซื้อมาและบทที่ 11 วัดไว้
 
-ความซับซ้อนหนึ่งอย่างที่ต้องพูดตรง ๆ เพราะคุณจะเจอมันทันทีที่ลอง stream ที่ถูก retry
-จะเริ่มใหม่ตั้งแต่ต้น ข้อความที่ถูกพิมพ์ออกไปแล้วผ่าน `on_text` จึงจะถูกพิมพ์ซ้ำ
-ทางแก้คือให้ผู้เรียกทำ buffer หรือให้การ retry
-ครอบคลุมเฉพาะช่วงก่อนที่ไบต์แรกจะมาถึง และมันคือการตัดสินใจออกแบบจริง ไม่ใช่ความบกพร่องที่มองข้าม
+`check.py` ยังเรียก `with_retries` ตรง ๆ กับ mock server แทนที่จะผ่าน provider
+และนั่นไม่ใช่การทำซ้ำ การทดสอบที่ถือตัวช่วยไว้เองสามารถบังคับให้เกิด `500` สองครั้ง
+นับจำนวนครั้งที่ลอง และส่ง `sleep` ปลอมที่บันทึกเวลาหน่วงแทนที่จะรอจริงเข้าไปได้
+ไม่มีอะไรในนั้นเข้าถึงได้ผ่าน `stream` check
+จึงพิสูจน์ว่าตัวช่วยทำงานถูกต้อง ส่วนการต่อสายเป็นสิ่งที่คุณอ่านเอา
+ไม่ใช่สิ่งที่ check ยืนยันให้
+
+ทีนี้ความซับซ้อนที่ต้องพูดตรง ๆ และมันคือเหตุผลที่ retry อยู่ใน `open_stream`
+แทนที่จะห่อ `stream` ทั้งก้อน stream ที่ถูก retry จะเริ่มใหม่ตั้งแต่ต้น
+ข้อความที่ถูกพิมพ์ออกไปแล้วผ่าน `on_text` จึงจะถูกพิมพ์ซ้ำ และผู้อ่านจะเห็นคำตอบครึ่งเดียวสองรอบ
+มีแค่การเปิด request เท่านั้นที่ทำซ้ำได้ จึงมีแค่การเปิด request เท่านั้นที่ถูกทำซ้ำ
+คอมเมนต์ใน `providers.py` บอกไว้ตรงจุดที่เรียก
+
+```python
+            # Only opening the request is retried. Once bytes have arrived the
+            # caller has already seen part of an answer, and replaying would
+            # splice a second answer onto the first.
+```
+
+นั่นคือการตัดสินใจออกแบบจริงที่มีต้นทุนจริง การเชื่อมต่อที่ขาดกลางคันระหว่างคำตอบยาว ๆ
+จะกู้คืนไม่ได้ และไม่มีทางกู้คืนได้เลยนอกจากจะ buffer response ทั้งก้อนก่อนพิมพ์อะไรออกมา
+ซึ่งเท่ากับยอมทิ้งความรู้สึกของ streaming ที่บทที่ 05 สร้างไว้
+หรือให้ provider ส่งเฉพาะส่วนท้ายที่ขาดไปกลับมาใหม่ ซึ่งไม่มี provider เจ้าไหนให้คุณขอแบบนั้นได้
 
 ## 6. การหยุด agent ที่กำลังทำงานให้หยุดจริง
 
@@ -676,11 +708,36 @@ Ctrl+C ขณะที่คำถามค้างอยู่จะคืน 
 ชั้นคำถามกับชั้น loop มาถึงผลลัพธ์เดียวกันจากสองทิศทาง
 ซึ่งคือสิ่งที่คุณต้องการเมื่อสองชั้นถูกขัดจังหวะในจังหวะที่ต่างกันเล็กน้อย
 
-ชั้น subprocess คือชั้นที่ต้องพูดตรง ๆ ในโฟลเดอร์นี้ `tools.py` ไม่ได้ปรึกษา token
-คำสั่ง shell ที่กำลังรันอยู่แล้วตอนคุณกด Ctrl+C จึงทำงานจนจบด้วยตัวเอง timeout ของ
+ชั้น subprocess คือชั้นที่ต้องพูดตรง ๆ และความจริงไม่ใช่อย่างที่คุณน่าจะเดา
+`tools.py` ในโฟลเดอร์นี้ปรึกษา token จริง ตรงจุดที่ docstring ของ `cancel.py` บอกว่าควรอยู่
+
+```python
+CANCELLATION = None
+
+
+def run_shell(command):
+    ...
+    if CANCELLATION is not None and CANCELLATION.cancelled:
+        return "Cancelled before the command started."
+```
+
+ช่องว่างคือไม่มีอะไรในบทที่ 17 ที่กำหนดค่าให้ `tools.CANCELLATION` เลย
+มันเป็น `None` ตลอดทั้งบท การตรวจนั้นจึงเป็นโค้ดที่ตายอยู่ที่นี่
+บรรทัดแรกในคอร์สที่ตั้งค่ามันอยู่ใน `main.py` ของบทที่ 18 ที่ command line
+สร้าง token หนึ่งตัวแล้วส่ง object เดียวกันนั้นให้ทั้ง loop และ module
+ก่อนบรรทัดนั้นจะมีอยู่ token ที่ loop ปรึกษากับ token ที่ shell tool ปรึกษาไม่ใช่ object
+เดียวกัน เพราะตัวหลังไม่ได้เป็น object อะไรเลย
+
+เรื่องนี้ควรได้เห็นมากกว่าได้ยิน เพราะมันคือรูปร่างของ bug ทั้งหมวด
+การตรวจที่เขียนถูก อยู่ในที่ที่ถูก แต่ไม่ได้ป้องกันอะไรเลย
+เพราะค่าที่มันใช้ตรวจไม่เคยถูกส่งเข้ามา ไม่มีอะไรพัง ไม่มีอะไรเตือน
+อาการเดียวคือฟีเจอร์ที่คุณชี้ให้ดูในซอร์สโค้ดได้นั้นไม่เกิดขึ้นจริง
+
+และยังมีช่องว่างที่สองที่รอดจากการต่อสายมาได้ การตรวจเกิดขึ้นก่อนคำสั่งจะเริ่ม
+คำสั่ง shell ที่กำลังรันอยู่แล้วตอนคุณกด Ctrl+C จึงยังทำงานจนจบด้วยตัวเอง timeout ของ
 `subprocess.run` จากบทที่ 08 จำกัดขอบเขตมันไว้ และ loop ปฏิเสธที่จะเริ่มอันถัดไป
-นั่นคือช่องว่างจริงไม่ใช่การออกแบบที่เสร็จแล้ว และ docstring ใน `cancel.py`
-อธิบายรูปร่างที่ตั้งใจไว้ ซึ่งคือการตรวจทันทีก่อนที่กระบวนการจะถูก spawn
+การฆ่าคำสั่งกลางคันต้องใช้ `subprocess.Popen` กับ loop ที่คอยตรวจ token ไปด้วย
+ซึ่งเป็นกลไกที่มากกว่าที่บทนี้ต้องการ และถูกทิ้งไว้เป็นแบบฝึกหัดในบทที่ 18
 
 ### interrupt handler และการกดครั้งที่สอง
 
@@ -1070,9 +1127,23 @@ OK a bad request is not retried, because the same wrong request stays wrong
 OK when the server says when to come back, we wait exactly that long
 OK the delay is jittered across 20 different values
 OK a cancelled token stops work rather than only printing a message
+
+[calling read_file with {'path': 'nowhere.txt'}]
+[read_file returned Error: nowhere.txt does not exist]
+
+[calling read_file with {'path': 'nowhere.txt'}]
+[read_file returned Error: nowhere.txt does not exist]
+
+[read_file is going in circles]
+
+[read_file is going in circles]
+
+Stopping. read_file was warned about repeating itself and repeated anyway. Continuing would only cost money.
+OK a model repeating one call is warned, then stopped, without burning every turn
 ```
 
-ห้าบรรทัด และแต่ละบรรทัดคือข้ออ้างจากหัวข้อที่ต่างกันของบทนี้
+บรรทัด `OK` หกบรรทัด และแต่ละบรรทัดคือข้ออ้างจากหัวข้อที่ต่างกันของบทนี้
+ร่องรอยที่อยู่ตรงกลางเป็นของข้อที่หก ซึ่งเป็นข้อเดียวที่รัน loop จริง
 
 บรรทัดแรกคือครึ่งที่ดีของหัวข้อ 2 `500` กลับมาสองครั้ง
 และความพยายามครั้งที่สามคืน body จริงที่มี choices จริงอยู่ในนั้น
@@ -1093,9 +1164,16 @@ check ยืนยันบน exception แทนที่จะยืนยั
 ซึ่งเป็นวินัยเดียวกับที่บทที่ 11 ให้เหตุผลไว้ยืดยาว interrupt ที่พิมพ์ข้อความคือ bug
 มีแต่ exception ที่ถูก raise เท่านั้นที่พิสูจน์อะไรได้
 
-สังเกตสิ่งที่ check ทั้งหมดไม่ได้ทำ มันไม่เคยเริ่มการรัน agent จริง ไม่เคยเรียก tool
-และไม่เคยรอจริงแม้แต่วินาทีเดียว ทุกสถานการณ์ถูกขับผ่าน `with_retries` และ
-`Cancellation` โดยตรง ซึ่งเป็นเหตุผลที่มันเสร็จทันทีและให้คำตอบเดิมทุกครั้ง
+บรรทัดที่หกคือหัวข้อ 7 provider ปลอมคืนการเรียก `read_file` เดิมซ้ำไปเรื่อย ๆ
+และการรันต้องจบเพราะตัวตรวจจับการทำซ้ำสังเกตเห็น ไม่ใช่เพราะ `max_turns` หมด
+`max_turns` เป็นยี่สิบตรงนี้อย่างจงใจ model ที่ติดวนแล้วถูกหยุดด้วยขีดจำกัดจำนวนรอบ
+ไม่ได้พิสูจน์อะไรเกี่ยวกับตัวตรวจจับเลย check จึงให้ขีดจำกัดมีที่ว่างพอ
+จนการไปถึงมันคือความล้มเหลว
+
+สังเกตสิ่งที่ห้าข้อแรกไม่ได้ทำ มันไม่เคยเริ่มการรัน agent จริง ไม่เคยเรียก tool
+และไม่เคยรอจริงแม้แต่วินาทีเดียว ทุกสถานการณ์เหล่านั้นถูกขับผ่าน `with_retries` และ
+`Cancellation` โดยตรง ซึ่งเป็นเหตุผลที่ check เสร็จทันทีและให้คำตอบเดิมทุกครั้ง
+มีแต่ข้อที่หกที่ต้องใช้ loop และมันได้ provider ปลอมแทนที่จะได้เครือข่ายจริง
 
 ถ้าบรรทัดแรกล้มเหลว ให้ดูว่า mock server ถูกติดต่อถึงหรือเปล่า
 เพราะ error ของการเชื่อมต่อจะถูกนับเป็นความล้มเหลวของ transport และถูก retry
@@ -1126,7 +1204,7 @@ lessons/17-errors-and-retries/   + retry.py cancel.py
 
 เจ็ดโฟลเดอร์ และทุกโฟลเดอร์บรรจุสำเนาเต็มของทุกอย่างที่มาก่อนหน้า `prompt.py`
 เหมือนกันในทุกโฟลเดอร์ตั้งแต่บทที่ 10 เป็นต้นมา `permissions.py`
-เหมือนกันในทุกโฟลเดอร์ตั้งแต่บทที่ 12 เป็นต้นมา `tools.py`
+เหมือนกันในทุกโฟลเดอร์ตั้งแต่บทที่ 12 เป็นต้นมา `retrieval.py`
 ปรากฏในโฟลเดอร์นี้แบบไบต์ต่อไบต์เหมือนที่มันปรากฏในบทที่ 16 มีไฟล์ Python สิบสองไฟล์ที่นี่
 และสองไฟล์ในนั้นเป็นของใหม่
 
@@ -1135,20 +1213,30 @@ lessons/17-errors-and-retries/   + retry.py cancel.py
 มันคือทางเลือกที่แย่มากสำหรับโปรแกรม แก้ bug ใน `tools.py` แล้วมีเจ็ดสำเนาให้ต้องแก้
 
 การซ้ำซ้อนเป็นแค่ครึ่งที่มองเห็นของปัญหา ช่องว่างที่แท้จริงคือไม่มีอะไรตรงนี้ถูกประกอบเข้าด้วยกัน
-`retry.py` มีอยู่และไม่มีอะไรเรียกมัน `cancel.py` มีอยู่และไม่มี signal handler
-ตั้งค่ามัน ไม่มีวิธี resume session จาก command line ไม่มีวิธีรันงานเดียวแล้วออก ไม่มี
+`retry.py` ไปถึง provider แล้ว และการต่อสายก็ไปได้ไกลแค่นั้น `cancel.py` มีอยู่และไม่มี
+signal handler ตั้งค่ามัน จึงไม่มีอะไรเรียก `cancel` เลย `tools.CANCELLATION`
+มีอยู่และไม่มีอะไรกำหนดค่าให้มัน การตรวจของ shell tool จึงอ่านค่า `None` ตลอดกาล
+ไม่มีวิธี resume session จาก command line ไม่มีวิธีรันงานเดียวแล้วออก ไม่มี
 `--yes` สำหรับสคริปต์ ไม่มีที่ไหนที่งบจากบทที่ 14 กับสิทธิ์จากบทที่ 12
 กับการยกเลิกจากบทนี้มาบรรจบกันใน object เดียวกัน
 
-**บทที่ 18 คือ harness** ทั้งหมดนี้จะกลายเป็น package เดียวที่ติดตั้งได้ พร้อม command
-line จริงชื่อ `agentpath` โดยมี `chat` สำหรับบทสนทนา `run` สำหรับหนึ่งงานในสคริปต์ และ
-`resume` สำหรับสานต่อจากที่ค้างไว้ agent
-จะกลายเป็นคลาสที่ถือชิ้นส่วนของตัวเองแทนที่จะเป็นฟังก์ชันที่มี keyword argument สิบเอ็ดตัว
-loop จะเลิกพิมพ์และเริ่ม yield event ที่มีชนิด
-การวาดบน terminal จึงอยู่ในไฟล์เดียวที่รู้เรื่อง terminal `retry.py` จะถูกต่อสายเข้ากับ
-provider `cancel.py` จะถูกต่อสายเข้ากับ signal handler tool
-จะรับไดเรกทอรีรากเป็น argument ซึ่งในที่สุดก็จ่ายหนี้ที่บทที่ 11
-เอ่ยถึงตอนอธิบายว่าทำไม `AGENTPATH_WORKSPACE` ต้องถูกตั้งค่าก่อนการ import
+**บทที่ 18 คือ harness** ไฟล์ใหม่หนึ่งไฟล์ชื่อ `main.py`
+ที่ซึ่งทุกชิ้นส่วนเหล่านั้นมาบรรจบกันเสียที command line ที่สร้างด้วย `argparse`
+รับงานเป็น positional argument และมี `--workspace`, `--session`, `--resume`,
+`--budget` กับ `--yes` เป็น flag ชื่อ session ที่เลือกได้สามทาง และ `--resume`
+ที่ชนะด้วยการส่งชื่อเดิมเข้าไปแทนที่จะคัดลอกไฟล์ signal handler ที่ตั้งค่า cancellation
+token และบรรทัดข้าง ๆ มันที่ส่ง token ตัวเดียวกันให้ `tools.py`
+ซึ่งเป็นสิ่งที่ทำให้การตรวจของ shell tool เลิกเป็นโค้ดที่ตาย
+จากนั้นคือ check หมุดหมายที่รันโปรแกรมที่ประกอบเสร็จแล้วตั้งแต่ต้นจนจบ
+
+พูดให้ชัดว่าบทที่ 18 ไม่ได้ทำอะไร เพราะมีสองอย่างที่ยังคงเดิม `run`
+ยังเป็นฟังก์ชันที่พิมพ์ออกหน้าจอเหมือนที่มันเป็นมาตั้งแต่บทที่ 04
+การวาดบน terminal จึงยังอยู่ใน loop และชิ้นส่วนต่าง ๆ ยังถูกส่งให้มันเป็น keyword
+argument แทนที่จะถูกถือโดย object ตัวหนึ่ง package ที่ติดตั้งได้ใต้ `src/agentpath/`
+ไปไกลกว่านั้นจริง ด้วยคลาส `Agent` loop ที่ yield event ที่มีชนิด และ command line
+ที่มี `chat`, `run` กับ `resume` เป็น subcommand และบทที่ 18 ก็ชี้ไปที่มันทุกครั้งที่สองอย่างนี้ต่างกัน
+โฟลเดอร์บทเรียนยังเป็นสคริปต์แบน ๆ อย่างจงใจ
+เพราะประเด็นของบทนี้คือคุณอ่านการประกอบทั้งหมดได้ในไฟล์เดียว
 
 ไม่มีอะไรในบทที่ 18 ที่เป็นแนวคิดใหม่ มันคือหมุดหมายที่สอง และเหมือนหมุดหมายแรก
 หน้าที่ของมันคือแสดงว่าชิ้นส่วนต่าง ๆ เข้ากันได้ ย้อนกลับไปดูรอยต่อ

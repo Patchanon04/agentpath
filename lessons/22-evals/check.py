@@ -1,12 +1,14 @@
 """Check that lesson 22 works.
 
-Five things must be true. A passing task is reported as passing and a
+Six things must be true. A passing task is reported as passing and a
 failing one as failing. A check that itself throws counts as a failure
 rather than crashing the run, because a report you never get is worse than
 a red line. Usage is recorded per task so you can compare cost as well as
 correctness. Results come back in the order the tasks were written even when
-they ran in parallel. And a judge that cannot be read counts as a failure,
-so an unreadable verdict never turns into a green tick.
+they ran in parallel. A judge that cannot be read counts as a failure, so an
+unreadable verdict never turns into a green tick. And the report says in one
+line how many tasks passed, because a measurement nobody reads changes
+nothing.
 """
 import os
 import sys

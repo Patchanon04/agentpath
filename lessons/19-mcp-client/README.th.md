@@ -59,12 +59,13 @@ lessons/19-mcp-client/
   mcp.py               new. the whole client, around 190 lines with docstrings
   mock_mcp_server.py   new. a tiny MCP server so the check needs nothing external
   check.py             new. five claims about the client
-  tools.py             lesson 16, plus one 8 line function called register_mcp
+  tools.py             lesson 18, plus one 8 line function called register_mcp
+  main.py              identical to lesson 18
   agent.py             identical to lesson 17
   permissions.py       identical to lesson 12
   session.py           identical to lesson 13
   context.py           identical to lesson 14
-  providers.py         identical to lesson 15
+  providers.py         identical to lesson 17
   usage.py             identical to lesson 15
   retrieval.py         identical to lesson 16
   prompt.py            identical to lesson 10
@@ -73,8 +74,9 @@ lessons/19-mcp-client/
   README.md            this file
 ```
 
-diff ทั้งหมดเทียบกับบทที่ 18 นอกเหนือจากไฟล์ใหม่สามไฟล์ คือสิบเจ็ดบรรทัดท้าย
-ไฟล์ `tools.py`
+นอกเหนือจากไฟล์ใหม่สามไฟล์ `tools.py` เป็นไฟล์เดียวที่เปลี่ยนเลย
+และการเปลี่ยนคือสิบเจ็ดบรรทัดท้ายไฟล์ ไฟล์อื่นทุกไฟล์ในโฟลเดอร์นี้ รวมถึง `main.py`
+เป็นไบต์ต่อไบต์เหมือนที่บทที่ 18 ส่งมอบไว้
 
 ```bash
 diff 18-the-harness/tools.py 19-mcp-client/tools.py

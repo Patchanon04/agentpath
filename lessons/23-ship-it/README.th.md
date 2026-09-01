@@ -13,35 +13,36 @@
 
 ```text
 lessons/23-ship-it/
-  agent.py         140 lines   identical to lesson 18
-  tools.py         422 lines   identical to lesson 19
-  providers.py     208 lines   identical to lesson 18
-  mcp.py           188 lines   identical to lesson 19
-  evals.py         149 lines   identical to lesson 22
-  main.py          115 lines   identical to lesson 18
-  retrieval.py     115 lines   identical to lesson 18
-  context.py        80 lines   identical to lesson 18
-  fanout.py         80 lines   identical to lesson 21
-  permissions.py    77 lines   identical to lesson 18
-  retry.py          67 lines   identical to lesson 18
-  subagent.py       61 lines   identical to lesson 20
-  session.py        56 lines   identical to lesson 18
-  usage.py          48 lines   identical to lesson 18
-  prompt.py         35 lines   identical to lesson 10
-  cancel.py         31 lines   identical to lesson 18
-  check.py         117 lines   new
-  README.md                    this file
+  tools.py             422 lines   identical to lesson 19
+  providers.py         208 lines   identical to lesson 18
+  mcp.py               188 lines   identical to lesson 19
+  evals.py             149 lines   identical to lesson 22
+  agent.py             140 lines   identical to lesson 18
+  retrieval.py         127 lines   identical to lesson 19
+  check.py             117 lines   new
+  main.py              115 lines   identical to lesson 18
+  mock_mcp_server.py   104 lines   identical to lesson 19
+  context.py            80 lines   identical to lesson 18
+  fanout.py             80 lines   identical to lesson 21
+  permissions.py        77 lines   identical to lesson 18
+  retry.py              67 lines   identical to lesson 18
+  subagent.py           61 lines   identical to lesson 20
+  session.py            56 lines   identical to lesson 18
+  usage.py              48 lines   identical to lesson 18
+  prompt.py             35 lines   identical to lesson 10
+  cancel.py             31 lines   identical to lesson 18
+  README.md                        this file
 ```
 
-สิบหก module ไฟล์ใหม่หนึ่งไฟล์ และไฟล์ใหม่นั้นคือการตรวจสอบ
+สิบเจ็ด module ไฟล์ใหม่หนึ่งไฟล์ และไฟล์ใหม่นั้นคือการตรวจสอบ
 
 ## 1. สิ่งที่คุณมีอยู่ในมือ
 
 พูดกันตรง ๆ เพราะสิ่งยั่วใจตอนจบคอร์สคือการพองตัวเอง และตอนจบที่พองเกินจริงจะสอนให้คุณ
 ประเมินสิ่งต่อไปที่คุณจะสร้างผิดพลาด
 
-คุณมี Python 1872 บรรทัดกระจายอยู่ในสิบหกไฟล์ ถ้ารวมไฟล์ตรวจสอบของบทนี้เข้าไปด้วยก็เป็น
-1989 บรรทัด นั่นเล็กกว่าไฟล์ซอร์สไฟล์เดียวส่วนใหญ่ใน framework ที่คนติดตั้งกันเพื่อจะได้ไม่ต้อง
+คุณมี Python 1988 บรรทัดกระจายอยู่ในสิบเจ็ดไฟล์ ถ้ารวมไฟล์ตรวจสอบของบทนี้เข้าไปด้วยก็เป็น
+2105 บรรทัด นั่นเล็กกว่าไฟล์ซอร์สไฟล์เดียวส่วนใหญ่ใน framework ที่คนติดตั้งกันเพื่อจะได้ไม่ต้อง
 เขียนสิ่งนี้ และมันเล็กพอที่คุณจะอ่านทั้งหมดได้ในบ่ายเดียว ซึ่งเป็นคุณสมบัติเดียวที่ทำให้มันคุ้ม
 ค่าแก่การสอน
 
@@ -298,7 +299,7 @@ package ที่ติดตั้งได้
 ```toml
 [project]
 name = "agentpath"
-version = "0.3.0"
+version = "1.0.0"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -343,11 +344,13 @@ testpaths = ["tests"]
 **`name`** คือตัวตน มันคือสิ่งที่คนพิมพ์ต่อจาก `pip install` และมันต้องไม่ซ้ำกับใครทั้ง Python
 Package Index หัวข้อ 5 พูดถึงเรื่องที่ว่ามันยากกว่าที่ฟังดู
 
-**`version`** คือ `0.3.0` และตัวเลขเดินตามคอร์สแทนที่จะเดินตามปฏิทิน เอกสารออกแบบกำหนดให้หนึ่ง
+**`version`** คือ `1.0.0` และตัวเลขเดินตามคอร์สแทนที่จะเดินตามปฏิทิน เอกสารออกแบบกำหนดให้หนึ่ง
 ส่วนเท่ากับหนึ่ง release ดังนั้นส่วนที่ 1 จึงออกเป็น `0.1.0` ส่วนที่ 2 เป็น `0.2.0` ส่วนที่ 3 เป็น
-`0.3.0` เหตุผลที่ผูก release กับส่วนแทนที่จะผูกกับบทคือ หนึ่งส่วนเป็นหน่วยที่เล็กที่สุดของคอร์สที่มี
-ประโยชน์ได้ด้วยตัวเอง การออกเวอร์ชันที่คุณค่าของมันเพิ่งโผล่มาอีกสามบทถัดไปคือการส่งของที่สร้างเสร็จ
-แค่ครึ่งเดียว
+`0.3.0` และส่วนที่ 4 ซึ่งเป็นส่วนที่บทนี้ปิดท้าย เป็น `1.0.0` เหตุผลที่ผูก release กับส่วนแทนที่จะผูก
+กับบทคือ หนึ่งส่วนเป็นหน่วยที่เล็กที่สุดของคอร์สที่มีประโยชน์ได้ด้วยตัวเอง การออกเวอร์ชันที่คุณค่าของมัน
+เพิ่งโผล่มาอีกสามบทถัดไปคือการส่งของที่สร้างเสร็จแค่ครึ่งเดียว เหตุผลที่ตัวสุดท้ายเป็น `1.0.0` แทนที่จะ
+เป็น `0.4.0` คือคอร์สจบลงที่ยี่สิบสี่บท และเลข `1.0` เป็นคำประกาศว่ารูปร่างของมันลงตัวแล้ว ไม่ใช่คำ
+กล่าวอ้างว่าโค้ดไร้ที่ติ
 
 หมายเลขเวอร์ชันยังปรากฏใน `src/agentpath/__init__.py` ในชื่อ `__version__` ด้วย และการรักษาสอง
 สำเนาให้ตรงกันด้วยมือคือวิธีที่รู้กันดีว่าจะทำให้เผยแพร่ package ที่รายงานเลขผิด hatchling อ่าน
@@ -364,7 +367,7 @@ Package Index หัวข้อ 5 พูดถึงเรื่องที่
 ```text
 Metadata-Version: 2.5
 Name: agentpath
-Version: 0.3.0
+Version: 1.0.0
 Summary: Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness.
 License: MIT
 License-File: LICENSE
@@ -416,7 +419,7 @@ dependencies = ["httpx>=0.27"]
 ```text
 Package           Version
 ----------------- ---------
-agentpath         0.3.0
+agentpath         1.0.0
 anyio             4.14.2
 certifi           2026.7.22
 h11               0.16.0
@@ -580,7 +583,7 @@ python -m build
   - hatchling
 * Getting build dependencies for wheel...
 * Building wheel...
-Successfully built agentpath-0.3.0.tar.gz and agentpath-0.3.0-py3-none-any.whl
+Successfully built agentpath-1.0.0.tar.gz and agentpath-1.0.0-py3-none-any.whl
 ```
 
 อ่านดูว่ามันทำอะไร เพราะมันอธิบายตาราง `[build-system]` จากหัวข้อที่แล้ว มันสร้าง environment ใหม่
@@ -606,18 +609,18 @@ wheel ทำให้การติดตั้ง Python เร็วและ
 ```bash
 python -c "
 import zipfile
-z = zipfile.ZipFile('dist/agentpath-0.3.0-py3-none-any.whl')
+z = zipfile.ZipFile('dist/agentpath-1.0.0-py3-none-any.whl')
 for name in sorted(z.namelist()):
     print(name)
 "
 ```
 
 ```text
-agentpath-0.3.0.dist-info/METADATA
-agentpath-0.3.0.dist-info/RECORD
-agentpath-0.3.0.dist-info/WHEEL
-agentpath-0.3.0.dist-info/entry_points.txt
-agentpath-0.3.0.dist-info/licenses/LICENSE
+agentpath-1.0.0.dist-info/METADATA
+agentpath-1.0.0.dist-info/RECORD
+agentpath-1.0.0.dist-info/WHEEL
+agentpath-1.0.0.dist-info/entry_points.txt
+agentpath-1.0.0.dist-info/licenses/LICENSE
 agentpath/__init__.py
 agentpath/agent.py
 agentpath/cancel.py
@@ -651,27 +654,27 @@ agentpath/usage.py
 ```
 
 นั่นคือ framework ทั้งหมดและไม่มีอย่างอื่น ไม่มี `lessons` ไม่มี `tests` ไม่มี `docs` ไม่มี `.github`
-สี่สิบแปดกิโลไบต์
+ห้าสิบเอ็ดกิโลไบต์
 
 ทีนี้ดูขนาดของสองไฟล์นี้ด้วยกัน เพราะนี่คือจุดที่โปรเจกต์นี้เจอปัญหาจริงจากการเปิดดู
 
 ```text
-agentpath-0.3.0-py3-none-any.whl  48.1K
-agentpath-0.3.0.tar.gz            1.1M
+agentpath-1.0.0-py3-none-any.whl  50.7K
+agentpath-1.0.0.tar.gz            1.3M
 ```
 
-source distribution ใหญ่กว่า wheel มากกว่ายี่สิบเท่า มานับดูว่าข้างในมีอะไร
+source distribution ใหญ่กว่า wheel มากกว่ายี่สิบห้าเท่า มานับดูว่าข้างในมีอะไร
 
 ```text
-  222  lessons
+  242  lessons
    30  src
    25  tests
     6  docs
     2  ci
 ```
 
-sdist กวาดทั้ง repository เข้ามา รวมถึงโฟลเดอร์บทเรียนทั้งยี่สิบสี่โฟลเดอร์และแคช bytecode ที่
-คอมไพล์แล้วของมัน ซึ่งพอแก้ต่างได้สำหรับโปรเจกต์นี้โดยเฉพาะ เพราะบทเรียนคือซอร์สจริง ๆ ในความ
+sdist กวาดทั้ง repository เข้ามา รวมถึงโฟลเดอร์บทเรียนทั้งยี่สิบสี่โฟลเดอร์ในทั้งสองภาษาที่คอร์สนี้
+เผยแพร่ ซึ่งพอแก้ต่างได้สำหรับโปรเจกต์นี้โดยเฉพาะ เพราะบทเรียนคือซอร์สจริง ๆ ในความ
 หมายที่สำคัญตรงนี้ แต่มันแทบไม่เคยเป็นสิ่งที่คุณต้องการ และไม่เคยเป็นสิ่งที่คุณคาดไว้ ทางแก้คือตาราง
 `[tool.hatch.build.targets.sdist]` ที่ระบุว่าจะรวมอะไรบ้าง บทเรียนที่ได้เล็กกว่าและมีประโยชน์กว่า
 ทางแก้ **ดูสิ่งที่คุณ build ก่อนจะเผยแพร่มัน** เพราะค่าเริ่มต้นของสิ่งที่จะเข้าไปอยู่ใน source
@@ -692,7 +695,7 @@ distribution นั้นใจกว้าง และไม่มีใคร
 
 ```bash
 python -m venv fresh
-./fresh/bin/pip install dist/agentpath-0.3.0-py3-none-any.whl
+./fresh/bin/pip install dist/agentpath-1.0.0-py3-none-any.whl
 ./fresh/bin/agentpath --help
 ```
 
@@ -724,7 +727,7 @@ package import ได้ มันไม่ได้พิสูจน์ว่�
 
 ลำดับคือประเด็นทั้งหมด การเผยแพร่เป็นทางเดียว หมายเลขเวอร์ชันบน package index นำกลับมาใช้ซ้ำไม่ได้
 เลย ต่อให้คุณลบไฟล์ทิ้ง ซึ่งเป็นกฎที่ตั้งใจให้เป็นแบบนั้นเพื่อปกป้องทุกคนที่พึ่งพามันไปแล้ว ดังนั้น
-`0.3.0` ที่พังจึงไม่ใช่สิ่งที่คุณแก้ มันคือสิ่งที่คุณแทนที่ด้วย `0.3.1` ในขณะที่ตัวที่พังยังมองเห็นได้ตลอด
+`1.0.0` ที่พังจึงไม่ใช่สิ่งที่คุณแก้ มันคือสิ่งที่คุณแทนที่ด้วย `1.0.1` ในขณะที่ตัวที่พังยังมองเห็นได้ตลอด
 ไป สิบนาทีใน virtual environment ใหม่ ๆ ซื้อความสามารถที่จะไม่ต้องทำแบบนั้นเลยให้คุณ
 
 ### การเผยแพร่ต้องมีบัญชีและ token

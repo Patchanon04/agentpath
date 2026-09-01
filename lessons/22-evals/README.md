@@ -15,24 +15,28 @@ Here is what is in this folder and where each file came from.
 
 ```text
 lessons/22-evals/
-  evals.py        new. Task, Result, run_one, run_evals, judge, report
-  check.py        new. six claims about the measuring instrument
-  fanout.py       identical to lesson 21
-  agent.py        identical to lesson 21
-  tools.py        identical to lesson 21
-  session.py      identical to lesson 21
-  permissions.py  identical to lesson 21
-  providers.py    identical to lesson 21
-  prompt.py       identical to lesson 21
-  context.py      identical to lesson 21
-  usage.py        identical to lesson 21
-  retrieval.py    identical to lesson 21
-  retry.py        identical to lesson 21
-  cancel.py       identical to lesson 21
-  README.md       this file
+  evals.py            new. Task, Result, run_one, run_evals, judge, report
+  check.py            new. six claims about the measuring instrument
+  fanout.py           identical to lesson 21
+  agent.py            identical to lesson 21
+  tools.py            identical to lesson 21
+  session.py          identical to lesson 21
+  permissions.py      identical to lesson 21
+  providers.py        identical to lesson 21
+  prompt.py           identical to lesson 21
+  context.py          identical to lesson 21
+  usage.py            identical to lesson 21
+  retrieval.py        identical to lesson 21
+  retry.py            identical to lesson 21
+  cancel.py           identical to lesson 21
+  subagent.py         identical to lesson 21
+  main.py             identical to lesson 21
+  mcp.py              identical to lesson 21
+  mock_mcp_server.py  identical to lesson 21
+  README.md           this file
 ```
 
-Twelve of the fourteen Python files are byte for byte what they were last
+Sixteen of the eighteen Python files are byte for byte what they were last
 chapter, which is checkable rather than claimed.
 
 ```bash
@@ -56,11 +60,20 @@ harness that required the agent to be modified in order to be measured would be
 measuring a different agent from the one you ship. The whole design pressure in
 this chapter is to keep the thing being measured untouched by the measurement.
 
-One file from lesson 21 is missing rather than modified. `subagent.py` is not
-here, because nothing in this chapter starts a child, and copying a file
-forward so the folder looks complete is how a course starts lying about what it
-depends on. If you want subagents in your own eval runs, the file is unchanged
-in lesson 21 and drops straight in.
+`subagent.py` is in this folder even though nothing in this chapter starts a
+child, and so are `mcp.py`, `main.py`, and `mock_mcp_server.py`. That is the
+rule every folder from lesson 19 onward follows. Each one carries everything the
+course has built so far, so a chapter can be opened on its own and run without
+first copying files in from a neighbour.
+
+A full folder is not a claim that the chapter uses all of it, and pretending
+otherwise is how a course starts lying about what it depends on. So here is the
+sentence the folder listing cannot say for itself. What this chapter actually
+depends on is `evals.py`, which imports `run_in_parallel` from `fanout.py` and
+nothing else, and the agent stack that `check.py` drives through `agent.py`,
+`tools.py`, `providers.py`, `permissions.py`, and `usage.py`. The rest is
+carried, not used. If you do want subagents in your own eval runs, `subagent.py`
+is right there and unchanged from lesson 21.
 
 ## 1. The problem left over from lesson 21
 

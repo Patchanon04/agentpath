@@ -29,11 +29,11 @@ lessons/14-context-management/
   session.py     unchanged from lesson 13
   prompt.py      unchanged from lesson 10
   providers.py   unchanged from lesson 06
-  tools.py       unchanged from lesson 09
+  tools.py       unchanged from lesson 12
   README.md      this file
 ```
 
-ไฟล์ใหม่หนึ่งไฟล์ยาวแปดสิบเอ็ดบรรทัด และโค้ดที่เปลี่ยนใน `agent.py` สี่บรรทัด
+ไฟล์ใหม่หนึ่งไฟล์ยาวแปดสิบบรรทัด และโค้ดที่เปลี่ยนใน `agent.py` สิบสองบรรทัด
 
 ## 1. ปัญหาที่บทที่ 13 ทิ้งไว้ให้คุณ
 

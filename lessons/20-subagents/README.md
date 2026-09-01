@@ -9,23 +9,31 @@ Here is what is in the folder and where each file came from.
 
 ```text
 lessons/20-subagents/
-  subagent.py     new. sixty one lines, and sixteen of them are the docstring
-  check.py        new. five claims, and the fifth one is a warning
-  agent.py        identical to lesson 19
-  tools.py        identical to lesson 19
-  prompt.py       identical to lesson 19
-  permissions.py  identical to lesson 19
-  session.py      identical to lesson 19
-  context.py      identical to lesson 19
-  providers.py    identical to lesson 19
-  usage.py        identical to lesson 19
-  retrieval.py    identical to lesson 19
-  retry.py        identical to lesson 19
-  cancel.py       identical to lesson 19
-  README.md       this file
+  subagent.py         new. sixty one lines, and sixteen of them are the docstring
+  check.py            new. six claims, and the last one is a warning
+  agent.py            identical to lesson 19
+  tools.py            identical to lesson 19
+  prompt.py           identical to lesson 19
+  permissions.py      identical to lesson 19
+  session.py          identical to lesson 19
+  context.py          identical to lesson 19
+  providers.py        identical to lesson 19
+  usage.py            identical to lesson 19
+  retrieval.py        identical to lesson 19
+  retry.py            identical to lesson 19
+  cancel.py           identical to lesson 19
+  main.py             identical to lesson 19
+  mcp.py              identical to lesson 19
+  mock_mcp_server.py  identical to lesson 19
+  README.md           this file
 ```
 
-Eleven of the thirteen Python files are byte for byte what they were last
+Every folder from lesson 19 onward carries the whole course, so a chapter can
+be opened on its own and run without first copying files in from a neighbour.
+That is why `mcp.py`, `mock_mcp_server.py`, and `main.py` are sitting here even
+though this chapter never mentions them.
+
+Fourteen of the seventeen Python files are byte for byte what they were last
 chapter. That is checkable rather than assertable.
 
 ```bash
@@ -820,16 +828,17 @@ The tool returned Wrote 7 characters to shared.txt.
 OK the trap is real, the parent still believes 'original' while the file now says 'changed'
 ```
 
-Five `OK` lines, and the file's own docstring is explicit that the fifth is a
-different kind of thing from the other four.
+Six `OK` lines, and the file's own docstring is explicit that the last one is a
+different kind of thing from the other five.
 
 ```text
-Four things must be true. A subagent is an ordinary tool as far as the
-parent is concerned. It does real work that reaches the disk. Its
-conversation stays its own, which is the reason to use one at all. And a
-child that blows up leaves the parent standing.
+Five things must be true. A subagent is an ordinary tool as far as the
+parent is concerned. It does real work that reaches the disk. It holds a
+conversation of its own. None of that conversation lands in the parent,
+which is the reason to use one at all. And a child that blows up leaves the
+parent standing.
 
-The fifth thing this file demonstrates is not a feature. It is the trap that
+The sixth thing this file demonstrates is not a feature. It is the trap that
 comes with the isolation, which is that the parent keeps believing whatever
 it read before the child changed it.
 ```
@@ -892,8 +901,8 @@ away what it said would leave the parent unable to tell a timeout worth retrying
 from a `max_turns` error worth splitting, which is the argument section 7 makes
 about why the exception class name and the message are in the string at all.
 
-**Six, which is not an OK line but is checked anyway.** The trap demonstration
-has its own guard.
+**Six. The trap is real.** It prints its own `OK` line like the other five, and
+the demonstration behind it has a guard.
 
 ```python
     if parent_saw == now:

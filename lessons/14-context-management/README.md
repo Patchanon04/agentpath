@@ -32,11 +32,11 @@ lessons/14-context-management/
   session.py     unchanged from lesson 13
   prompt.py      unchanged from lesson 10
   providers.py   unchanged from lesson 06
-  tools.py       unchanged from lesson 09
+  tools.py       unchanged from lesson 12
   README.md      this file
 ```
 
-One new file of eighty one lines, and four changed lines in `agent.py`.
+One new file of eighty lines, and twelve changed lines in `agent.py`.
 
 ## 1. The problem lesson 13 left you with
 

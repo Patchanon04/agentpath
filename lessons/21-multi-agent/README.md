@@ -3,32 +3,51 @@
 # Lesson 21. Multi agent patterns
 
 Lesson 20 gave the agent a way to hand work to another agent. This chapter
-gives it a way to hand work to four of them at the same time, and then spends
+builds the machinery for running several jobs at the same time, and then spends
 most of its length on the three things that go wrong when you do.
+
+Be clear about the scope before you read further, because the word multi agent
+promises more than this chapter delivers. `fanout.py` knows nothing about
+agents. It takes a list of labelled callables that produce events, runs them on
+a pool of threads, and hands the events back through one queue. Nothing in this
+folder wires `run_in_parallel` to `subagent.py` or to `agent.py`, and the checks
+drive it with toy jobs that yield strings and sleep, because the concurrency is
+the subject and a real model call would only make the behaviour harder to see.
+Lesson 22 is the first real caller. Its `run_evals` uses `run_in_parallel` to
+put an eval suite across several workers, and that is where this module starts
+doing work you would ship.
 
 Here is what is in this folder and where each file came from.
 
 ```text
 lessons/21-multi-agent/
-  fanout.py       new. run_in_parallel, the DONE sentinel, and FanoutError
-  check.py        new. four claims about running things at once
-  agent.py        identical to lesson 20
-  subagent.py     identical to lesson 20
-  tools.py        identical to lesson 20
-  session.py      identical to lesson 20
-  permissions.py  identical to lesson 20
-  providers.py    identical to lesson 20
-  prompt.py       identical to lesson 20
-  context.py      identical to lesson 20
-  usage.py        identical to lesson 20
-  retrieval.py    identical to lesson 20
-  retry.py        identical to lesson 20
-  cancel.py       identical to lesson 20
-  README.md       this file
+  fanout.py           the subject of this chapter. run_in_parallel, the DONE
+                      sentinel, and FanoutError
+  check.py            new. four claims about running things at once
+  agent.py            identical to lesson 20
+  subagent.py         identical to lesson 20
+  tools.py            identical to lesson 20
+  session.py          identical to lesson 20
+  permissions.py      identical to lesson 20
+  providers.py        identical to lesson 20
+  prompt.py           identical to lesson 20
+  context.py          identical to lesson 20
+  usage.py            identical to lesson 20
+  retrieval.py        identical to lesson 20
+  retry.py            identical to lesson 20
+  cancel.py           identical to lesson 20
+  main.py             identical to lesson 20
+  mcp.py              identical to lesson 20
+  mock_mcp_server.py  identical to lesson 20
+  README.md           this file
 ```
 
-Twelve of the fourteen Python files are byte for byte what they were last
-chapter. That is checkable rather than claimed.
+Every folder from lesson 19 onward carries the whole course, so a chapter can be
+opened on its own and run without first copying files in from a neighbour. Only
+`check.py` differs from lesson 20, which means sixteen of the seventeen Python
+files are byte for byte what they were last chapter. `fanout.py` is one of the
+sixteen, because lesson 20's folder already shipped a copy of it that lesson 20
+never used. That is checkable rather than claimed.
 
 ```bash
 cd lessons
@@ -1028,9 +1047,9 @@ servers, which added tools and also added their schemas to every request, and
 lesson 19 itself warned that more tools makes the model choose worse. Lesson 20
 added subagents, which keep the parent's context clean and also mean the parent
 is reasoning from an answer written by a model rather than from the tool results
-themselves. This chapter runs four of them at once, which is faster and also
-means four agents forming four separate views of a codebase they are all
-changing.
+themselves. This chapter gives you the machinery to run four of them at once,
+which is faster and also means four agents forming four separate views of a
+codebase they are all changing.
 
 Every one of those is a trade. Not one of them has been measured. You have four
 chapters of plausible improvements and no instrument, and the failure mode of

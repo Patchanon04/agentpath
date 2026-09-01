@@ -34,10 +34,10 @@ lessons/18-the-harness/
   permissions.py  identical to lesson 12
   session.py      identical to lesson 13
   context.py      identical to lesson 14
-  providers.py    identical to lesson 15
+  providers.py    identical to lesson 17
   usage.py        identical to lesson 15
   retrieval.py    identical to lesson 16
-  tools.py        identical to lesson 16
+  tools.py        identical to lesson 17
   retry.py        identical to lesson 17
   cancel.py       identical to lesson 17
   README.md       this file
@@ -263,16 +263,23 @@ changes nothing outside the conversation. Running a tool that sent an email
 is not, which is why nothing in this module wraps a tool call.
 ```
 
-Be honest about the state of the wiring, because it matters. Nothing in this
-folder calls `with_retries` yet. Lesson 17 said where it goes and why, and the
-place is inside the provider.
+The wiring is already done, and it is worth seeing where. `providers.py` calls
+`with_retries` in exactly one function, and both providers go through it.
 
 ```python
-from retry import with_retries
+def open_stream(client, url, payload, headers, attempts=4):
+    """Open a streaming request, retrying the failures worth retrying."""
 
-# in OpenAICompatProvider
-def stream(self, messages, tools=None, on_text=None):
-    return with_retries(lambda: self._stream_once(messages, tools, on_text))
+    def once():
+        request = client.build_request("POST", url, json=payload, headers=headers)
+        response = client.send(request, stream=True)
+        if response.status_code >= 400:
+            response.read()
+            response.close()
+            response.raise_for_status()
+        return response
+
+    return with_retries(once, attempts=attempts)
 ```
 
 The provider is the only object in this program that knows it is speaking HTTP.
@@ -280,8 +287,14 @@ It is where `httpx` is imported and where `raise_for_status` is called, so it is
 the only place where `httpx.HTTPStatusError` is a meaningful type to catch. Put
 the retry in the loop instead and `agent.py` has to import `httpx` in order to
 know which failures are worth repeating, and the loop staying ignorant of the
-wire is the property lesson 06 bought and lesson 11 measured. Exercise three in
-section 8 wires it in for real.
+wire is the property lesson 06 bought and lesson 11 measured.
+
+Notice the exact boundary. What is wrapped is opening the request, not consuming
+the stream. Once the first byte has reached `on_text` the caller has seen part of
+an answer, and replaying the request would print a second answer on top of the
+first. So a rate limit before the response starts is invisible to you, and a
+connection that dies halfway through a long answer is not recovered at all. That
+asymmetry is the price of streaming, and lesson 17 argued it out.
 
 ### Cancellation says stop, and everybody else asks it
 
@@ -511,8 +524,8 @@ The growth is real. The shape did not move.
 
 ## 4. Walking through main.py
 
-Now the new file. It is around eighty lines and it contains no agent logic at
-all. Five of its decisions are worth more than their line count suggests.
+Now the new file. It is a hundred and fifteen lines and it contains no agent
+logic at all. Five of its decisions are worth more than their line count suggests.
 
 ### Argument parsing
 
@@ -729,6 +742,14 @@ where it compares the length before against the length after.
 ### How the interrupt handler is installed
 
 ```python
+    cancellation = Cancellation()
+
+    # One token, shared. A second flag somewhere else is a second thing to
+    # forget to check.
+    import tools
+
+    tools.CANCELLATION = cancellation
+
     def handle_interrupt(signum, frame):
         if cancellation.cancelled:
             raise KeyboardInterrupt
@@ -741,7 +762,19 @@ where it compares the length before against the length after.
         pass
 ```
 
-Two presses, two behaviours, and that is the entire design.
+`tools.CANCELLATION = cancellation` is the smallest line in the file and one of
+the few that changes what the program can do. `tools.py` has had the check since
+lesson 17, reading a module level `CANCELLATION` that lesson 17 never set, so it
+was a correct check guarding nothing. This is the line that supplies the value.
+
+It is an assignment to a module attribute rather than a parameter because the
+alternative is threading a token through `tools.run`, through every tool
+signature, and through every caller of every tool, to reach the one tool that
+needs it. The comment above it is the constraint that makes the module attribute
+safe. There is one token, the loop and the shell tool read the same object, and a
+second flag somewhere else would be a second thing to forget to check.
+
+Then the handler. Two presses, two behaviours, and that is the entire design.
 
 The first press sets the flag and tells you what it did. The loop notices at its
 next checkpoint and raises `KeyboardInterrupt` from a place where the
@@ -762,16 +795,15 @@ another program. Without the guard, `main()` would crash on a line that has
 nothing to do with the task, in an environment where nobody was going to press
 Ctrl+C anyway.
 
-Now the honest part, because the docstring in `cancel.py` promises more than
-this program delivers.
+Now check the docstring in `cancel.py` against what the program does.
 
 ```text
 The same token is checked by the agent loop between turns and by the shell
 tool before it starts a process
 ```
 
-Grep `tools.py` for the cancellation token and you will not find it. `run_shell`
-does not consult it. The loop checks in two places, before each turn and before
+Both halves are true here, and the second half is true because of the two lines
+above the handler. The loop checks in two places, before each turn and before
 each call.
 
 ```python
@@ -784,11 +816,28 @@ each call.
                 raise KeyboardInterrupt("cancelled")
 ```
 
-So press Ctrl+C once while a sixty second `run_shell` is going, and the
-subprocess runs to completion. The stop takes effect afterwards, before the next
-call. It is a real gap, it is exactly the gap `cancel.py` was written to warn
-about, and the honest thing is to name it here rather than let the docstring
-imply it is closed. Exercise four in section 8 closes it.
+And `run_shell` checks once, before it spawns anything.
+
+```python
+CANCELLATION = None
+
+
+def run_shell(command):
+    ...
+    if CANCELLATION is not None and CANCELLATION.cancelled:
+        return "Cancelled before the command started."
+```
+
+That check has been in `tools.py` since lesson 17 and did nothing there, because
+lesson 17 never assigned `tools.CANCELLATION`. `main.py` is where it starts
+working, and it is the reason those two lines are not a stray import.
+
+The gap that is left is narrower and it is real. Every check is a check made
+before something starts. Press Ctrl+C once while a sixty second `run_shell` is
+already going, and the subprocess runs to completion, because `subprocess.run`
+blocks until the process exits and there is no place inside it to look at a flag.
+The stop takes effect afterwards, before the next call. Exercise four in section
+8 is about closing that.
 
 ### The last four lines
 
@@ -1417,9 +1466,16 @@ what makes this worse.
 
 **Lesson 21, multi agent patterns.** An orchestrator and parallel workers over
 threads and a queue, which is where you find out which parts of your harness were
-quietly assuming one agent. The session file, for one. `session.py` says
-in its own docstring that it supports a single writer, and two workers appending
-to the same file will interleave their lines and corrupt it.
+quietly assuming one agent. Ordering is the one that chapter takes apart, since
+three jobs writing to one stream interleave their output and each job still has
+to keep its own events in order.
+
+The session file is the assumption that chapter does not take apart, and it is
+worth knowing that before you reach for `Session` inside a worker. `session.py`
+says in its own docstring that it supports a single writer, and two writers
+appending to the same file will interleave their lines and corrupt it. Section 8
+of lesson 13 is where that limit is argued out, including what the fix costs.
+Lesson 21 sidesteps it rather than solving it.
 
 ### You cannot tell whether a change made it better or worse
 
@@ -1589,23 +1645,25 @@ prints has a terminal baked into it. This one is going to be called from CI,
 from a test, and in lesson 21 from four worker threads at once, where four
 modules all printing to the same stream produces interleaved nonsense.
 
-Then wire it in properly, which is the second half.
+Then get it to the screen, which is the second half and the part that is
+actually hard. The retry already happens in `open_stream`, four call frames below
+anything that has ever printed a character. Trace what your callback has to cross
+to reach a person. `open_stream` is called by `stream`, which is called by `run`,
+which is called by `main`. Every one of those layers has to carry a callback it
+does not use, for a message it is not allowed to print.
 
-```python
-from retry import with_retries
+That is the seam question, and there are three answers with different costs.
+Thread `on_retry` through every signature, which is honest and makes four
+functions wider. Put it on the provider as a constructor argument, so only
+`main.py` and `providers.py` know, at the cost of one retry policy per provider
+instance. Or reuse `on_text`, printing the wait as if it were model output, which
+costs nothing and is wrong, because it puts words the model never said into the
+session file. Pick one and be able to say what the other two cost.
 
-def stream(self, messages, tools=None, on_text=None):
-    return with_retries(lambda: self._stream_once(messages, tools, on_text))
-```
-
-Rename the existing method to `_stream_once` and you will immediately meet the
-complication lesson 17 warned about. A retried stream restarts from the
-beginning, so any text already printed through `on_text` prints again, and the
-user sees half an answer twice. Two honest fixes exist. Buffer in the caller and
-print only when the stream completes, which costs you the streaming feel that
-lesson 05 built. Or only retry before the first byte arrives, which keeps the
-feel and gives up on recovering from a mid stream failure. Pick one, write down
-what you gave up.
+Then decide what the message says. `attempt`, `attempts` and `wait` are numbers
+the caller already has a use for. `error` is an `httpx` exception, and passing it
+out means the terminal now has to know how to render one, or `with_retries` has
+to turn it into a string first and decide how much of it a person needs.
 
 Prove it against the mock server, which can be told to fail on demand with the
 `X-Mock-Fail` header that lesson 17's check uses. Assert that `on_retry` fired
@@ -1615,17 +1673,40 @@ finishes instantly instead of actually waiting fourteen seconds.
 
 ### Four, if you want a harder one
 
-Close the cancellation gap from section 4. Make `run_shell` consult the
-cancellation token so that Ctrl+C during a sixty second command actually kills
-the subprocess rather than waiting for it.
+Close the half of the cancellation gap that section 4 leaves open. `run_shell`
+already consults the token, and `main.py` already supplies it, so a command that
+has not started yet will not start. Make Ctrl+C during a sixty second command
+that is already running actually stop it.
 
 This is harder than it looks and that is why it is here. `subprocess.run` blocks
-until the process exits, so there is no place to check a flag. You will need
-`subprocess.Popen`, a loop that polls with a timeout while checking the token,
-and a `terminate` followed by a `kill` when the polite request is ignored. Then
-you need to get the token into `tools.py` without giving every tool a new
-parameter, which is a seam question rather than a threading question, and it is
-the real subject of the exercise.
+until the process exits, so there is no place inside it to check a flag. You will
+need `subprocess.Popen`, a loop that polls with a short timeout while checking
+`CANCELLATION`, and a `terminate` followed by a `kill` when the polite request is
+ignored.
+
+Three things make it a design exercise rather than a threading exercise.
+
+**What the model is told.** The tool has to return something. A killed command
+has partial stdout, no exit code worth reporting, and a reason. Return the
+partial output and the model may reason from a build log that stopped halfway as
+though it were complete. Return only `Cancelled` and you have thrown away output
+the person may have wanted. The existing pre start message is
+`Cancelled before the command started.` and the wording matters, because the two
+cases are not the same event and the model should not have to guess which one
+happened.
+
+**What `terminate` actually reaches.** `shell=True` means the process you have a
+handle on is the shell, not the command it ran. Kill the shell and a child that
+outlived it keeps going, still holding the file it was writing. Getting the whole
+tree needs a process group on Unix and a job object on Windows, and those are
+different enough that you have to decide whether you are writing this for one
+platform or both.
+
+**Whether a module attribute survives.** `tools.CANCELLATION` is one value for
+the whole process, which is exactly right for one agent and one terminal. Lesson
+21 runs workers in threads in that same process. Work out what a second worker
+cancelling does to the first one under this design, and what you would have to
+change so that the answer is nothing.
 
 ## 9. This is the end of part 3
 

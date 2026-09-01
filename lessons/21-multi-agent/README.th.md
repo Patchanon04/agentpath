@@ -2,31 +2,48 @@
 
 # บทที่ 21. รูปแบบ multi agent
 
-บทที่ 20 ให้ agent ส่งงานต่อไปยัง agent อีกตัวได้ บทนี้จะให้มันส่งงานต่อไปยัง
-agent สี่ตัวพร้อมกัน แล้วใช้เนื้อที่ส่วนใหญ่ของบทไปกับสามเรื่องที่พังเมื่อคุณทำแบบนั้น
+บทที่ 20 ให้ agent ส่งงานต่อไปยัง agent อีกตัวได้ บทนี้สร้างกลไกสำหรับรันงาน
+หลายชิ้นพร้อมกัน แล้วใช้เนื้อที่ส่วนใหญ่ของบทไปกับสามเรื่องที่พังเมื่อคุณทำแบบนั้น
+
+ทำความเข้าใจขอบเขตให้ชัดก่อนอ่านต่อ เพราะคำว่า multi agent สัญญาไว้มากกว่าที่บทนี้
+ให้จริง `fanout.py` ไม่รู้จัก agent เลย มันรับลิสต์ของ callable ที่มี label
+ซึ่งผลิต event ออกมา รันมันบน thread pool แล้วส่ง event กลับมาผ่านคิวเดียว
+ไม่มีอะไรในโฟลเดอร์นี้ที่ต่อ `run_in_parallel` เข้ากับ `subagent.py` หรือ `agent.py`
+และ check ก็ขับมันด้วยงานของเล่นที่ yield สตริงแล้ว sleep เพราะเรื่องของบทนี้คือ
+การทำงานพร้อมกัน และการเรียกโมเดลจริงมีแต่จะทำให้พฤติกรรมดูยากขึ้น
+บทที่ 22 คือผู้เรียกใช้จริงรายแรก `run_evals` ของมันใช้ `run_in_parallel`
+กระจายชุด eval ไปยัง worker หลายตัว และนั่นคือจุดที่โมดูลนี้เริ่มทำงานที่คุณจะ ship จริง
 
 นี่คือสิ่งที่อยู่ในโฟลเดอร์นี้และที่มาของแต่ละไฟล์
 
 ```text
 lessons/21-multi-agent/
-  fanout.py       new. run_in_parallel, the DONE sentinel, and FanoutError
-  check.py        new. four claims about running things at once
-  agent.py        identical to lesson 20
-  subagent.py     identical to lesson 20
-  tools.py        identical to lesson 20
-  session.py      identical to lesson 20
-  permissions.py  identical to lesson 20
-  providers.py    identical to lesson 20
-  prompt.py       identical to lesson 20
-  context.py      identical to lesson 20
-  usage.py        identical to lesson 20
-  retrieval.py    identical to lesson 20
-  retry.py        identical to lesson 20
-  cancel.py       identical to lesson 20
-  README.md       this file
+  fanout.py           the subject of this chapter. run_in_parallel, the DONE
+                      sentinel, and FanoutError
+  check.py            new. four claims about running things at once
+  agent.py            identical to lesson 20
+  subagent.py         identical to lesson 20
+  tools.py            identical to lesson 20
+  session.py          identical to lesson 20
+  permissions.py      identical to lesson 20
+  providers.py        identical to lesson 20
+  prompt.py           identical to lesson 20
+  context.py          identical to lesson 20
+  usage.py            identical to lesson 20
+  retrieval.py        identical to lesson 20
+  retry.py            identical to lesson 20
+  cancel.py           identical to lesson 20
+  main.py             identical to lesson 20
+  mcp.py              identical to lesson 20
+  mock_mcp_server.py  identical to lesson 20
+  README.md           this file
 ```
 
-ไฟล์ Python สิบสองจากสิบสี่ไฟล์เหมือนกันทุกไบต์กับบทที่แล้ว
+ทุกโฟลเดอร์ตั้งแต่บทที่ 19 เป็นต้นไปจะพกโค้ดทั้งคอร์สไว้ครบ เพื่อให้เปิดบทไหนขึ้นมา
+ก็รันได้ด้วยตัวเองโดยไม่ต้องคัดลอกไฟล์จากโฟลเดอร์ข้างเคียงเข้ามาก่อน มีแค่ `check.py`
+ที่ต่างจากบทที่ 20 ซึ่งแปลว่าไฟล์ Python สิบหกจากสิบเจ็ดไฟล์เหมือนกันทุกไบต์
+กับบทที่แล้ว `fanout.py` เป็นหนึ่งในสิบหกไฟล์นั้น เพราะโฟลเดอร์ของบทที่ 20
+มีสำเนาของมันติดมาอยู่แล้วทั้งที่บทที่ 20 ไม่ได้ใช้
 เรื่องนี้ตรวจสอบได้ ไม่ใช่แค่คำกล่าวอ้าง
 
 ```bash
@@ -986,7 +1003,7 @@ def steps(label, count, pause=0.0):
 และบทที่ 19 เองก็เตือนว่า tool ยิ่งเยอะ model ยิ่งเลือกได้แย่ลง
 บทที่ 20 เพิ่ม subagent ซึ่งทำให้ context ของตัวแม่สะอาด
 และก็แปลว่าตัวแม่กำลังใช้เหตุผลจากคำตอบที่ model เขียน
-แทนที่จะใช้จากผลลัพธ์ของ tool โดยตรง บทนี้รันสี่ตัวพร้อมกัน ซึ่งเร็วขึ้น
+แทนที่จะใช้จากผลลัพธ์ของ tool โดยตรง บทนี้ให้กลไกสำหรับรันสี่ตัวพร้อมกัน ซึ่งเร็วขึ้น
 และก็แปลว่ามี agent สี่ตัวก่อร่างมุมมองสี่ชุดที่แยกจากกันต่อ codebase
 ที่พวกมันกำลังแก้ร่วมกัน
 

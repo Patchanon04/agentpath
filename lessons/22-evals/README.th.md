@@ -14,24 +14,28 @@
 
 ```text
 lessons/22-evals/
-  evals.py        new. Task, Result, run_one, run_evals, judge, report
-  check.py        new. six claims about the measuring instrument
-  fanout.py       identical to lesson 21
-  agent.py        identical to lesson 21
-  tools.py        identical to lesson 21
-  session.py      identical to lesson 21
-  permissions.py  identical to lesson 21
-  providers.py    identical to lesson 21
-  prompt.py       identical to lesson 21
-  context.py      identical to lesson 21
-  usage.py        identical to lesson 21
-  retrieval.py    identical to lesson 21
-  retry.py        identical to lesson 21
-  cancel.py       identical to lesson 21
-  README.md       this file
+  evals.py            new. Task, Result, run_one, run_evals, judge, report
+  check.py            new. six claims about the measuring instrument
+  fanout.py           identical to lesson 21
+  agent.py            identical to lesson 21
+  tools.py            identical to lesson 21
+  session.py          identical to lesson 21
+  permissions.py      identical to lesson 21
+  providers.py        identical to lesson 21
+  prompt.py           identical to lesson 21
+  context.py          identical to lesson 21
+  usage.py            identical to lesson 21
+  retrieval.py        identical to lesson 21
+  retry.py            identical to lesson 21
+  cancel.py           identical to lesson 21
+  subagent.py         identical to lesson 21
+  main.py             identical to lesson 21
+  mcp.py              identical to lesson 21
+  mock_mcp_server.py  identical to lesson 21
+  README.md           this file
 ```
 
-ไฟล์ Python สิบสองจากสิบสี่ไฟล์เหมือนกันทุกไบต์กับบทที่แล้ว
+ไฟล์ Python สิบหกจากสิบแปดไฟล์เหมือนกันทุกไบต์กับบทที่แล้ว
 ซึ่งตรวจสอบได้ ไม่ใช่แค่คำกล่าวอ้าง
 
 ```bash
@@ -55,11 +59,19 @@ eval harness ที่ต้องแก้ agent เพื่อจะวัด
 กับตัวที่คุณส่งขึ้น production แรงกดดันเชิงออกแบบทั้งหมดในบทนี้
 คือการรักษาสิ่งที่ถูกวัดไม่ให้ถูกแตะต้องโดยการวัด
 
-มีไฟล์หนึ่งจากบทที่ 21 ที่หายไปแทนที่จะถูกแก้ `subagent.py` ไม่ได้อยู่ที่นี่
-เพราะไม่มีอะไรในบทนี้ที่เริ่ม agent ลูก
-และการคัดลอกไฟล์ต่อมาเพื่อให้โฟลเดอร์ดูครบคือวิธีที่คอร์สเริ่มโกหกเรื่องสิ่งที่มันพึ่งพา
-ถ้าคุณอยากได้ subagent ใน eval run ของคุณเอง ไฟล์นั้นยังไม่เปลี่ยนอยู่ในบทที่ 21
-และหยิบมาวางได้เลย
+`subagent.py` อยู่ในโฟลเดอร์นี้ทั้งที่ไม่มีอะไรในบทนี้เริ่ม agent ลูก
+และ `mcp.py`, `main.py`, `mock_mcp_server.py` ก็เช่นกัน
+นั่นคือกฎที่ทุกโฟลเดอร์ตั้งแต่บทที่ 19 เป็นต้นไปยึดถือ
+แต่ละโฟลเดอร์พกทุกอย่างที่คอร์สสร้างมาจนถึงจุดนั้นไว้ครบ
+เพื่อให้เปิดบทไหนขึ้นมาก็รันได้ด้วยตัวเองโดยไม่ต้องคัดลอกไฟล์จากโฟลเดอร์ข้างเคียงเข้ามาก่อน
+
+โฟลเดอร์ที่ครบไม่ได้แปลว่าบทนี้ใช้ทุกไฟล์ในนั้น และการทำเป็นว่าใช่
+คือวิธีที่คอร์สเริ่มโกหกเรื่องสิ่งที่มันพึ่งพา ดังนั้นนี่คือประโยคที่รายการไฟล์พูดแทนตัวเองไม่ได้
+สิ่งที่บทนี้พึ่งพาจริงคือ `evals.py` ซึ่ง import `run_in_parallel` จาก `fanout.py`
+และไม่มีอย่างอื่น กับกอง agent ที่ `check.py` ขับผ่าน `agent.py`, `tools.py`,
+`providers.py`, `permissions.py` และ `usage.py` ที่เหลือคือของที่พกมา ไม่ใช่ของที่ใช้
+ถ้าคุณอยากได้ subagent ใน eval run ของคุณเอง `subagent.py` อยู่ตรงนั้นแล้ว
+และยังไม่เปลี่ยนจากบทที่ 21
 
 ## 1. ปัญหาที่ค้างมาจากบทที่ 21
 

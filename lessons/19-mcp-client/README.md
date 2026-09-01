@@ -62,12 +62,13 @@ lessons/19-mcp-client/
   mcp.py               new. the whole client, around 190 lines with docstrings
   mock_mcp_server.py   new. a tiny MCP server so the check needs nothing external
   check.py             new. five claims about the client
-  tools.py             lesson 16, plus one 8 line function called register_mcp
+  tools.py             lesson 18, plus one 8 line function called register_mcp
+  main.py              identical to lesson 18
   agent.py             identical to lesson 17
   permissions.py       identical to lesson 12
   session.py           identical to lesson 13
   context.py           identical to lesson 14
-  providers.py         identical to lesson 15
+  providers.py         identical to lesson 17
   usage.py             identical to lesson 15
   retrieval.py         identical to lesson 16
   prompt.py            identical to lesson 10
@@ -76,8 +77,9 @@ lessons/19-mcp-client/
   README.md            this file
 ```
 
-The entire diff against lesson 18, outside the three new files, is seventeen
-lines at the bottom of `tools.py`.
+Outside the three new files, `tools.py` is the only file that changed at all,
+and the change is seventeen lines at the bottom of it. Every other file in the
+folder, `main.py` included, is byte for byte what lesson 18 shipped.
 
 ```bash
 diff 18-the-harness/tools.py 19-mcp-client/tools.py

@@ -17,7 +17,7 @@
 
 ```text
 lessons/15-token-economy/
-  usage.py       new. Usage.add, Usage.cost, Usage.summary. forty nine lines
+  usage.py       new. Usage.add, Usage.cost, Usage.summary. forty eight lines
   providers.py   lesson 06's two providers, now returning what the request cost
   agent.py       lesson 14's loop, plus a usage parameter and a circuit breaker
   check.py       five checks, two of which are the facts the chapter rests on
@@ -25,12 +25,13 @@ lessons/15-token-economy/
   permissions.py unchanged from lesson 12
   session.py     unchanged from lesson 13
   prompt.py      unchanged from lesson 10
-  tools.py       unchanged from lesson 09
+  tools.py       unchanged from lesson 12
   README.md      this file
 ```
 
-ไฟล์ใหม่หนึ่งไฟล์ยาวสี่สิบเก้าบรรทัด provider ทั้งสองตัวเพิ่มขึ้นตัวละสามบรรทัด
-loop เพิ่มสองบรรทัดสำหรับ usage และตัวตรวจจับการทำซ้ำที่หัวข้อ 6 อธิบายไว้
+ไฟล์ใหม่หนึ่งไฟล์ยาวสี่สิบแปดบรรทัด provider ฝั่ง OpenAI เพิ่มขึ้นหกบรรทัด
+และฝั่ง Anthropic เพิ่มขึ้นสามบรรทัด loop เพิ่มสองบรรทัดสำหรับ usage
+และตัวตรวจจับการทำซ้ำที่หัวข้อ 6 อธิบายไว้
 
 ---
 

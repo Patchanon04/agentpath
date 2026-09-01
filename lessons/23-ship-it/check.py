@@ -1,7 +1,7 @@
 """Check that lesson 23 works.
 
 This chapter adds no new ideas, so the check asks a different question. Is
-what you built actually shippable. That means four things. Every module the
+what you built actually shippable. That means five things. Every module the
 course wrote imports cleanly on its own. The agent still does a real job end
 to end. The pieces from all four parts are present. And nothing in the
 project reaches for a dependency the reader was never told to install.

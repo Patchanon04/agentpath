@@ -18,21 +18,23 @@ lessons/17-errors-and-retries/
   retry.py       new. which failures are worth retrying, and how long to wait
   cancel.py      new. one object that says stop
   agent.py       the loop, now consulting a cancellation token in two places
-  providers.py   unchanged since lesson 15
-  tools.py       unchanged since lesson 16
+  providers.py   lesson 15's providers, now opening the stream through retry
+  tools.py       lesson 16's tools, plus a cancellation check in run_shell
   permissions.py unchanged since lesson 12
   session.py     unchanged since lesson 13
   context.py     unchanged since lesson 14
   usage.py       unchanged since lesson 15
   retrieval.py   unchanged since lesson 16
   prompt.py      unchanged since lesson 10
-  check.py       five claims about failure, proved against the mock server
+  check.py       six claims about failure, proved against the mock server
   README.md      this file
 ```
 
 `retry.py` is sixty seven lines and `cancel.py` is thirty one. The only edit to
-`agent.py` is a new keyword argument and two lines that read it. Everything else
-in the folder is a byte for byte copy of an earlier lesson, which by now you
+`agent.py` is a new keyword argument and two lines that read it. `providers.py`
+gains `open_stream`, which is the one place `with_retries` is wired in, and
+`tools.py` gains a cancellation check before a shell command starts. Everything
+else in the folder is a byte for byte copy of an earlier lesson, which by now you
 should expect and which section 10 finally does something about.
 
 ## 1. The problem left over from lesson 16
@@ -548,16 +550,27 @@ the one operation this program has that is genuinely safe to repeat.
 
 ### Where with_retries actually goes
 
-Nothing in this folder calls it yet, which is why `check.py` calls it directly
-against the mock server. When you do wire it in, there is exactly one correct
-place, and it is inside the provider.
+There is exactly one correct place for it, and it is inside the provider.
+`providers.py` in this folder already puts it there, in a small function that
+both providers call.
 
 ```python
 from retry import with_retries
 
-# in OpenAICompatProvider
-def stream(self, messages, tools=None, on_text=None):
-    return with_retries(lambda: self._stream_once(messages, tools, on_text))
+
+def open_stream(client, url, payload, headers, attempts=4):
+    """Open a streaming request, retrying the failures worth retrying."""
+
+    def once():
+        request = client.build_request("POST", url, json=payload, headers=headers)
+        response = client.send(request, stream=True)
+        if response.status_code >= 400:
+            response.read()
+            response.close()
+            response.raise_for_status()
+        return response
+
+    return with_retries(once, attempts=attempts)
 ```
 
 The provider is the only object in the program that knows it is speaking HTTP.
@@ -567,11 +580,31 @@ catch. Putting the retry in the loop instead would mean `agent.py` importing
 `httpx` in order to know which failures matter, and the loop staying ignorant of
 the wire is the property lesson 06 bought and lesson 11 measured.
 
-One honest complication, since you will meet it the moment you try this. A
-retried stream restarts from the beginning, so text that was already printed
-through `on_text` will print again. The fix is for the caller to buffer or for
-the retry to only cover the phase before the first byte arrives, and it is a real
-design decision rather than an oversight.
+`check.py` still drives `with_retries` directly against the mock server rather
+than through a provider, and that is not duplication. A check holding the helper
+by hand can force a `500` twice, count the attempts, and hand in a fake `sleep`
+that records the delays instead of waiting them. None of that is reachable
+through `stream`, so the check proves the helper behaves and the wiring is
+something you read rather than something the check asserts.
+
+Now the complication, and it is the reason the retry lives in `open_stream`
+rather than around the whole of `stream`. A retried stream restarts from the
+beginning, so any text already printed through `on_text` would print again and
+the reader would see half an answer twice. Only the opening of the request is
+repeatable, so only the opening is repeated. The comment in `providers.py` says
+so at the call site.
+
+```python
+            # Only opening the request is retried. Once bytes have arrived the
+            # caller has already seen part of an answer, and replaying would
+            # splice a second answer onto the first.
+```
+
+That is a real design decision with a real cost. A connection that dies halfway
+through a long answer is not recovered, and there is no way to recover it without
+either buffering the whole response before printing anything, which gives up the
+streaming feel lesson 05 built, or making the provider replay only the missing
+tail, which no provider gives you the means to ask for.
 
 ## 6. Stopping a running agent for real
 
@@ -729,12 +762,39 @@ call and raises. The question layer and the loop layer arrive at the same outcom
 from two different directions, which is what you want when the two layers are
 interrupted at slightly different moments.
 
-The subprocess layer is the one to be honest about. In this folder `tools.py`
-does not consult the token, so a shell command already running when you press
-Ctrl+C finishes on its own. The `subprocess.run` timeout from lesson 08 bounds
-it, and the loop refuses to start the next one. That is a real gap rather than a
-completed design, and the docstring in `cancel.py` describes the intended shape,
-which is a check immediately before the process is spawned.
+The subprocess layer is the one to be honest about, and the honest thing is not
+what you would guess. `tools.py` in this folder does consult the token, exactly
+where the `cancel.py` docstring says it should.
+
+```python
+CANCELLATION = None
+
+
+def run_shell(command):
+    ...
+    if CANCELLATION is not None and CANCELLATION.cancelled:
+        return "Cancelled before the command started."
+```
+
+The gap is that nothing in lesson 17 ever assigns `tools.CANCELLATION`. It is
+`None` for the whole of this chapter, so the check is dead code here. The first
+line in the course that sets it is in lesson 18's `main.py`, where the command
+line builds one token and hands the same object to both the loop and the module.
+Until that line exists, the token the loop consults and the token the shell tool
+consults are not the same object, because the second one is not an object at all.
+
+That is worth seeing rather than being told, because it is the shape of a whole
+category of bug. A check written correctly, in the right place, guarding nothing,
+because the value it guards on is never supplied. Nothing fails. Nothing warns.
+The only symptom is that a feature you can point at in the source does not
+happen.
+
+And there is a second gap that survives the wiring. The check runs before the
+command starts, so a shell command already running when you press Ctrl+C still
+finishes on its own. The `subprocess.run` timeout from lesson 08 bounds it, and
+the loop refuses to start the next one. Killing a command mid run needs
+`subprocess.Popen` and a loop that polls while watching the token, which is more
+machinery than this chapter wants and is left as an exercise in lesson 18.
 
 ### The interrupt handler, and the second press
 
@@ -1151,9 +1211,24 @@ OK a bad request is not retried, because the same wrong request stays wrong
 OK when the server says when to come back, we wait exactly that long
 OK the delay is jittered across 20 different values
 OK a cancelled token stops work rather than only printing a message
+
+[calling read_file with {'path': 'nowhere.txt'}]
+[read_file returned Error: nowhere.txt does not exist]
+
+[calling read_file with {'path': 'nowhere.txt'}]
+[read_file returned Error: nowhere.txt does not exist]
+
+[read_file is going in circles]
+
+[read_file is going in circles]
+
+Stopping. read_file was warned about repeating itself and repeated anyway. Continuing would only cost money.
+OK a model repeating one call is warned, then stopped, without burning every turn
 ```
 
-Five lines, and each one is a claim from a different section of this chapter.
+Six `OK` lines, and each one is a claim from a different section of this
+chapter. The trace in the middle belongs to the sixth, which is the only one
+that runs the loop.
 
 The first is section 2's good half. A `500` came back twice and the third attempt
 returned a real body with real choices in it.
@@ -1175,10 +1250,17 @@ out. The check asserts on the exception rather than on a printed message, which
 is the same discipline lesson 11 argued for at length. An interrupt that prints
 is the bug. Only the raised exception proves anything.
 
-Notice what the whole check does not do. It never starts a real agent run, never
-calls a tool, and never waits a real second. Every scenario is driven through
-`with_retries` and `Cancellation` directly, which is why it finishes instantly
-and gives the same answer every time.
+The sixth is section 7. A fake provider returns the same `read_file` call
+forever, and the run has to end because the repeat detector noticed, not because
+`max_turns` ran out. `max_turns` is twenty here on purpose. A stuck model that is
+stopped by the turn limit proves nothing about the detector, so the check gives
+the limit enough room that reaching it would be the failure.
+
+Notice what the first five do not do. They never start a real agent run, never
+call a tool, and never wait a real second. Every one of those scenarios is driven
+through `with_retries` and `Cancellation` directly, which is why the check
+finishes instantly and gives the same answer every time. Only the sixth needs a
+loop, and it gets a fake provider rather than a network.
 
 If the first line fails, look at whether the mock server is being reached at all,
 since a connection error would be counted as a transport failure and retried four
@@ -1211,9 +1293,9 @@ lessons/17-errors-and-retries/   + retry.py cancel.py
 
 Seven folders, and every one of them contains a full copy of everything that came
 before. `prompt.py` is identical in every folder from lesson 10 onwards.
-`permissions.py` is identical in every folder from lesson 12 onwards. `tools.py`
-appears in this folder byte for byte as it appeared in lesson 16. There are
-twelve Python files here and two of them are new.
+`permissions.py` is identical in every folder from lesson 12 onwards.
+`retrieval.py` appears in this folder byte for byte as it appeared in lesson 16.
+There are twelve Python files here and two of them are new.
 
 That was the right choice for teaching. Every lesson stands alone, you can run
 any chapter without having read the previous one, and a diff between two folders
@@ -1221,22 +1303,32 @@ shows exactly what a chapter changed. It is a terrible choice for a program. Fix
 a bug in `tools.py` and there are seven copies to fix.
 
 The duplication is only the visible half of the problem. The real gap is that
-nothing here is assembled. `retry.py` exists and nothing calls it. `cancel.py`
-exists and no signal handler sets it. There is no way to resume a session from
-the command line, no way to run one task and exit, no `--yes` for scripts, no
-place where the budget from lesson 14 and the permissions from lesson 12 and the
-cancellation from this chapter all meet in the same object.
+nothing here is assembled. `retry.py` reaches the provider, and that is as far as
+the wiring goes. `cancel.py` exists and no signal handler sets it, so nothing
+ever calls `cancel`. `tools.CANCELLATION` exists and nothing ever assigns it, so
+the shell tool's check reads `None` forever. There is no way to resume a session
+from the command line, no way to run one task and exit, no `--yes` for scripts,
+no place where the budget from lesson 14 and the permissions from lesson 12 and
+the cancellation from this chapter all meet in the same object.
 
-**Lesson 18, the harness.** All of it becomes one installable package with a real
-command line called `agentpath`, with `chat` for a conversation, `run` for one
-task in a script, and `resume` for picking up where you left off. The agent
-becomes a class that holds its parts rather than a function with eleven keyword
-arguments. The loop stops printing and starts yielding typed events, so the
-terminal drawing lives in exactly one file that knows about terminals. `retry.py`
-gets wired into the provider. `cancel.py` gets wired into a signal handler. Tools
-take their root directory as an argument, which finally pays off the debt lesson
-11 named when it explained why `AGENTPATH_WORKSPACE` had to be set before the
-imports.
+**Lesson 18, the harness.** One new file, `main.py`, where every one of those
+parts finally meets. A command line built with `argparse`, taking the task as a
+positional argument and `--workspace`, `--session`, `--resume`, `--budget` and
+`--yes` as flags. A session name chosen three different ways, and `--resume`
+winning by supplying a name rather than by copying a file. A signal handler that
+sets the cancellation token, and the line right beside it that hands the same
+token to `tools.py`, which is what stops the shell tool's check from being dead
+code. Then a milestone check that runs the assembled program end to end.
+
+Be clear about what lesson 18 does not do, because two things stay as they are.
+`run` is still the printing function it has been since lesson 04, so the terminal
+drawing is still inside the loop. And the parts are still handed to it as keyword
+arguments rather than held by an object. The installed package under
+`src/agentpath/` does go further, with an `Agent` class, a loop that yields typed
+events, and a command line with `chat`, `run` and `resume` as subcommands, and
+lesson 18 points at it wherever the two differ. The lesson folder stays a flat
+script on purpose, because the point of the chapter is that you can read the
+whole assembly in one file.
 
 Nothing in lesson 18 is a new idea. It is the second milestone, and like the
 first one its job is to show that the parts fit, to look back at the seams, and

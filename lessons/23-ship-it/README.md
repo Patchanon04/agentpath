@@ -14,35 +14,36 @@ Here is the folder and where every file came from.
 
 ```text
 lessons/23-ship-it/
-  agent.py         140 lines   identical to lesson 18
-  tools.py         422 lines   identical to lesson 19
-  providers.py     208 lines   identical to lesson 18
-  mcp.py           188 lines   identical to lesson 19
-  evals.py         149 lines   identical to lesson 22
-  main.py          115 lines   identical to lesson 18
-  retrieval.py     115 lines   identical to lesson 18
-  context.py        80 lines   identical to lesson 18
-  fanout.py         80 lines   identical to lesson 21
-  permissions.py    77 lines   identical to lesson 18
-  retry.py          67 lines   identical to lesson 18
-  subagent.py       61 lines   identical to lesson 20
-  session.py        56 lines   identical to lesson 18
-  usage.py          48 lines   identical to lesson 18
-  prompt.py         35 lines   identical to lesson 10
-  cancel.py         31 lines   identical to lesson 18
-  check.py         117 lines   new
-  README.md                    this file
+  tools.py             422 lines   identical to lesson 19
+  providers.py         208 lines   identical to lesson 18
+  mcp.py               188 lines   identical to lesson 19
+  evals.py             149 lines   identical to lesson 22
+  agent.py             140 lines   identical to lesson 18
+  retrieval.py         127 lines   identical to lesson 19
+  check.py             117 lines   new
+  main.py              115 lines   identical to lesson 18
+  mock_mcp_server.py   104 lines   identical to lesson 19
+  context.py            80 lines   identical to lesson 18
+  fanout.py             80 lines   identical to lesson 21
+  permissions.py        77 lines   identical to lesson 18
+  retry.py              67 lines   identical to lesson 18
+  subagent.py           61 lines   identical to lesson 20
+  session.py            56 lines   identical to lesson 18
+  usage.py              48 lines   identical to lesson 18
+  prompt.py             35 lines   identical to lesson 10
+  cancel.py             31 lines   identical to lesson 18
+  README.md                        this file
 ```
 
-Sixteen modules, one new file, and that new file is a check.
+Seventeen modules, one new file, and that new file is a check.
 
 ## 1. What you have
 
 Be plain about it, because the temptation at the end of a course is to inflate,
 and an inflated ending teaches you to misjudge the next thing you build.
 
-You have 1872 lines of Python across sixteen files. Add the chapter's check and
-it is 1989. That is smaller than most single source files in the frameworks
+You have 1988 lines of Python across seventeen files. Add the chapter's check
+and it is 2105. That is smaller than most single source files in the frameworks
 people install to avoid writing this, and it is small enough that you could
 read the whole thing in an afternoon, which is the only property that made it
 worth teaching.
@@ -343,7 +344,7 @@ Here is the whole thing.
 ```toml
 [project]
 name = "agentpath"
-version = "0.3.0"
+version = "1.0.0"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -392,12 +393,16 @@ arbitrary source.
 it must be unique across the whole of the Python Package Index. Section 5 is
 about that being harder than it sounds.
 
-**`version`** is `0.3.0`, and the number follows the course rather than the
+**`version`** is `1.0.0`, and the number follows the course rather than the
 calendar. The design document made one part equal one release, so part 1 shipped
-as `0.1.0`, part 2 as `0.2.0`, part 3 as `0.3.0`. The reason for tying releases
-to parts rather than to chapters is that a part is the smallest unit of the
-course that is useful on its own. Shipping a version whose value only appears
-three chapters later is shipping a half built thing.
+as `0.1.0`, part 2 as `0.2.0`, part 3 as `0.3.0`, and part 4, which is the part
+this chapter closes, as `1.0.0`. The reason for tying releases to parts rather
+than to chapters is that a part is the smallest unit of the course that is
+useful on its own. Shipping a version whose value only appears three chapters
+later is shipping a half built thing. The reason the last one is `1.0.0` rather
+than `0.4.0` is that the course is finished at twenty four chapters, and a `1.0`
+is a statement that the shape is settled rather than a claim that the code is
+flawless.
 
 The version also appears in `src/agentpath/__init__.py` as `__version__`, and
 keeping two copies in step by hand is a known way to publish a package that
@@ -418,7 +423,7 @@ from it. Here is the top of the metadata from the wheel this chapter built.
 ```text
 Metadata-Version: 2.5
 Name: agentpath
-Version: 0.3.0
+Version: 1.0.0
 Summary: Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness.
 License: MIT
 License-File: LICENSE
@@ -479,7 +484,7 @@ clean environment actually contains after installing this wheel.
 ```text
 Package           Version
 ----------------- ---------
-agentpath         0.3.0
+agentpath         1.0.0
 anyio             4.14.2
 certifi           2026.7.22
 h11               0.16.0
@@ -662,7 +667,7 @@ python -m build
   - hatchling
 * Getting build dependencies for wheel...
 * Building wheel...
-Successfully built agentpath-0.3.0.tar.gz and agentpath-0.3.0-py3-none-any.whl
+Successfully built agentpath-1.0.0.tar.gz and agentpath-1.0.0-py3-none-any.whl
 ```
 
 Read what it did, because it explains the `[build-system]` table from the last
@@ -692,18 +697,18 @@ Open the wheel. It is a zip file, so nothing special is needed.
 ```bash
 python -c "
 import zipfile
-z = zipfile.ZipFile('dist/agentpath-0.3.0-py3-none-any.whl')
+z = zipfile.ZipFile('dist/agentpath-1.0.0-py3-none-any.whl')
 for name in sorted(z.namelist()):
     print(name)
 "
 ```
 
 ```text
-agentpath-0.3.0.dist-info/METADATA
-agentpath-0.3.0.dist-info/RECORD
-agentpath-0.3.0.dist-info/WHEEL
-agentpath-0.3.0.dist-info/entry_points.txt
-agentpath-0.3.0.dist-info/licenses/LICENSE
+agentpath-1.0.0.dist-info/METADATA
+agentpath-1.0.0.dist-info/RECORD
+agentpath-1.0.0.dist-info/WHEEL
+agentpath-1.0.0.dist-info/entry_points.txt
+agentpath-1.0.0.dist-info/licenses/LICENSE
 agentpath/__init__.py
 agentpath/agent.py
 agentpath/cancel.py
@@ -737,21 +742,21 @@ agentpath/usage.py
 ```
 
 That is the whole framework and nothing else. No `lessons`, no `tests`, no
-`docs`, no `.github`. Forty eight kilobytes.
+`docs`, no `.github`. Fifty one kilobytes.
 
 Now look at the sizes of the two files together, because this is where this
 project found a real problem by looking.
 
 ```text
-agentpath-0.3.0-py3-none-any.whl  48.1K
-agentpath-0.3.0.tar.gz            1.1M
+agentpath-1.0.0-py3-none-any.whl  50.7K
+agentpath-1.0.0.tar.gz            1.3M
 ```
 
-The source distribution is more than twenty times the size of the wheel. Count
-what is in it.
+The source distribution is more than twenty five times the size of the wheel.
+Count what is in it.
 
 ```text
-  222  lessons
+  242  lessons
    30  src
    25  tests
     6  docs
@@ -759,9 +764,10 @@ what is in it.
 ```
 
 The sdist swept the entire repository, including all twenty four lesson folders
-and their compiled bytecode caches. Which is defensible for this particular
-project, since the lessons genuinely are the source in a sense that matters
-here, but it is almost never what you want and it is never what you expected.
+in both of the languages the course ships in. Which is defensible for this
+particular project, since the lessons genuinely are the source in a sense that
+matters here, but it is almost never what you want and it is never what you
+expected.
 The fix is a `[tool.hatch.build.targets.sdist]` table listing what to include.
 The lesson is smaller and more useful than the fix. **Look at what you built
 before you publish it**, because the default for what goes into a source
@@ -786,7 +792,7 @@ thing.
 
 ```bash
 python -m venv fresh
-./fresh/bin/pip install dist/agentpath-0.3.0-py3-none-any.whl
+./fresh/bin/pip install dist/agentpath-1.0.0-py3-none-any.whl
 ./fresh/bin/agentpath --help
 ```
 
@@ -822,7 +828,7 @@ not prove the package works.
 The order is the entire point. Publishing is one way. A version number on the
 package index can never be reused, even if you delete the file, which is a
 deliberate rule that protects everybody who already depends on it. So a broken
-`0.3.0` is not something you fix, it is something you replace with `0.3.1` while
+`1.0.0` is not something you fix, it is something you replace with `1.0.1` while
 the broken one stays visible forever. Ten minutes in a fresh virtual environment
 buys you the ability to never do that.
 

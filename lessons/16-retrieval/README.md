@@ -12,7 +12,7 @@ Files in this folder.
 
 ```text
 lessons/16-retrieval/
-  retrieval.py    new. the whole retrieval tool, under a hundred lines
+  retrieval.py    new. the whole retrieval tool, a hundred and twenty seven lines
   tools.py        lesson 15's tools, plus nine lines at the bottom that register it
   agent.py        unchanged from lesson 15
   providers.py    unchanged from lesson 15
@@ -407,17 +407,17 @@ That is a deliberate trade and it is worth being precise about the cost. Here is
 the whole of this course's lesson folder, indexed.
 
 ```text
-passages 6646 built in 0.10s
+passages 11828 built in 0.17s
 ```
 
-Six and a half thousand paragraphs across nineteen chapters of Markdown, read
-from disk and tokenised, in a tenth of a second. At that price, keeping an index
-around to avoid rebuilding it would be an optimisation that buys a tenth of a
-second and costs you the entire category of bug where the index disagrees with
-the disk. The agent edits files. The index is never stale because there is no
-index.
+Nearly twelve thousand paragraphs across twenty four chapters of Markdown, in
+both languages the course ships in, read from disk and tokenised in under a
+fifth of a second. At that price, keeping an index around to avoid rebuilding it
+would be an optimisation that buys a fifth of a second and costs you the entire
+category of bug where the index disagrees with the disk. The agent edits files.
+The index is never stale because there is no index.
 
-That trade reverses somewhere. A million documents will not read in a tenth of a
+That trade reverses somewhere. A million documents will not read in a fifth of a
 second and you will need to persist something. Notice that this is the same
 staleness problem section 7 lists as a cost of embeddings, arriving from a
 completely different direction, which tells you it is a property of keeping a
@@ -795,7 +795,7 @@ returns confidently outdated passages, and the failure surfaces days later as a
 support complaint. So you need a rebuild strategy, which means either rebuilding
 everything on a schedule and accepting a staleness window, or tracking which
 chunks came from which version of which file and rebuilding incrementally, which
-is a cache invalidation problem. Compare the tenth of a second in section 3.
+is a cache invalidation problem. Compare the fifth of a second in section 3.
 
 **A model to run.** Something has to turn text into vectors, at index time and
 again on every single query. Call an API and you have a second provider, a
