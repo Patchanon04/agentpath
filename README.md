@@ -112,6 +112,17 @@ saved earlier, and `eval` runs a file of tasks and reports which ones passed.
 An MCP server can be connected with `--mcp`, so the agent can use tools you
 did not write.
 
+## The book
+
+The chapters teach you to build it. There is also a book that explains why it
+is built that way, and how to think when you want to design your own. It is
+written in Thai, with the technical terms kept in English.
+
+[book/](book/) has eleven chapters in two parts. The first seven are the
+theory behind the course. The last four are about taking an idea and working
+out what to build, with a long worked example of a LINE health assistant and
+three shorter ones that reach different answers.
+
 ## How this repository is laid out
 
 `lessons/` holds one folder per chapter. Each folder is self contained, so you
