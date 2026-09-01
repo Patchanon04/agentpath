@@ -26,3 +26,18 @@ def test_missing_configuration_gives_a_readable_message(monkeypatch, capsys):
         main(["chat"])
     assert exit_info.value.code == 2
     assert "AGENTPATH_BASE_URL" in capsys.readouterr().err
+
+
+def test_default_tool_set_covers_files_shell_and_search(tmp_path):
+    from agentpath.cli import build_tools
+
+    names = {schema["name"] for schema in build_tools(tmp_path).schemas()}
+    assert names == {
+        "read_file",
+        "write_file",
+        "edit_file",
+        "list_files",
+        "run_shell",
+        "glob_files",
+        "grep_files",
+    }

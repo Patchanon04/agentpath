@@ -24,25 +24,52 @@ GREETING = "Hello from the mock server."
 CALL_ID = "call_mock_1"
 
 
-def decide(messages):
-    """Return (text, tool_calls) for a list of wire format messages."""
-    last = messages[-1] if messages else {}
-    role = last.get("role", "")
-    content = last.get("content", "")
+def _text_of(message):
+    """Return the readable text of a message in either dialect."""
+    content = message.get("content", "")
+    if isinstance(content, list):
+        return " ".join(block.get("text", "") for block in content)
+    return content or ""
 
-    if role == "tool":
-        return f"The tool returned {content}.", []
 
+def _tool_result_of(message):
+    """Return the tool result content of a message, or None."""
+    if message.get("role") == "tool":
+        return message.get("content", "")
+    content = message.get("content", "")
     if isinstance(content, list):
         for block in content:
             if block.get("type") == "tool_result":
-                return f"The tool returned {block.get('content', '')}.", []
-        content = " ".join(block.get("text", "") for block in content)
+                return block.get("content", "")
+    return None
 
-    match = DIRECTIVE.search(content or "")
-    if match:
-        name, raw_arguments = match.group(1), match.group(2)
-        return "", [{"id": CALL_ID, "name": name, "arguments": json.loads(raw_arguments)}]
+
+def decide(messages):
+    """Return (text, tool_calls) for a list of wire format messages.
+
+    A caller can chain several tool calls by putting several directives in
+    the same message. We answer them one at a time, choosing which one by
+    counting how many tool results have already come back.
+    """
+    directives = []
+    for message in messages:
+        directives.extend(DIRECTIVE.findall(_text_of(message)))
+
+    completed = sum(1 for message in messages if _tool_result_of(message) is not None)
+
+    if directives and completed < len(directives):
+        name, raw_arguments = directives[completed]
+        return "", [
+            {
+                "id": f"call_mock_{completed + 1}",
+                "name": name,
+                "arguments": json.loads(raw_arguments),
+            }
+        ]
+
+    last_result = _tool_result_of(messages[-1]) if messages else None
+    if last_result is not None:
+        return f"The tool returned {last_result}.", []
     return GREETING, []
 
 
