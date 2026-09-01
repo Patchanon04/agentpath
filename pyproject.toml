@@ -1,0 +1,31 @@
+[project]
+name = "agentpath"
+version = "0.1.0"
+description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["httpx>=0.27"]
+
+[project.scripts]
+agentpath = "agentpath.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentpath"]
+
+[tool.ruff]
+line-length = 100
+exclude = ["lessons"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
