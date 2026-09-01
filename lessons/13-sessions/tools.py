@@ -208,32 +208,11 @@ import subprocess  # noqa: E402
 SHELL_TIMEOUT = 60
 
 
-def confirm(command):
-    """Ask the user before running anything.
-
-    This one function is the entire safety story of lesson 08. A model can be
-    talked into running something destructive by text it read out of a file,
-    so the last gate before anything runs is a person.
-
-    AGENTPATH_AUTO_APPROVE exists because an automated run has nobody at the
-    keyboard. Without it every test and every continuous integration job
-    would hang forever waiting for an answer that never arrives. It is not a
-    hole in the safety story, it is the switch that says nobody is watching
-    and you already decided that is fine.
-    """
-    if os.environ.get("AGENTPATH_AUTO_APPROVE") == "1":
-        return True
-    print(f"\nThe agent wants to run this command.\n\n    {command}\n")
-    try:
-        return input("Run it? [y/N] ").strip().lower() in ("y", "yes")
-    except (EOFError, KeyboardInterrupt):
-        print()
-        return False
-
-
 def run_shell(command):
-    if not confirm(command):
-        return "The user refused to run this command. Do not try to run it again."
+    # The confirmation that used to live here moved to permissions.py in
+    # lesson 12. Asking in both places would ask the same question twice,
+    # and a tool that asks its own questions cannot be reused by anything
+    # that is not a terminal.
     try:
         completed = subprocess.run(
             command,

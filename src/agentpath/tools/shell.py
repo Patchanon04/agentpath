@@ -41,10 +41,17 @@ def ask_the_user(command: str) -> bool:
         return False
 
 
-def shell_tools(root, confirm=ask_the_user, timeout=DEFAULT_TIMEOUT) -> list[Tool]:
+def shell_tools(
+    root, confirm=ask_the_user, timeout=DEFAULT_TIMEOUT, cancellation=None
+) -> list[Tool]:
     root = Path(root).resolve()
 
     def run_shell(command):
+        # Checked here rather than only in the loop because a command started
+        # after the person pressed the interrupt key is exactly the failure
+        # a cancellation token exists to prevent.
+        if cancellation is not None and cancellation.cancelled:
+            return "Cancelled before the command started."
         if not confirm(command):
             return "The user refused to run this command. Do not try to run it again."
         try:

@@ -1,10 +1,12 @@
 """Check that lesson 17 works.
 
-Four things must be true. A failure that will pass later is retried until it
+Six things must be true. A failure that will pass later is retried until it
 does. A failure caused by our own bad request is not retried at all, because
 sending the same wrong thing again is just slower. When the server says when
-to come back, we listen to it rather than to our own formula. And a
-cancellation stops real work rather than only the display.
+to come back, we listen to it rather than to our own formula. The delay is
+jittered so that clients do not all return at the same instant. A
+cancellation stops real work rather than only the display. And a model that
+has got stuck repeating itself is warned and then stopped.
 """
 import os
 import sys
@@ -87,6 +89,32 @@ def main():
     except KeyboardInterrupt:
         pass
     print("OK a cancelled token stops work rather than only printing a message")
+
+    from agent import run
+    from permissions import Permissions
+
+    class AlwaysTheSameCall:
+        """A model that has got stuck, which is the case a turn limit misses."""
+
+        def stream(self, messages, tools=None, on_text=None):
+            return "", [
+                {
+                    "id": "c1",
+                    "name": "read_file",
+                    "arguments": {"path": "nowhere.txt"},
+                    "error": "",
+                }
+            ], {}
+
+    answer, _ = run(
+        AlwaysTheSameCall(),
+        "go",
+        permissions=Permissions(auto_approve=True),
+        max_turns=20,
+    )
+    if "Stopping" not in answer:
+        fail(f"a stuck model was not stopped. Got {answer!r}")
+    print("OK a model repeating one call is warned, then stopped, without burning every turn")
 
 
 if __name__ == "__main__":

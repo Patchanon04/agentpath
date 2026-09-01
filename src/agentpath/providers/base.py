@@ -10,12 +10,38 @@ keeping that line clean is what lets both providers share one loop.
 import json
 from collections.abc import Iterator
 
+from agentpath.retry import with_retries
 from agentpath.types import Message
 
 
 class Provider:
     def stream(self, messages: list[Message], tools: list[dict] | None = None) -> Iterator:
         raise NotImplementedError
+
+
+def open_stream(client, url, payload, headers, attempts=4):
+    """Open a streaming request, retrying the failures worth retrying.
+
+    Only the opening is retried. Once the first bytes have arrived the caller
+    has already seen part of an answer, and replaying the request would
+    produce a second answer spliced onto the first. A partly consumed stream
+    is not a thing you can retry, so the honest boundary is here.
+
+    The error body is read before raising so the message is useful. Without
+    that a failure reports only a status code, which sends people looking in
+    the wrong place.
+    """
+
+    def once():
+        request = client.build_request("POST", url, json=payload, headers=headers)
+        response = client.send(request, stream=True)
+        if response.status_code >= 400:
+            response.read()
+            response.close()
+            response.raise_for_status()
+        return response
+
+    return with_retries(once, attempts=attempts)
 
 
 def parse_arguments(raw: str) -> tuple[dict, str]:

@@ -30,10 +30,13 @@ REQUIRED = ["AGENTPATH_BASE_URL", "AGENTPATH_MODEL"]
 DEFAULT_BUDGET = 100_000
 
 
-def build_tools(root):
+def build_tools(root, cancellation=None):
     """Every tool the command line gives the agent."""
     return ToolRegistry(
-        file_tools(root) + shell_tools(root) + search_tools(root) + retrieval_tools(root)
+        file_tools(root)
+        + shell_tools(root, cancellation=cancellation)
+        + search_tools(root)
+        + retrieval_tools(root)
     )
 
 
@@ -69,14 +72,15 @@ def build_agent(arguments, session):
         ask=ask_in_terminal,
         auto_approve=os.environ.get("AGENTPATH_AUTO_APPROVE") == "1" or arguments.yes,
     )
+    cancellation = Cancellation()
     agent = Agent(
         provider=build_provider(arguments.provider),
-        tools=build_tools(root),
+        tools=build_tools(root, cancellation=cancellation),
         system=build_system_prompt(root),
         permissions=permissions,
         on_message=session.append,
         budget=arguments.budget,
-        cancellation=Cancellation(),
+        cancellation=cancellation,
     )
     return agent, root
 

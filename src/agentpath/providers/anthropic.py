@@ -12,10 +12,29 @@ from collections.abc import Iterator
 
 import httpx
 
-from agentpath.providers.base import Provider, parse_arguments
+from agentpath.providers.base import Provider, open_stream, parse_arguments
 from agentpath.types import Message, TextDelta, ToolCall, TurnDone
 
 API_VERSION = "2023-06-01"
+
+
+def normalise_usage(reported: dict) -> dict:
+    """Rename Anthropic's usage fields to the ones the rest of the code uses.
+
+    Anthropic says input_tokens and output_tokens where the OpenAI format
+    says prompt_tokens and completion_tokens. Without this the counter reads
+    zero against a real Anthropic endpoint and nothing errors, which is the
+    worst kind of bug because the number it shows looks like an answer.
+    """
+    if not reported:
+        return {}
+    prompt = reported.get("prompt_tokens", reported.get("input_tokens", 0))
+    completion = reported.get("completion_tokens", reported.get("output_tokens", 0))
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": prompt + completion,
+    }
 
 
 def to_wire(messages: list[Message]) -> list[dict]:
@@ -58,11 +77,14 @@ def to_wire(messages: list[Message]) -> list[dict]:
 
 
 class AnthropicProvider(Provider):
-    def __init__(self, base_url=None, api_key=None, model=None, client=None, timeout=120):
+    def __init__(
+        self, base_url=None, api_key=None, model=None, client=None, timeout=120, attempts=4
+    ):
         self.base_url = (base_url or os.environ["AGENTPATH_BASE_URL"]).rstrip("/")
         self.api_key = api_key if api_key is not None else os.environ.get("AGENTPATH_API_KEY", "")
         self.model = model or os.environ["AGENTPATH_MODEL"]
         self.client = client or httpx.Client(timeout=timeout)
+        self.attempts = attempts
 
     def _headers(self) -> dict:
         return {
@@ -95,13 +117,14 @@ class AnthropicProvider(Provider):
         blocks: dict[int, dict] = {}
         usage: dict = {}
 
-        with self.client.stream(
-            "POST",
+        response = open_stream(
+            self.client,
             f"{self.base_url}/messages",
-            json=payload,
-            headers=self._headers(),
-        ) as response:
-            response.raise_for_status()
+            payload,
+            self._headers(),
+            attempts=self.attempts,
+        )
+        try:
             for line in response.iter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -110,7 +133,7 @@ class AnthropicProvider(Provider):
                     break
                 event = json.loads(data)
                 if event.get("usage"):
-                    usage = event["usage"]
+                    usage = normalise_usage(event["usage"])
                 kind = event.get("type")
                 if kind == "content_block_start":
                     block = event["content_block"]
@@ -127,6 +150,8 @@ class AnthropicProvider(Provider):
                         yield TextDelta(text=delta["text"])
                     elif delta.get("type") == "input_json_delta":
                         blocks[event["index"]]["json"] += delta["partial_json"]
+        finally:
+            response.close()
 
         calls = []
         for _, slot in sorted(blocks.items()):

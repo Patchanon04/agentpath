@@ -1,10 +1,10 @@
 """Check that lesson 13 works.
 
-Four things must be true. A conversation written out and read back is the
+Five things must be true. A conversation written out and read back is the
 same conversation, including tool calls. The file really is one JSON object
 per line, which is what makes it readable. Everything written before a crash
-survives it. And a resumed conversation is one the model can carry on with,
-which we prove by resuming and asking another question.
+survives it. Text in any language stays readable rather than being escaped
+away. And a resumed conversation is one the model can carry on with.
 """
 import json
 import os
