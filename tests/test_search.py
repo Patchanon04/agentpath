@@ -48,3 +48,28 @@ def test_grep_reports_no_matches_clearly(registry):
 
 def test_a_bad_regular_expression_is_an_error_not_a_crash(registry):
     assert "not a valid" in call(registry, "grep_files", pattern="[unclosed")
+
+
+def test_search_cannot_be_used_to_read_credential_files(tmp_path):
+    """grep must honour the same refusal read_file does.
+
+    Without this, search is a way around the credential deny list, and a
+    rule one tool honours while another ignores it is not a rule.
+    """
+    (tmp_path / ".env").write_text("OPENAI_API_KEY=sk-supersecret\n", encoding="utf-8")
+    registry = ToolRegistry(search_tools(tmp_path))
+    assert "sk-supersecret" not in call(registry, "grep_files", pattern="KEY")
+    assert ".env" not in call(registry, "glob_files", pattern="*")
+
+
+def test_a_workspace_living_inside_a_skipped_directory_still_works(tmp_path):
+    """The skip list must apply to the path inside the workspace only.
+
+    A project that happens to live under a folder called node_modules would
+    otherwise have every one of its files skipped.
+    """
+    workspace = tmp_path / "node_modules" / "myproject"
+    workspace.mkdir(parents=True)
+    (workspace / "main.py").write_text("def start():\n    pass\n", encoding="utf-8")
+    registry = ToolRegistry(search_tools(workspace))
+    assert "main.py" in call(registry, "glob_files", pattern="**/*.py")

@@ -11,31 +11,63 @@ from pathlib import Path
 
 from agentpath.tools.base import Tool
 from agentpath.tools.files import SKIP_DIRECTORIES, truncate
+from agentpath.tools.workspace import looks_like_a_secret
 
 MAX_RESULTS = 200
 
 
 def _walk(root: Path):
-    """Yield every file under root, skipping directories nobody wants searched."""
+    """Yield every file under root that a search is allowed to look at.
+
+    Two exclusions happen here. Directories such as .venv are skipped because
+    searching them buries the real answer in thousands of irrelevant hits.
+    Credential files are skipped because otherwise search would be a way
+    around the refusal in read_file, and a rule that one tool honours while
+    another ignores it is not a rule at all.
+
+    The skip list is checked against the path inside the workspace rather
+    than the whole path, because a project that happens to live in a folder
+    called node_modules should still be searchable.
+    """
     for path in root.rglob("*"):
-        if any(part in SKIP_DIRECTORIES for part in path.parts):
+        if not path.is_file():
             continue
-        if path.is_file():
-            yield path
+        relative = path.relative_to(root)
+        if any(part in SKIP_DIRECTORIES for part in relative.parts):
+            continue
+        if looks_like_a_secret(path.name):
+            continue
+        yield path
+
+
+def path_matches(relative: str, name: str, pattern: str) -> bool:
+    """Decide whether one file matches a glob the way a person would expect.
+
+    Three attempts are made because fnmatch is stricter than people are. The
+    pattern is tried against the path inside the workspace, then against the
+    bare file name so that main.py works from anywhere, and then with a
+    leading star star slash removed so that a pattern like **/*.py also
+    finds files sitting at the top level. Without that third attempt the
+    most common pattern a model writes silently misses every file that is
+    not inside a subdirectory.
+    """
+    if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(name, pattern):
+        return True
+    return pattern.startswith("**/") and fnmatch.fnmatch(relative, pattern[3:])
 
 
 def search_tools(root) -> list[Tool]:
     root = Path(root).resolve()
 
     def glob_files(pattern):
-        matches = []
+        found = []
         for path in _walk(root):
             relative = path.relative_to(root).as_posix()
-            if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(path.name, pattern):
-                matches.append(relative)
-        if not matches:
+            if path_matches(relative, path.name, pattern):
+                found.append(relative)
+        if not found:
             return f"no files match {pattern}"
-        return truncate("\n".join(sorted(matches)[:MAX_RESULTS]))
+        return truncate("\n".join(sorted(found)[:MAX_RESULTS]))
 
     def grep_files(pattern, glob="*"):
         try:
@@ -45,7 +77,7 @@ def search_tools(root) -> list[Tool]:
         hits = []
         for path in _walk(root):
             relative = path.relative_to(root).as_posix()
-            if not (fnmatch.fnmatch(relative, glob) or fnmatch.fnmatch(path.name, glob)):
+            if not path_matches(relative, path.name, glob):
                 continue
             try:
                 text = path.read_text(encoding="utf-8")
