@@ -936,11 +936,18 @@ from dataclasses import dataclass, field
 
 @dataclass
 class ToolCall:
-    """A request from the model to run one tool."""
+    """A request from the model to run one tool.
+
+    arguments_error is set when the model produced text that was not valid
+    JSON, which happens when it runs out of output budget in the middle of a
+    tool call. Carrying the problem instead of hiding it is what lets the
+    tool registry hand the model a readable error it can correct.
+    """
 
     id: str
     name: str
     arguments: dict
+    arguments_error: str = ""
 
 
 @dataclass
@@ -1067,6 +1074,18 @@ def test_accumulates_streamed_tool_arguments(mock_url):
     assert call.arguments == {"a": 2, "b": 3}
 
 
+def test_truncated_tool_arguments_do_not_crash_the_provider():
+    from agentpath.providers.base import parse_arguments
+
+    arguments, error = parse_arguments('{"a": 2, "b')
+    assert arguments == {}
+    assert "not valid JSON" in error
+
+    arguments, error = parse_arguments("")
+    assert arguments == {}
+    assert error == ""
+
+
 def test_sends_tool_results_back_in_wire_format(mock_url):
     history = [
         Message(role="user", content="hi"),
@@ -1101,6 +1120,7 @@ carries the finished message, including any tool calls the model asked for.
 A provider never runs a tool. Running tools belongs to the agent loop, and
 keeping that line clean is what lets both providers share one loop.
 """
+import json
 from collections.abc import Iterator
 
 from agentpath.types import Message
@@ -1109,6 +1129,22 @@ from agentpath.types import Message
 class Provider:
     def stream(self, messages: list[Message], tools: list[dict] | None = None) -> Iterator:
         raise NotImplementedError
+
+
+def parse_arguments(raw: str) -> tuple[dict, str]:
+    """Turn streamed argument text into a dict, or report why it could not.
+
+    Returns (arguments, error). A model that hits its output limit part way
+    through a tool call sends back JSON that stops mid string. Quietly
+    turning that into an empty dict is the worst possible answer, because the
+    tool then runs with no arguments and the model never learns it made a
+    mistake, so it repeats the same broken call every time the conversation
+    is replayed.
+    """
+    try:
+        return json.loads(raw or "{}"), ""
+    except json.JSONDecodeError as error:
+        return {}, f"arguments were not valid JSON ({error}). Raw text was {raw!r}"
 ```
 
 - [ ] **Step 5: เขียน providers/openai_compat.py**
@@ -1125,7 +1161,7 @@ from collections.abc import Iterator
 
 import httpx
 
-from agentpath.providers.base import Provider
+from agentpath.providers.base import Provider, parse_arguments
 from agentpath.types import Message, TextDelta, ToolCall, TurnDone
 
 
@@ -1204,14 +1240,17 @@ class OpenAICompatProvider(Provider):
                     if function.get("arguments"):
                         slot["arguments"] += function["arguments"]
 
-        calls = [
-            ToolCall(
-                id=slot["id"],
-                name=slot["name"],
-                arguments=json.loads(slot["arguments"] or "{}"),
+        calls = []
+        for _, slot in sorted(partial.items()):
+            arguments, error = parse_arguments(slot["arguments"])
+            calls.append(
+                ToolCall(
+                    id=slot["id"],
+                    name=slot["name"],
+                    arguments=arguments,
+                    arguments_error=error,
+                )
             )
-            for _, slot in sorted(partial.items())
-        ]
         yield TurnDone(
             message=Message(role="assistant", content="".join(text_parts), tool_calls=calls)
         )
@@ -1311,7 +1350,7 @@ from collections.abc import Iterator
 
 import httpx
 
-from agentpath.providers.base import Provider
+from agentpath.providers.base import Provider, parse_arguments
 from agentpath.types import Message, TextDelta, ToolCall, TurnDone
 
 API_VERSION = "2023-06-01"
@@ -1424,10 +1463,14 @@ class AnthropicProvider(Provider):
                     elif delta.get("type") == "input_json_delta":
                         blocks[event["index"]]["json"] += delta["partial_json"]
 
-        calls = [
-            ToolCall(id=slot["id"], name=slot["name"], arguments=json.loads(slot["json"] or "{}"))
-            for _, slot in sorted(blocks.items())
-        ]
+        calls = []
+        for _, slot in sorted(blocks.items()):
+            arguments, error = parse_arguments(slot["json"])
+            calls.append(
+                ToolCall(
+                    id=slot["id"], name=slot["name"], arguments=arguments, arguments_error=error
+                )
+            )
         yield TurnDone(
             message=Message(role="assistant", content="".join(text_parts), tool_calls=calls)
         )
@@ -1502,6 +1545,18 @@ def test_empty_registry_reports_no_schemas():
     assert ToolRegistry().schemas() == []
 
 
+def test_malformed_arguments_are_reported_to_the_model_not_silently_dropped():
+    call = ToolCall(
+        id="1",
+        name="add",
+        arguments={},
+        arguments_error='arguments were not valid JSON. Raw text was \'{"a": 2, "b\'',
+    )
+    result = ToolRegistry([ADD]).run(call)
+    assert "not valid JSON" in result.content
+    assert "Send the tool call again" in result.content
+
+
 @pytest.mark.parametrize("arguments", [{"a": 1, "b": 2}, {"b": 2, "a": 1}])
 def test_argument_order_does_not_matter(arguments):
     assert ToolRegistry([ADD]).run(ToolCall(id="1", name="add", arguments=arguments)).content == "3"
@@ -1560,6 +1615,12 @@ class ToolRegistry:
         must turn into text the model can read and correct, never an exception
         that kills the agent loop.
         """
+        if call.arguments_error:
+            return ToolResult(
+                tool_call_id=call.id,
+                name=call.name,
+                content=f"Error: {call.arguments_error}. Send the tool call again.",
+            )
         tool = self._tools.get(call.name)
         if tool is None:
             return ToolResult(
@@ -2650,16 +2711,28 @@ def complete_stream(messages, tools=None, on_text=None):
                     if function.get("arguments"):
                         slot["arguments"] += function["arguments"]
 
-    calls = [
-        {
-            "id": slot["id"],
-            "name": slot["name"],
-            "arguments": json.loads(slot["arguments"] or "{}"),
-        }
-        for _, slot in sorted(partial.items())
-    ]
+    calls = []
+    for _, slot in sorted(partial.items()):
+        try:
+            arguments = json.loads(slot["arguments"] or "{}")
+            error = ""
+        except json.JSONDecodeError as problem:
+            arguments = {}
+            error = f"arguments were not valid JSON ({problem})"
+        calls.append(
+            {
+                "id": slot["id"],
+                "name": slot["name"],
+                "arguments": arguments,
+                "error": error,
+            }
+        )
     return "".join(text_parts), calls
 ```
+
+สังเกตว่าเราไม่แปลง JSON ที่พังให้กลายเป็น dict ว่างเงียบๆ เหตุผลอธิบายไว้ในหัวข้อ
+ของ README บทนี้ ตัว agent.py ต้องเช็ค `call["error"]` ก่อนเรียก tool และถ้ามีค่า
+ให้ส่งข้อความ error กลับเข้าบทสนทนาแทนการรัน tool
 
 - [ ] **Step 3: เขียน agent.py ที่ใช้ streaming**
 
@@ -2702,9 +2775,13 @@ def run(user_input, max_turns=10):
         )
 
         for call in calls:
-            print(f"\n[calling {call['name']} with {call['arguments']}]")
-            result = tools.run(call["name"], call["arguments"])
-            print(f"[{call['name']} returned {result}]")
+            if call["error"]:
+                result = f"Error: {call['error']}. Send the tool call again."
+                print(f"\n[{call['name']} was not run because {call['error']}]")
+            else:
+                print(f"\n[calling {call['name']} with {call['arguments']}]")
+                result = tools.run(call["name"], call["arguments"])
+                print(f"[{call['name']} returned {result}]")
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
 
     raise RuntimeError(f"agent stopped after max turns ({max_turns})")
@@ -2775,9 +2852,10 @@ Expected: OK สามบรรทัด
 3. Part one, streaming text. โค้ดส่วนแรก รันแล้วเห็นตัวอักษรไหล
 4. Part two, streaming tool calls. อธิบายว่าทำไม arguments ถึงมาเป็นเศษ JSON และทำไมต้องสะสมก่อน parse ให้โชว์ตัวอย่างเศษจริงที่ mock ส่งมา
 5. Why the buffer is keyed by index. อธิบายกรณี model ขอหลาย tool พร้อมกัน
-6. Why we rebuilt the loop now instead of later. เชื่อมกับเหตุผลว่าถ้าปล่อยไว้จะต้องรื้อของที่ใหญ่กว่านี้
-7. Troubleshooting. ถ้า endpoint ของคุณ stream พร้อม tools ไม่ได้ ให้ทำอะไร อ้างอิงผลจาก docs/provider-notes.md
-8. What you cannot do yet. โค้ดนี้ผูกกับรูปแบบของ OpenAI อย่างเดียว ซึ่งเป็นปัญหาของบทถัดไป
+6. When the JSON never finishes. หัวข้อบังคับตามเสปค อธิบายว่า model ที่ชนเพดาน output จะส่ง JSON ที่ขาดกลางคัน และเหตุผลที่เราไม่แปลงมันเป็น dict ว่าง ถ้าแปลงเงียบๆ tool จะรันโดยไม่มี argument และ model จะไม่มีทางรู้ว่าตัวเองพลาด มันจะทำผิดซ้ำทุกครั้งที่บทสนทนาถูกเล่นซ้ำ ทางที่ถูกคือส่ง error กลับไปให้ model แก้เอง ให้ผู้เรียนทดลองโดยแก้ค่า max_tokens ให้ต่ำมากแล้วดูว่าเกิดอะไรขึ้น จุดสำคัญของการเล่าเรื่องคือโค้ดที่ผู้เรียนเขียนในบทที่ 03 พังตรงนี้จริงๆ ให้ชี้กลับไปที่บรรทัดนั้นตรงๆ แล้วบอกว่าเราปล่อยให้มันง่ายไว้ก่อนเพราะยังไม่มีเหตุผลให้เห็น ตอนนี้มีแล้ว การสอนแบบเห็นของพังก่อนแล้วค่อยแก้ได้ผลกว่าการกันไว้ตั้งแต่ต้นโดยไม่อธิบาย
+7. Why we rebuilt the loop now instead of later. เชื่อมกับเหตุผลว่าถ้าปล่อยไว้จะต้องรื้อของที่ใหญ่กว่านี้
+8. Troubleshooting. ถ้า endpoint ของคุณ stream พร้อม tools ไม่ได้ ให้ทำอะไร อ้างอิงผลจาก docs/provider-notes.md
+9. What you cannot do yet. โค้ดนี้ผูกกับรูปแบบของ OpenAI อย่างเดียว ซึ่งเป็นปัญหาของบทถัดไป
 
 - [ ] **Step 7: prose lint แล้ว commit**
 
@@ -2826,6 +2904,14 @@ import os
 import httpx
 
 
+def parse_arguments(raw):
+    """Return (arguments, error). See lesson 05 for why we do not hide this."""
+    try:
+        return json.loads(raw or "{}"), ""
+    except json.JSONDecodeError as problem:
+        return {}, f"arguments were not valid JSON ({problem})"
+
+
 class OpenAICompatProvider:
     def __init__(self, base_url=None, api_key=None, model=None):
         self.base_url = (base_url or os.environ["AGENTPATH_BASE_URL"]).rstrip("/")
@@ -2870,14 +2956,12 @@ class OpenAICompatProvider:
                         if function.get("arguments"):
                             slot["arguments"] += function["arguments"]
 
-        calls = [
-            {
-                "id": s["id"],
-                "name": s["name"],
-                "arguments": json.loads(s["arguments"] or "{}"),
-            }
-            for _, s in sorted(partial.items())
-        ]
+        calls = []
+        for _, s in sorted(partial.items()):
+            arguments, error = parse_arguments(s["arguments"])
+            calls.append(
+                {"id": s["id"], "name": s["name"], "arguments": arguments, "error": error}
+            )
         return "".join(text_parts), calls
 
 
@@ -2977,10 +3061,12 @@ class AnthropicProvider:
                         elif delta.get("type") == "input_json_delta":
                             blocks[event["index"]]["json"] += delta["partial_json"]
 
-        calls = [
-            {"id": s["id"], "name": s["name"], "arguments": json.loads(s["json"] or "{}")}
-            for _, s in sorted(blocks.items())
-        ]
+        calls = []
+        for _, s in sorted(blocks.items()):
+            arguments, error = parse_arguments(s["json"])
+            calls.append(
+                {"id": s["id"], "name": s["name"], "arguments": arguments, "error": error}
+            )
         return "".join(text_parts), calls
 ```
 
@@ -3025,9 +3111,13 @@ def run(provider, user_input, max_turns=10):
         )
 
         for call in calls:
-            print(f"\n[calling {call['name']} with {call['arguments']}]")
-            result = tools.run(call["name"], call["arguments"])
-            print(f"[{call['name']} returned {result}]")
+            if call["error"]:
+                result = f"Error: {call['error']}. Send the tool call again."
+                print(f"\n[{call['name']} was not run because {call['error']}]")
+            else:
+                print(f"\n[calling {call['name']} with {call['arguments']}]")
+                result = tools.run(call["name"], call["arguments"])
+                print(f"[{call['name']} returned {result}]")
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
 
     raise RuntimeError(f"agent stopped after max turns ({max_turns})")
