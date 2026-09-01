@@ -1,3 +1,5 @@
+[อ่านภาษาไทย](README.th.md)
+
 # Lesson 06. Provider abstraction
 
 This is the last chapter of part one. It is also the first chapter where you

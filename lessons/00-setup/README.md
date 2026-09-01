@@ -1,3 +1,5 @@
+[อ่านภาษาไทย](README.th.md)
+
 # Lesson 00. Setup
 
 This is the lesson where most people quit. Not because it is hard, but because

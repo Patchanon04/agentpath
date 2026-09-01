@@ -1,3 +1,5 @@
+[อ่านภาษาไทย](README.th.md)
+
 # Lesson 02. The conversation loop
 
 In lesson 01 you wrote a function that sends one prompt to a model and prints one reply. That is a working program, and it is also a dead end. In this lesson you turn that single shot function into something that can hold a conversation, and you learn the one fact that explains almost every strange thing an AI agent does. A model has no memory.

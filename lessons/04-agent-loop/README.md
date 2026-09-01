@@ -1,3 +1,5 @@
+[อ่านภาษาไทย](README.th.md)
+
 # Lesson 04. The agent loop
 
 This is the lesson where you build an agent.

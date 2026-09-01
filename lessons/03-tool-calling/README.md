@@ -1,3 +1,5 @@
+[อ่านภาษาไทย](README.th.md)
+
 # Lesson 03. Tool calling
 
 This is the most important chapter in part one. Everything before it was

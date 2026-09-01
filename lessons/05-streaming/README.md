@@ -1,3 +1,5 @@
+[อ่านภาษาไทย](README.th.md)
+
 # Lesson 05. Streaming
 
 This is the hardest chapter in part one. Not the most important, that was

@@ -1,3 +1,5 @@
+[อ่านภาษาไทย](README.th.md)
+
 # Lesson 01. Your first LLM call
 
 At the end of lesson 00 you had a working Python environment and an endpoint that answered when the setup script knocked on it. You have not written a single line of your own code that talks to a model yet. That is what this lesson fixes.
