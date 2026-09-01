@@ -159,3 +159,43 @@ def test_giving_up_on_a_loop_also_leaves_no_orphan():
     requested = {call.id for message in agent.messages for call in message.tool_calls}
     answered = {m.tool_call_id for m in agent.messages if m.role == "tool"}
     assert requested == answered, f"orphaned tool calls {requested - answered}"
+
+
+def test_a_model_nudging_the_arguments_is_still_caught():
+    """The case the spec and lesson 04 promise, which a signature check misses.
+
+    A model that retries the same failing tool with the argument wiggled
+    produces a different fingerprint every single time, so a check that only
+    compares calls never fires. What gives it away is that the tool keeps
+    handing back exactly the same answer.
+    """
+    wiggles = iter(["six", "6", "six ", " six", "6 ", "six"])
+
+    class NudgesTheArguments:
+        def stream(self, messages, tools=None):
+            yield TurnDone(
+                message=Message(
+                    role="assistant",
+                    tool_calls=[
+                        ToolCall(id="c", name="roll", arguments={"sides": next(wiggles)})
+                    ],
+                )
+            )
+
+    roll = Tool(
+        name="roll",
+        description="d",
+        parameters={"type": "object", "properties": {}},
+        fn=lambda sides=None: "Error: sides must be a number",
+        safe=True,
+    )
+    agent = Agent(
+        provider=NudgesTheArguments(),
+        tools=ToolRegistry([roll]),
+        permissions=Permissions(auto_approve=True),
+        max_turns=6,
+    )
+    events = list(agent.run("go"))
+    results = [e for e in events if isinstance(e, ToolResult)]
+    assert any("going in circles" in r.content for r in results)
+    assert "Stopping" in events[-1].message.content

@@ -69,6 +69,7 @@ class Agent:
         recent: list[str] = []
         self._warned: set[str] = set()
         self._stuck_on = None
+        self._results: list[tuple[str, str]] = []
 
         for _ in range(self.max_turns):
             self.cancellation.raise_if_cancelled()
@@ -145,16 +146,35 @@ class Agent:
         """
         current = signature(call)
         recent.append(current)
-        if recent[-REPEAT_LIMIT:].count(current) >= REPEAT_LIMIT:
-            if current in self._warned:
+
+        # Two different ways of going in circles, and a turn cap sees
+        # neither. The first is the same call over and over. The second is
+        # the same tool with the arguments nudged, which produces a
+        # different signature every time and so slips past any check that
+        # only compares calls. What gives it away is the result. If a tool
+        # keeps handing back exactly the same thing, nothing is changing,
+        # whatever the arguments say.
+        repeating = recent[-REPEAT_LIMIT:].count(current) >= REPEAT_LIMIT
+        stalled = (
+            len(self._results) >= REPEAT_LIMIT
+            and len(set(self._results[-REPEAT_LIMIT:])) == 1
+            and self._results[-1][0] == call.name
+        )
+        if repeating or stalled:
+            marker = current if repeating else f"no progress from {call.name}"
+            if marker in self._warned:
                 self._stuck_on = current
-            self._warned.add(current)
+            self._warned.add(marker)
+            reason = (
+                f"has been called with these exact arguments {REPEAT_LIMIT} times in a row"
+                if repeating
+                else f"has returned the same thing {REPEAT_LIMIT} times in a row"
+            )
             return ToolResult(
                 tool_call_id=call.id,
                 name=call.name,
                 content=(
-                    f"Error: {call.name} has been called with these exact arguments "
-                    f"{REPEAT_LIMIT} times in a row and nothing has changed. You are "
+                    f"Error: {call.name} {reason} and nothing has changed. You are "
                     "going in circles. Stop repeating it and try a different approach."
                 ),
             )
@@ -166,4 +186,6 @@ class Agent:
                 name=call.name,
                 content="The user refused this call. Do not try it again, do something else.",
             )
-        return self.tools.run(call)
+        result = self.tools.run(call)
+        self._results.append((call.name, result.content))
+        return result
