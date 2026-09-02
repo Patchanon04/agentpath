@@ -4,67 +4,44 @@ It lives in a separate file so it can be killed. A regular expression that
 takes exponential time cannot be interrupted from inside the process running
 it, so the only way to put a limit on a search is to run it somewhere that
 can be shut down from outside.
+
+The rules about which files may be searched are imported from tools.py
+rather than copied here. An earlier version of this file had its own copy of
+the secret names and the skip list, which is exactly what lesson 09 tells
+you not to do. Two copies agree until the day somebody edits one.
 """
-import fnmatch
 import json
-import os
-import re
 import sys
 from pathlib import Path
 
-MAX_RESULTS = 200
-MAX_LINE = 2000
-SKIP_DIRECTORIES = {".git", ".venv", "__pycache__", "node_modules", ".ruff_cache"}
-SECRET_NAMES = {".env", "id_rsa", "id_ed25519", ".npmrc", ".netrc", "credentials"}
-SECRET_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
+# Isolated mode removes every directory from the import path, including the
+# one this file lives in, so the lesson folder has to be put back by hand.
+# Only this folder, and never the folder the agent is working in, which is
+# the whole point of starting isolated in the first place.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-
-def looks_like_a_secret(name):
-    lowered = name.lower()
-    if lowered in SECRET_NAMES or lowered.startswith(".env."):
-        return True
-    return Path(lowered).suffix in SECRET_SUFFIXES
-
-
-def allowed(root, relative):
-    """The same rule as resolve_inside, repeated here because this process
-    does not import tools.py. A link inside the workspace must not be a way
-    out of it, and the name of a link never tells you where it points."""
-    candidate = (root / relative).resolve()
-    if candidate != root and not candidate.is_relative_to(root):
-        return False
-    return not looks_like_a_secret(candidate.name)
-
-
-def path_matches(relative, name, pattern):
-    if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(name, pattern):
-        return True
-    return pattern.startswith("**/") and fnmatch.fnmatch(relative, pattern[3:])
+import tools  # noqa: E402
 
 
 def scan(root, pattern, glob):
+    """Search every file the workspace rules allow."""
+    import re
+
     expression = re.compile(pattern)
     root = Path(root).resolve()
     hits = []
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(root)
-        if any(part in SKIP_DIRECTORIES for part in relative.parts):
-            continue
-        if not allowed(root, relative):
-            continue
-        as_posix = relative.as_posix()
-        if not path_matches(as_posix, path.name, glob):
+    for path in tools._walk():
+        relative = path.relative_to(root).as_posix()
+        if not tools.path_matches(relative, path.name, glob):
             continue
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
         for number, line in enumerate(text.splitlines(), start=1):
-            if expression.search(line[:MAX_LINE]):
-                hits.append(f"{as_posix}:{number}: {line.strip()[:200]}")
-                if len(hits) >= MAX_RESULTS:
+            if expression.search(line[: tools.MAX_LINE]):
+                hits.append(f"{relative}:{number}: {line.strip()[:200]}")
+                if len(hits) >= tools.MAX_RESULTS:
                     return hits
     return hits
 

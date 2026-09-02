@@ -504,14 +504,24 @@ def grep_files(pattern, glob="*"):
     # actually works. The cost is about a tenth of a second of start up.
     request = json.dumps({"root": str(WORKSPACE), "pattern": pattern, "glob": glob})
     try:
+        # -I matters more than it looks. Without it, the directory the child
+        # starts in goes first on the import path, and that directory is the
+        # workspace. A file the agent wrote there called json.py would be
+        # imported and run before the search began, with no permission check,
+        # because searching is a safe tool. -I removes it and ignores the
+        # environment variables that could put it back.
+        worker = Path(__file__).with_name("grep_worker.py")
         completed = subprocess.run(
-            [sys.executable, str(Path(__file__).with_name("grep_worker.py"))],
+            [sys.executable, "-I", str(worker)],
             input=request,
             capture_output=True,
             text=True,
             encoding="utf-8",
             timeout=SEARCH_SECONDS,
+            cwd=str(worker.parent),
         )
+    except OSError as error:
+        return f"Error: the search could not be started. {error}"
     except subprocess.TimeoutExpired:
         return (
             f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "

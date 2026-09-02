@@ -117,13 +117,23 @@ def search_tools(root) -> list[Tool]:
         # start up on every search.
         request = json.dumps({"root": str(root), "pattern": pattern, "glob": glob})
         try:
+            # Isolated on purpose, and this is the important part rather
+            # than a detail. Running a module with -m puts the current
+            # directory first on the import path, and the current
+            # directory is the workspace. A file the agent wrote there
+            # called json.py or types.py would then be imported and run by
+            # this child before the search starts, with no permission
+            # check anywhere, because searching is a safe tool. -I removes
+            # that directory from the path and ignores the environment
+            # variables that could put it back.
             completed = subprocess.run(
-                [sys.executable, "-m", "agentpath.tools.search"],
+                [sys.executable, "-I", "-m", "agentpath.tools.search"],
                 input=request,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 timeout=SEARCH_SECONDS,
+                cwd=str(Path(__file__).resolve().parent),
             )
         except subprocess.TimeoutExpired:
             return (
