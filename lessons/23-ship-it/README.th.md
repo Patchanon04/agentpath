@@ -298,7 +298,7 @@ package ที่ติดตั้งได้
 
 ```toml
 [project]
-name = "agentpath"
+name = "agentpath-kit"
 version = "1.0.0"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"
@@ -583,7 +583,7 @@ python -m build
   - hatchling
 * Getting build dependencies for wheel...
 * Building wheel...
-Successfully built agentpath-1.0.0.tar.gz and agentpath-1.0.0-py3-none-any.whl
+Successfully built agentpath_kit-1.0.0.tar.gz and agentpath_kit-1.0.0-py3-none-any.whl
 ```
 
 อ่านดูว่ามันทำอะไร เพราะมันอธิบายตาราง `[build-system]` จากหัวข้อที่แล้ว มันสร้าง environment ใหม่
@@ -609,18 +609,18 @@ wheel ทำให้การติดตั้ง Python เร็วและ
 ```bash
 python -c "
 import zipfile
-z = zipfile.ZipFile('dist/agentpath-1.0.0-py3-none-any.whl')
+z = zipfile.ZipFile('dist/agentpath_kit-1.0.0-py3-none-any.whl')
 for name in sorted(z.namelist()):
     print(name)
 "
 ```
 
 ```text
-agentpath-1.0.0.dist-info/METADATA
-agentpath-1.0.0.dist-info/RECORD
-agentpath-1.0.0.dist-info/WHEEL
-agentpath-1.0.0.dist-info/entry_points.txt
-agentpath-1.0.0.dist-info/licenses/LICENSE
+agentpath_kit-1.0.0.dist-info/METADATA
+agentpath_kit-1.0.0.dist-info/RECORD
+agentpath_kit-1.0.0.dist-info/WHEEL
+agentpath_kit-1.0.0.dist-info/entry_points.txt
+agentpath_kit-1.0.0.dist-info/licenses/LICENSE
 agentpath/__init__.py
 agentpath/agent.py
 agentpath/cancel.py
@@ -659,8 +659,8 @@ agentpath/usage.py
 ทีนี้ดูขนาดของสองไฟล์นี้ด้วยกัน เพราะนี่คือจุดที่โปรเจกต์นี้เจอปัญหาจริงจากการเปิดดู
 
 ```text
-agentpath-1.0.0-py3-none-any.whl  50.7K
-agentpath-1.0.0.tar.gz            1.3M
+agentpath_kit-1.0.0-py3-none-any.whl  50.7K
+agentpath_kit-1.0.0.tar.gz            1.3M
 ```
 
 source distribution ใหญ่กว่า wheel มากกว่ายี่สิบห้าเท่า มานับดูว่าข้างในมีอะไร
@@ -674,11 +674,26 @@ source distribution ใหญ่กว่า wheel มากกว่ายี�
 ```
 
 sdist กวาดทั้ง repository เข้ามา รวมถึงโฟลเดอร์บทเรียนทั้งยี่สิบสี่โฟลเดอร์ในทั้งสองภาษาที่คอร์สนี้
-เผยแพร่ ซึ่งพอแก้ต่างได้สำหรับโปรเจกต์นี้โดยเฉพาะ เพราะบทเรียนคือซอร์สจริง ๆ ในความ
-หมายที่สำคัญตรงนี้ แต่มันแทบไม่เคยเป็นสิ่งที่คุณต้องการ และไม่เคยเป็นสิ่งที่คุณคาดไว้ ทางแก้คือตาราง
-`[tool.hatch.build.targets.sdist]` ที่ระบุว่าจะรวมอะไรบ้าง บทเรียนที่ได้เล็กกว่าและมีประโยชน์กว่า
-ทางแก้ **ดูสิ่งที่คุณ build ก่อนจะเผยแพร่มัน** เพราะค่าเริ่มต้นของสิ่งที่จะเข้าไปอยู่ใน source
-distribution นั้นใจกว้าง และไม่มีใครค้นพบ sdist ขนาดสองร้อยเมกะไบต์จนกว่าคนแปลกหน้าจะบ่น
+เผยแพร่ มีข้อโต้แย้งว่าบทเรียนคือซอร์สจริงๆ ตรงนี้ แต่คนที่ติดตั้ง package ต้องการ package
+และคอร์สอยู่ห่างออกไปแค่คลิกเดียวใน repository โปรเจกต์นี้จึงตัดมันออก
+
+ทางแก้คือตาราง `[tool.hatch.build.targets.sdist]` ที่ระบุว่าจะรวมอะไรบ้าง และมันมีกับดัก
+อยู่หนึ่งอันที่ทำให้เสีย build ไปหนึ่งครั้ง
+
+```toml
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/README.md", "/CHANGELOG.md", "/LICENSE"]
+```
+
+ทุก pattern ในนั้นขึ้นต้นด้วยเครื่องหมายทับ และความพยายามครั้งแรกไม่ได้ใส่ hatchling อ่านมัน
+แบบเดียวกับที่ git อ่าน `.gitignore` `README.md` เปล่าๆ จึงหมายถึงไฟล์ชื่อ README.md
+ที่ความลึกไหนก็ได้ และ repository นี้มีอยู่ยี่สิบหกไฟล์ sdist จึงออกมาเป็นสามร้อยห้าสิบไฟล์
+แทนที่จะเป็นสามสิบหก และมันดูสมเหตุสมผลพอจนมีแต่การนับไฟล์เท่านั้นที่จับได้
+เครื่องหมายทับนำหน้าคือสิ่งที่ยึด pattern ไว้กับ root
+
+บทเรียนที่ได้ใหญ่กว่าทางแก้ **ดูสิ่งที่คุณ build ก่อนจะเผยแพร่มัน** เพราะค่าเริ่มต้นของสิ่งที่จะเข้าไป
+อยู่ใน source distribution นั้นใจกว้าง pattern ที่ใช้จำกัดมันไม่ได้แปลว่าสิ่งที่มันดูเหมือนจะแปล
+และไม่มีใครค้นพบ sdist ขนาดสองร้อยเมกะไบต์จนกว่าคนแปลกหน้าจะบ่น
 
 ### ทดสอบการติดตั้งใน environment ที่สะอาด ก่อนเผยแพร่ ไม่ใช่หลังเผยแพร่
 
@@ -695,7 +710,7 @@ distribution นั้นใจกว้าง และไม่มีใคร
 
 ```bash
 python -m venv fresh
-./fresh/bin/pip install dist/agentpath-1.0.0-py3-none-any.whl
+./fresh/bin/pip install dist/agentpath_kit-1.0.0-py3-none-any.whl
 ./fresh/bin/agentpath --help
 ```
 
@@ -784,6 +799,37 @@ variable สามตัวที่ทุกบทเรียนและ fram
 และคำแรกของคำโปรย การค้นพบว่าชื่อชนหลังจบส่วนที่ 3 จะไม่ใช่แค่การเปลี่ยนชื่อ มันจะเป็นการเขียนใหม่
 ของงานเขียนยี่สิบสามบท ทุก code block ในนั้น และชื่อ environment variable ทุกตัว และมันจะทำให้ผู้อ่าน
 ทุกคนที่ตั้งค่ามันไว้แล้วพัง
+
+### การตรวจข้างบนจำเป็น และมันไม่พอ
+
+request นั้นตอบ `404` ให้ `agentpath` และการ upload ก็ยังถูกปฏิเสธอยู่ดี นี่คือคำตอบที่ได้จริง
+
+```text
+This project name is too similar to an existing project
+```
+
+index ไม่ได้ปฏิเสธแค่ชื่อที่ถูกใช้ไปแล้ว มันปฏิเสธชื่อที่ใกล้ของเดิมมากพอจนคนที่พิมพ์จากความจำ
+อาจไปลงเอยที่ package ผิดตัว ซึ่งเป็นการป้องกันการโจมตีที่เกิดขึ้นจริง มีโปรเจกต์ชื่อ `agent_path`
+อยู่ก่อนแล้ว normalise แล้วมันคือ `agent-path` ซึ่งไม่เท่ากับ `agentpath` request จึงบอกว่าว่าง
+แล้วการตรวจความคล้ายบอกว่าไม่
+
+ย่อหน้าข้างบนเรื่อง normalisation พูดถูกว่าชื่อไหนชนกัน แต่พูดผิดเรื่องคำถามที่มันตอบ ความเท่ากัน
+บอกคุณว่าชื่อถูกใช้ไปหรือยัง มันไม่บอกอะไรเลยว่าชื่อนั้นใช้ได้หรือไม่ ไม่มี request สาธารณะที่ตอบ
+คำถามที่สอง คำแนะนำที่ซื่อสัตย์จึงเป็นการ upload ขึ้น TestPyPI ตั้งแต่เนิ่นๆ เพราะการปฏิเสธมาถึง
+ที่นั่นโดยไม่มีค่าใช้จ่าย และมาถึงในวันที่คุณเลือกชื่อ แทนที่จะมาถึงในวันที่คุณ ship
+
+สิ่งที่ทำให้เรื่องนี้รอดมาได้คือชื่อบน index กับชื่อที่คุณ import ไม่จำเป็นต้องตรงกัน package นี้
+เผยแพร่ในชื่อ `agentpath-kit` และติดตั้ง package ที่ชื่อ `agentpath` ซึ่งเป็นการจัดวางแบบเดียวกับ
+ที่คุณติดตั้ง `scikit-learn` แล้ว import `sklearn` หรือติดตั้ง `pillow` แล้ว import `PIL`
+
+```toml
+[project]
+name = "agentpath-kit"
+```
+
+บรรทัดเดียวนั้นคือการแก้ทั้งหมด import path console script environment variable สามตัว
+repository และทุก code block ในยี่สิบสามบท ล้วนคงชื่อเดิมไว้ ถ้าสองชื่อนี้ถูกบังคับให้ตรงกัน
+การเขียนใหม่ที่อธิบายไว้ในย่อหน้าข้างบนคือสิ่งที่เรื่องนี้จะมีราคาจริงๆ
 
 หมายเหตุสุดท้าย และมันไม่ใช่เรื่องพิธีการ ถ้าคุณเรียนตามคอร์สนี้แล้วสร้างสำเนาของตัวเองขึ้นมา อย่า
 เผยแพร่มันในชื่อ `agentpath` เลือกชื่อของคุณเอง ตรวจมันด้วย request ข้างบน แล้วใส่ลงใน

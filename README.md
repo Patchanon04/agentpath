@@ -97,8 +97,16 @@ Everything the course builds also ships as a package, so you can install the
 finished version and read it as a reference.
 
 ```bash
-pip install agentpath
+pip install agentpath-kit
 ```
+
+The distribution is called `agentpath-kit` and the package it installs is
+called `agentpath`, so you install one name and import the other. That is
+not a typo. PyPI refused the bare name because an abandoned package called
+`agent_path` is close enough to it to be confusing, and splitting the two
+names is the ordinary answer, the same one that has you install
+`scikit-learn` and import `sklearn`. Installing plain `agentpath` gets you
+somebody else's empty template, so the hyphen matters.
 
 ```bash
 export AGENTPATH_BASE_URL=http://localhost:11434/v1

@@ -1,5 +1,11 @@
 [project]
-name = "agentpath"
+# The distribution is agentpath-kit and the package it installs is
+# agentpath, which is a mismatch on purpose. PyPI refused the bare name as
+# too close to agent_path, an abandoned PDM template placeholder. Splitting
+# the two is the ordinary Python answer, the same way scikit-learn installs
+# sklearn, and it leaves the import, the command and the environment
+# variables alone.
+name = "agentpath-kit"
 version = "1.0.5"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"

@@ -94,8 +94,14 @@ environment variable สามตัวที่ใช้ตลอดทั้�
 เอกสารอ้างอิงได้
 
 ```bash
-pip install agentpath
+pip install agentpath-kit
 ```
+
+ชื่อที่ใช้ติดตั้งคือ `agentpath-kit` แต่ชื่อ package ที่ได้มาคือ `agentpath` คุณจึงติดตั้งชื่อหนึ่ง
+แล้ว import อีกชื่อหนึ่ง ตรงนี้ไม่ได้พิมพ์ผิด PyPI ปฏิเสธชื่อเปล่าๆ เพราะมี package ร้างชื่อ
+`agent_path` ที่ใกล้กันมากพอจะทำให้สับสน และการแยกสองชื่อออกจากกันคือคำตอบปกติของ
+Python แบบเดียวกับที่คุณติดตั้ง `scikit-learn` แล้ว import `sklearn` ถ้าติดตั้ง `agentpath`
+เฉยๆ คุณจะได้ template เปล่าของคนอื่น เครื่องหมายขีดจึงสำคัญ
 
 ```bash
 export AGENTPATH_BASE_URL=http://localhost:11434/v1

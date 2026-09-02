@@ -2,6 +2,23 @@
 
 ## 1.0.5
 
+Published as agentpath-kit rather than agentpath. The index refused the bare
+name as too similar to agent_path, an abandoned template placeholder, which
+a request for the exact name cannot detect because the exact name is free.
+The package it installs is still called agentpath, so the import, the
+command and the three environment variables are unchanged, the same way
+scikit-learn installs sklearn.
+
+The source distribution carried the whole repository, three hundred and
+fifty files, because hatchling reads include patterns the way git reads
+gitignore and a bare README.md matched all twenty six of them. Anchored with
+a leading slash it is thirty six files.
+
+Chapter 23 and book chapter 16 both taught that a 404 on the name means the
+name is free. It does not, and this project is the counter example, so both
+now say so and show the two name arrangement that made the refusal survivable.
+
+
 The loop fingerprint no longer folds letter case or interior spaces. It made
 three genuinely different case sensitive searches look identical, so a model
 widening a pattern from Error to error was told it was going in circles and

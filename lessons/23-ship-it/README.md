@@ -343,7 +343,7 @@ Here is the whole thing.
 
 ```toml
 [project]
-name = "agentpath"
+name = "agentpath-kit"
 version = "1.0.0"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"
@@ -667,7 +667,7 @@ python -m build
   - hatchling
 * Getting build dependencies for wheel...
 * Building wheel...
-Successfully built agentpath-1.0.0.tar.gz and agentpath-1.0.0-py3-none-any.whl
+Successfully built agentpath_kit-1.0.0.tar.gz and agentpath_kit-1.0.0-py3-none-any.whl
 ```
 
 Read what it did, because it explains the `[build-system]` table from the last
@@ -697,18 +697,18 @@ Open the wheel. It is a zip file, so nothing special is needed.
 ```bash
 python -c "
 import zipfile
-z = zipfile.ZipFile('dist/agentpath-1.0.0-py3-none-any.whl')
+z = zipfile.ZipFile('dist/agentpath_kit-1.0.0-py3-none-any.whl')
 for name in sorted(z.namelist()):
     print(name)
 "
 ```
 
 ```text
-agentpath-1.0.0.dist-info/METADATA
-agentpath-1.0.0.dist-info/RECORD
-agentpath-1.0.0.dist-info/WHEEL
-agentpath-1.0.0.dist-info/entry_points.txt
-agentpath-1.0.0.dist-info/licenses/LICENSE
+agentpath_kit-1.0.0.dist-info/METADATA
+agentpath_kit-1.0.0.dist-info/RECORD
+agentpath_kit-1.0.0.dist-info/WHEEL
+agentpath_kit-1.0.0.dist-info/entry_points.txt
+agentpath_kit-1.0.0.dist-info/licenses/LICENSE
 agentpath/__init__.py
 agentpath/agent.py
 agentpath/cancel.py
@@ -748,8 +748,8 @@ Now look at the sizes of the two files together, because this is where this
 project found a real problem by looking.
 
 ```text
-agentpath-1.0.0-py3-none-any.whl  50.7K
-agentpath-1.0.0.tar.gz            1.3M
+agentpath_kit-1.0.0-py3-none-any.whl  50.7K
+agentpath_kit-1.0.0.tar.gz            1.3M
 ```
 
 The source distribution is more than twenty five times the size of the wheel.
@@ -764,15 +764,30 @@ Count what is in it.
 ```
 
 The sdist swept the entire repository, including all twenty four lesson folders
-in both of the languages the course ships in. Which is defensible for this
-particular project, since the lessons genuinely are the source in a sense that
-matters here, but it is almost never what you want and it is never what you
-expected.
-The fix is a `[tool.hatch.build.targets.sdist]` table listing what to include.
-The lesson is smaller and more useful than the fix. **Look at what you built
-before you publish it**, because the default for what goes into a source
-distribution is generous, and nobody discovers a two hundred megabyte sdist
-until a stranger complains.
+in both of the languages the course ships in. There is an argument that the
+lessons are the source here, but somebody installing the package wants the
+package, and the course is one click away in the repository, so this project
+trimmed it.
+
+The fix is a `[tool.hatch.build.targets.sdist]` table listing what to include,
+and it has one trap in it that cost a build.
+
+```toml
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/README.md", "/CHANGELOG.md", "/LICENSE"]
+```
+
+Every one of those patterns starts with a slash, and the first attempt did not.
+Hatchling reads these the way git reads `.gitignore`, so a bare `README.md`
+means a file called README.md at any depth, and this repository has twenty six
+of them. The sdist came out at three hundred and fifty files instead of thirty
+six, and it looked plausible enough that only counting the files caught it. The
+leading slash anchors the pattern to the root.
+
+The lesson is bigger than the fix. **Look at what you built before you publish
+it**, because the default for what goes into a source distribution is generous,
+the patterns that narrow it do not mean what they look like they mean, and
+nobody discovers a two hundred megabyte sdist until a stranger complains.
 
 ### Test the install in a clean environment, before publishing rather than after
 
@@ -792,7 +807,7 @@ thing.
 
 ```bash
 python -m venv fresh
-./fresh/bin/pip install dist/agentpath-1.0.0-py3-none-any.whl
+./fresh/bin/pip install dist/agentpath_kit-1.0.0-py3-none-any.whl
 ./fresh/bin/agentpath --help
 ```
 
@@ -888,7 +903,46 @@ single file existed.
 Which says the project name is `agentpath`, checked, PyPI is free, and there is
 almost no competition on GitHub. It cost about thirty seconds and it was worth
 doing then rather than later, because look at how far the name had already
-travelled by the end of part 3. It is the import path in every one of these
+travelled by the end of part 3.
+
+### The check above is necessary and it is not sufficient
+
+That request returned `404` for `agentpath` and the upload was still refused.
+Here is the exact reply.
+
+```text
+This project name is too similar to an existing project
+```
+
+The index does not only reject a name that is taken. It rejects a name close
+enough to an existing one that somebody typing from memory could land on the
+wrong package, which is a real defence against a real attack. A project called
+`agent_path` already existed. Normalised it is `agent-path`, which is not equal
+to `agentpath`, so the request said free, and the similarity check said no.
+
+The paragraph above about normalisation was right about which names collide and
+wrong about the question it answers. Equality tells you whether the name is
+taken. It tells you nothing about whether the name is allowed. There is no
+public request that answers the second question, so the honest advice is to
+upload to TestPyPI early, because the refusal arrives there for free and it
+arrives on the day you pick the name rather than the day you ship.
+
+The thing that made this survivable is that the name on the index and the name
+you import do not have to match. This package is published as `agentpath-kit`
+and installs a package called `agentpath`, which is the same arrangement that
+has you install `scikit-learn` and import `sklearn`, or install `pillow` and
+import `PIL`.
+
+```toml
+[project]
+name = "agentpath-kit"
+```
+
+That one line was the entire fix. The import path, the console script, the three
+environment variables, the repository, and every code block in twenty three
+chapters all kept the name they had. Had the two names been required to match,
+the rewrite described in the paragraph above is exactly what this would have
+cost. It is the import path in every one of these
 files. It is the console script. It is the three environment variables that every
 lesson and the framework read. It is the repository name, the directory name in
 every command in every chapter, and the first word of the tagline. Discovering a
