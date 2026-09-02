@@ -48,6 +48,12 @@ answers["reads_a_real_file"] = ask("read_file", {"path": "ok.py"})
 answers["escape_by_path"] = ask("read_file", {"path": "../outside/secret.txt"})
 answers["reads_env"] = ask("read_file", {"path": ".env"})
 
+if "write_file" in tools.FUNCTIONS:
+    answers["writes_env"] = ask("write_file", {"path": ".env", "content": "REPLACED"})
+    answers["env_still_says"] = open(
+        os.path.join(WORKSPACE, ".env"), encoding="utf-8"
+    ).read()
+
 if "grep_files" in tools.FUNCTIONS:
     answers["grep_env"] = ask("grep_files", {"pattern": "API_KEY"})
     answers["grep_through_link"] = ask("grep_files", {"pattern": "value"})
@@ -165,6 +171,18 @@ def test_the_lesson_refuses_a_path_outside_the_workspace(answers, lesson):
 def test_the_lesson_refuses_to_read_a_credential_file(answers, lesson):
     said = answers[lesson.name]
     assert SECRET not in said["reads_env"]
+
+
+@pytest.mark.parametrize("lesson", lessons_with("write_file"), ids=lesson_id)
+def test_the_lesson_refuses_to_write_over_a_credential_file(answers, lesson):
+    """The library grew this test in the same round. The lessons need it too.
+
+    A lesson that can be told to overwrite .env teaches a tool that can
+    destroy the reader's own setup on the first run.
+    """
+    said = answers[lesson.name]
+    assert "Error" in said["writes_env"], said["writes_env"][:120]
+    assert SECRET in said["env_still_says"], "the lesson overwrote a credential file"
 
 
 @pytest.mark.parametrize(

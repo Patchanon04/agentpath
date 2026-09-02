@@ -380,7 +380,8 @@ def build_index(root, pattern=DEFAULT_PATTERN):
     return index
 ```
 
-สามอย่างในนั้นถูกนำกลับมาใช้ ไม่ได้คิดขึ้นใหม่ `SKIP_DIRECTORIES` คือ set ของบทที่ 07
+สามอย่างในนั้นถูกนำกลับมาใช้ ไม่ได้คิดขึ้นใหม่ และสองในสามมาถึงผ่าน `_from_tools`
+ภายใต้ชื่อในเครื่องว่า `skip` และ `is_secret` `SKIP_DIRECTORIES` คือ set ของบทที่ 07
 retrieval จึงไม่ทำ index บน virtual environment ของคุณ `looks_like_a_secret`
 คือฟังก์ชันช่วยของบทที่ 07 และมันอยู่ตรงนี้เพราะบทที่ 09 เจอช่องโหว่ที่ search tool
 เดินสำรวจ tree เองและเลี่ยงการปฏิเสธเรื่อง credential ที่ `read_file` บังคับไว้

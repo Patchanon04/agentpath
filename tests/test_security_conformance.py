@@ -109,6 +109,38 @@ def test_no_tool_hands_back_the_contents_of_a_credential_file(workspace, name):
     assert SECRET not in result, f"{name} handed back the contents of .env"
 
 
+@pytest.mark.parametrize("name", ["write_file", "edit_file"])
+def test_a_credential_file_cannot_be_written_to_either(workspace, name):
+    """Reading was tested and writing was not, which is the same hole again.
+
+    The deny list stops a credential reaching the conversation. That is not
+    the only thing it has to stop. An agent that cannot read .env but can
+    overwrite it can still destroy a working setup, and one that can append
+    to it can plant a value somebody else will trust. Both go through one
+    gate today. This is here so that they still do after somebody splits
+    the read path and the write path apart.
+    """
+    before = (workspace / ".env").read_text(encoding="utf-8")
+    probes = {
+        "write_file": {"path": ".env", "content": "API_KEY=replaced"},
+        "edit_file": {"path": ".env", "old": "API_KEY", "new": "OTHER_KEY"},
+    }
+    result = run_tool(build_tools(workspace), name, probes[name])
+    assert "Error" in result, f"{name} did not refuse, it said {result[:120]!r}"
+    assert (workspace / ".env").read_text(encoding="utf-8") == before, (
+        f"{name} changed a credential file"
+    )
+
+
+def test_a_credential_file_cannot_be_created_in_a_subdirectory(workspace):
+    """The deny list is a name test, so it has to hold anywhere in the tree."""
+    result = run_tool(
+        build_tools(workspace), "write_file", {"path": "config/.env", "content": "x"}
+    )
+    assert "Error" in result
+    assert not (workspace / "config" / ".env").exists()
+
+
 @pytest.mark.parametrize("name", ["glob_files", "grep_files", "search_notes"])
 def test_a_link_is_not_a_way_out(workspace, name):
     """rglob follows links, and the name of a link says nothing about its target.

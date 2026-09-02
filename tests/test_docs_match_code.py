@@ -6,11 +6,11 @@ a reader following the prose typed out the vulnerable version while the
 surrounding text told them it was safe. Both times a person found it by
 reading, because nothing checked.
 
-The rule this file enforces is narrow on purpose. Every Python block in a
-chapter has to appear in one of the Python files in that same folder. Not
-similar to, not a fair summary of, present in. A block that is deliberately
-partial says so with an ellipsis, and one that is deliberately wrong says so
-in the words around it, and both of those are recorded here by name rather
+The rule this file enforces is narrow on purpose. A function shown whole in
+a chapter has to appear somewhere in that chapter in the shape the folder
+has. Not similar to, not a fair summary of, present in. A block that is
+deliberately partial says so with an ellipsis, and one that is deliberately
+wrong says so in the words around it and is recorded here by name rather
 than waved through by a loose comparison.
 """
 import re
@@ -32,6 +32,9 @@ ILLUSTRATIONS = {
         ("shutil.which", "shows how a ripgrep fallback could be written"),
         ("def grep_with_ripgrep", "an exercise, not code in the folder"),
     ],
+    "20-subagents": [
+        ("# the version that is wrong", "a counter example the prose argues against"),
+    ],
 }
 
 
@@ -39,20 +42,19 @@ def python_files(folder):
     return {path.name: path.read_text(encoding="utf-8") for path in folder.glob("*.py")}
 
 
-# Docstrings are stripped before comparing, using DOTALL rather than an
-# escape so the pattern stays readable.
-TRIPLE = re.compile('"""' + '.*?' + '"""', re.DOTALL)
+# Docstrings are stripped before comparing. DOTALL rather than an escaped
+# newline keeps the pattern readable.
+TRIPLE = re.compile('"""' + ".*?" + '"""', re.DOTALL)
 
 
 def normalise(text):
     """Compare bodies, not prose.
 
-    Chapters shorten a docstring when they show a whole function, which
-    is a deliberate convention rather than drift. What must not differ is
-    the code, and both drift bugs this file exists for were changed
-    bodies rather than changed prose.
+    Chapters shorten a docstring when they show a whole function, which is a
+    deliberate convention rather than drift. What must not differ is the
+    code, and both drift bugs this file exists for were changed bodies.
     """
-    stripped = TRIPLE.sub('', text)
+    stripped = TRIPLE.sub("", text)
     lines = [line.rstrip() for line in stripped.strip().splitlines()]
     return "\n".join(line for line in lines if line.strip())
 
@@ -80,22 +82,51 @@ def chapter_id(path):
 DEFINITION = re.compile(r"^(?:def|class) (\w+)", re.MULTILINE)
 
 
+def definitions(body):
+    """Every top level def or class in a block, as (name, source).
+
+    Splitting the block up is what makes this test worth running. Chapters
+    show whole files, and a whole file block holds several definitions, so a
+    rule that only looked at blocks containing exactly one definition
+    skipped sixty six blocks and compared nine percent of the code in the
+    course. A security helper lives in a file alongside other functions,
+    which is exactly the shape that was being skipped.
+    """
+    lines = body.splitlines()
+    found = []
+    start = None
+    name = None
+    for index, line in enumerate(lines):
+        heading = DEFINITION.match(line)
+        if heading:
+            if start is not None:
+                found.append((name, "\n".join(lines[start:index])))
+            start, name = index, heading.group(1)
+        elif start is not None and line and not line[0].isspace():
+            found.append((name, "\n".join(lines[start:index])))
+            start = name = None
+    if start is not None:
+        found.append((name, "\n".join(lines[start:])))
+    return found
+
+
 @pytest.mark.parametrize("chapter", chapters(), ids=chapter_id)
 def test_a_whole_definition_quoted_from_the_folder_matches_the_folder(chapter):
     """Every function shown whole has to be shown in its current shape somewhere.
 
     A chapter quotes an old shape on purpose. It says here is what we had,
     and here is what it becomes, and the old one is the point of the
-    paragraph. So the rule cannot be that every block matches the folder.
+    paragraph. So the rule cannot be that every quotation matches the folder.
 
-    The rule is that at least one block for a given name matches. A chapter
-    that only ever shows a shape the folder no longer has is a chapter
-    teaching code that does not exist, and that is exactly what the two
-    drift bugs looked like. A before and after pair still passes, because
-    the after is there.
+    The rule is that at least one quotation of a given name matches. A
+    chapter that only ever shows a shape the folder no longer has is a
+    chapter teaching code that does not exist, and that is what both drift
+    bugs looked like. A before and after pair still passes because the after
+    is there.
     """
     lesson = chapter.parent
     sources = python_files(lesson)
+    bodies = {filename: normalise(text) for filename, text in sources.items()}
     defined = {}
     for filename, text in sources.items():
         for name in DEFINITION.findall(text):
@@ -105,25 +136,47 @@ def test_a_whole_definition_quoted_from_the_folder_matches_the_folder(chapter):
     for block in BLOCK.findall(chapter.read_text(encoding="utf-8")):
         if is_illustration(lesson.name, block) or is_partial(block):
             continue
-        body = normalise(block)
-        if len(body.splitlines()) < 8:
-            continue
-        names = DEFINITION.findall(body)
-        if len(names) != 1 or names[0] not in defined:
-            continue
-        name = names[0]
-        # A block often carries the import that goes with the function above
-        # it, which is helpful in a chapter and is not part of the function.
-        # Compare from the definition line down.
-        quoted = body[body.index(DEFINITION.search(body).group(0)):]
-        matches = any(quoted in normalise(sources[f]) for f in defined[name])
-        current[name] = current.get(name, False) or matches
+        for name, quoted in definitions(normalise(block)):
+            # A lone signature line is a fragment, not a whole quotation.
+            if name not in defined or len(quoted.splitlines()) < 2:
+                continue
+            matched = any(quoted in bodies[f] for f in defined[name])
+            current[name] = current.get(name, False) or matched
 
     stale = sorted(name for name, matched in current.items() if not matched)
     assert not stale, (
         f"{lesson.name} shows these whole and never in the shape the folder has. "
         "Either the code moved on and the chapter did not, which is how a chapter "
         f"ends up teaching a bug that was already fixed, or the quote drifted. {stale}"
+    )
+
+
+def test_the_comparison_is_not_quietly_checking_nothing():
+    """A drift test that skips everything passes and proves nothing.
+
+    Every exclusion in the test above is a place drift could hide, and the
+    exclusions grew without anybody noticing until somebody counted them.
+    This records the coverage as a number, so a change that halves it fails
+    here rather than passing in silence.
+    """
+    compared = 0
+    for chapter in chapters():
+        sources = python_files(chapter.parent)
+        defined = set()
+        for text in sources.values():
+            defined |= set(DEFINITION.findall(text))
+        seen = set()
+        for block in BLOCK.findall(chapter.read_text(encoding="utf-8")):
+            if is_illustration(chapter.parent.name, block) or is_partial(block):
+                continue
+            for name, quoted in definitions(normalise(block)):
+                if name in defined and len(quoted.splitlines()) >= 2:
+                    seen.add(name)
+        compared += len(seen)
+    assert compared >= 70, (
+        f"only {compared} definitions are being compared against the folders. "
+        "Something narrowed the comparison, and a drift test that compares "
+        "nothing still passes."
     )
 
 

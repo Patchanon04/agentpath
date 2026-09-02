@@ -412,9 +412,10 @@ def build_index(root, pattern=DEFAULT_PATTERN):
     return index
 ```
 
-Three things in there are reused rather than invented. `SKIP_DIRECTORIES` is
-lesson 07's set, so retrieval does not index your virtual environment.
-`looks_like_a_secret` is lesson 07's helper, and it is here because lesson 09
+Three things in there are reused rather than invented, and two of them arrive
+through `_from_tools` under the local names `skip` and `is_secret`.
+`SKIP_DIRECTORIES` is lesson 07's set, so retrieval does not index your virtual
+environment. `looks_like_a_secret` is lesson 07's helper, and it is here because lesson 09
 found the hole where a search tool walked the tree itself and bypassed the
 credential refusal that `read_file` enforced. A rule enforced at one entry point
 is not enforced. `as_posix()` is lesson 09's line, so a source on Windows reads
