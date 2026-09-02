@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.5
 
 The loop fingerprint no longer folds letter case or interior spaces. It made
 three genuinely different case sensitive searches look identical, so a model

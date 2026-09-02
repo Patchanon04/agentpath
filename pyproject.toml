@@ -1,6 +1,6 @@
 [project]
 name = "agentpath"
-version = "1.0.4"
+version = "1.0.5"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,6 +20,12 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# The sdist is what pip falls back to, so it carries only what building
+# the package needs. The course itself lives in the repository, and the
+# README says where.
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/README.md", "/CHANGELOG.md", "/LICENSE"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentpath"]
