@@ -52,6 +52,7 @@ traceback ตอนพังยากขึ้น state machine กับ graph 
 ```python
     def run(self, user_input: str) -> Iterator:
         self._remember(Message(role="user", content=user_input))
+        recent: list[str] = []
 
         for _ in range(self.max_turns):
             assistant = None
@@ -254,7 +255,7 @@ loop ควรจัดการ เพราะ loop เป็นเจ้า�
 
 **ทำไมมันไม่พอ** เพราะตัวนับนับเป็นแต่ไม่ได้คิด model ที่ติดอยู่ใน loop
 สามารถใช้ทุกรอบที่มีไปกับการเรียก tool เดิมด้วย argument ที่ต่างกันนิดเดียว
-เช่นเติมช่องว่างท้ายบรรทัด หรือเปลี่ยนตัวพิมพ์ใหญ่เป็นเล็ก ทุกรอบเสียเงิน
+เช่นเติมช่องว่างท้ายบรรทัดแล้วส่งมาใหม่ ทุกรอบเสียเงิน
 และเมื่อครบเพดานคุณได้ exception ที่บอกว่าหมดรอบ ไม่ได้บอกว่าเกิดอะไรขึ้น
 สิ่งที่คุณจ่ายไปคือค่าไฟของการวนอยู่กับที่สิบรอบ
 
@@ -264,20 +265,33 @@ loop ควรจัดการ เพราะ loop เป็นเจ้า�
 
 ```python
 def loose_signature(call: ToolCall) -> str:
-    """The same idea, but blind to whitespace and letter case.
+    """The same idea, but forgiving about the edges of a value.
 
-    This one is for spotting a model going in circles, not for deciding what
-    is allowed. A model that retries with a trailing space added, or with a
-    word capitalised, has not changed anything and should not get a fresh
-    fingerprint for it. Permission decisions keep using the exact signature,
-    because there the difference between two nearly identical commands can
-    be the whole point.
+    This one is for spotting a model going in circles, not for deciding
+    what is allowed. A model that retries with a trailing space added has
+    changed nothing and should not get a fresh fingerprint for it. A model
+    that changes a letter's case has, because a case sensitive search for
+    Error and a search for error are different searches. Permission
+    decisions keep using the exact signature, because there the difference
+    between two nearly identical commands can be the whole point.
     """
-    flattened = {
-        key: " ".join(str(value).split()).lower() for key, value in call.arguments.items()
-    }
+    # Trailing and leading space only. An earlier version also folded case
+    # and collapsed interior spaces, which made three genuinely different
+    # searches look identical. A model widening a case sensitive pattern from
+    # Error to ERROR to error is doing the right thing, and it was being told
+    # it was going in circles and then stopped.
+    flattened = {key: str(value).strip() for key, value in call.arguments.items()}
     return f"{call.name}({json.dumps(flattened, sort_keys=True)})"
 ```
+
+สังเกตว่า fingerprint มองข้ามแค่ช่องว่างหัวท้าย ไม่ได้มองข้ามตัวพิมพ์
+เวอร์ชันแรกมองข้ามตัวพิมพ์ด้วย และมันสร้าง bug จริง model ที่ค่อยๆ
+ขยายการค้นหาจาก Error เป็น ERROR เป็น error กำลังทำสิ่งที่ถูกต้อง
+เพราะการค้นหาแบบ case sensitive สามครั้งนั้นเป็นคนละการค้นหากันจริงๆ
+แต่ fingerprint ที่มองข้ามตัวพิมพ์เห็นทั้งสามเป็นการเรียกเดียวกัน
+เตือนว่าวนอยู่กับที่ แล้วหยุดงานที่กำลังเดินหน้า
+บรรทัดที่ตัดสินว่าอะไรนับว่าซ้ำจึงต้องระวังทั้งสองทิศ
+หลวมไปก็ปล่อยการวนจริงหลุด แน่นไปก็หยุดงานจริง
 
 เมื่อ fingerprint เดิมโผล่ครบสามครั้งติด `_run_one` จะไม่รัน tool นั้น
 แต่ส่งข้อความกลับไปบอก model ตรงๆ ว่ากำลังวนอยู่กับที่ และถ้ามันเพิกเฉย

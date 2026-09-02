@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+The loop fingerprint no longer folds letter case or interior spaces. It made
+three genuinely different case sensitive searches look identical, so a model
+widening a pattern from Error to error was told it was going in circles and
+stopped. Only leading and trailing space is ignored now. The 1.0.3 note
+below describes the fingerprint as blind to case, which was true when it was
+written and is not anymore.
+
+The credential gate's refusal now says the file will not be touched rather
+than read, because the same gate refuses writes and the old wording told
+somebody who tried to overwrite .env that reading was the problem.
+
+Chapter 16 showed build_index and search_notes calling names that
+retrieval.py does not define, so a reader typing them out got a NameError.
+The chapter now shows the code that is in the folder and explains the
+_from_tools helper it had been assuming.
+
+Three new test files hold the classes of bug that reviews kept finding by
+hand. Every tool in the registry is asked the same security questions, a new
+tool cannot ship unclassified, every lesson copy is run in its own process
+and asked what the library gets asked, and a function a chapter shows whole
+has to appear in the shape the folder has.
+
 ## 1.0.4
 
 Command output on Windows was decoded as utf-8 whatever the command actually

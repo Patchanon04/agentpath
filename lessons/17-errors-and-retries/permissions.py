@@ -37,14 +37,15 @@ def signature(name, arguments):
 
 
 def loose_signature(name, arguments):
-    """The same idea as signature, but blind to whitespace and letter case.
+    """The same idea as signature, but forgiving about the edges of a value.
 
-    This one is for spotting a model going in circles, not for deciding what
-    is allowed. A model that retries with a trailing space added, or with a
-    word capitalised, has not changed anything and should not get a fresh
-    fingerprint for it. Permission decisions keep using the exact signature,
-    because there the difference between two nearly identical commands can be
-    the whole point.
+    This one is for spotting a model going in circles, not for deciding
+    what is allowed. A model that retries with a trailing space added has
+    changed nothing and should not get a fresh fingerprint for it. A model
+    that changes a letter's case has, because a case sensitive search for
+    Error and a search for error are different searches. Permission
+    decisions keep using the exact signature, because there the difference
+    between two nearly identical commands can be the whole point.
     """
     # Trailing and leading space only. Folding case as well made three
     # genuinely different searches look identical, and a model widening a

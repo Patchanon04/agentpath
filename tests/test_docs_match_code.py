@@ -180,6 +180,67 @@ def test_the_comparison_is_not_quietly_checking_nothing():
     )
 
 
+BOOK = ROOT / "book"
+
+# The book quotes code from the whole project, so its blocks are compared
+# against the package and every lesson folder at once. Deliberate
+# simplifications are named here with their reason, same as above.
+BOOK_ILLUSTRATIONS = {
+    "02-the-loop.md": [
+        ("def run(self, user_input", "the loop with its protections cut away, as the prose says"),
+    ],
+}
+
+
+def book_chapters():
+    return sorted(BOOK.glob("[0-9]*.md"))
+
+
+@pytest.fixture(scope="module")
+def everything_normalised():
+    """Every Python file the book could be quoting, normalised once."""
+    sources = []
+    for pattern in ["src/agentpath/**/*.py", "lessons/*/*.py"]:
+        for path in ROOT.glob(pattern):
+            if "__pycache__" not in str(path):
+                sources.append(normalise(path.read_text(encoding="utf-8")))
+    return sources
+
+
+@pytest.mark.parametrize("chapter", book_chapters(), ids=lambda p: p.name)
+def test_a_definition_the_book_shows_whole_exists_somewhere(chapter, everything_normalised):
+    """The book is where this class of bug did the most damage.
+
+    The chapters sit beside the code they quote and still drifted twice.
+    The book sits beside nothing, quotes code from the whole project, and
+    had no check at all, which is how it kept teaching a fingerprint that
+    folds letter case for two weeks after that folding was removed as a
+    bug. Every definition the book shows whole has to exist somewhere in
+    the project in that shape.
+    """
+    defined = set()
+    for source in everything_normalised:
+        defined |= set(DEFINITION.findall(source))
+
+    current = {}
+    for block in BLOCK.findall(chapter.read_text(encoding="utf-8")):
+        if is_partial(block):
+            continue
+        if any(marker in block for marker, _ in BOOK_ILLUSTRATIONS.get(chapter.name, [])):
+            continue
+        for name, quoted in definitions(normalise(block)):
+            if name not in defined or len(quoted.splitlines()) < 2:
+                continue
+            matched = any(quoted in source for source in everything_normalised)
+            current[name] = current.get(name, False) or matched
+
+    stale = sorted(name for name, matched in current.items() if not matched)
+    assert not stale, (
+        f"book/{chapter.name} shows these whole and no file in the project has "
+        f"that shape. The code moved on and the book did not. {stale}"
+    )
+
+
 @pytest.mark.parametrize("chapter", chapters(), ids=chapter_id)
 def test_the_thai_chapter_quotes_the_same_code_as_the_english_one(chapter):
     """The translation is a translation, so its code must be untouched."""

@@ -109,20 +109,24 @@ can do correctly and it has been removed.
 
 ```python
 def loose_signature(call: ToolCall) -> str:
-    """The same idea, but blind to whitespace and letter case.
+    """The same idea, but forgiving about the edges of a value.
 
-    This one is for spotting a model going in circles, not for deciding what
-    is allowed. A model that retries with a trailing space added, or with a
-    word capitalised, has not changed anything and should not get a fresh
-    fingerprint for it. Permission decisions keep using the exact signature,
-    because there the difference between two nearly identical commands can
-    be the whole point.
+    This one is for spotting a model going in circles, not for deciding
+    what is allowed. A model that retries with a trailing space added has
+    changed nothing and should not get a fresh fingerprint for it. A model
+    that changes a letter's case has, because a case sensitive search for
+    Error and a search for error are different searches. Permission
+    decisions keep using the exact signature, because there the difference
+    between two nearly identical commands can be the whole point.
     """
 ```
 
-ประโยคสุดท้ายคือเส้นแบ่งที่ห้ามลืม การมองข้ามช่องว่างและตัวพิมพ์เป็นเรื่อง
-ถูกต้องสำหรับการจับการวน และเป็นเรื่องอันตรายสำหรับการตัดสินใจว่าอะไรรันได้
-เพราะสองคำสั่งที่ต่างกันแค่ตัวพิมพ์ อาจเป็นคนละคำสั่งกันจริงๆ
+ประโยคสุดท้ายคือเส้นแบ่งที่ห้ามลืม fingerprint แบบหลวมใช้จับการวนเท่านั้น
+การตัดสินใจว่าอะไรรันได้ต้องใช้ signature แบบเป๊ะเสมอ และคำว่าหลวมเองก็ต้อง
+หลวมพอดี เวอร์ชันแรกมองข้ามตัวพิมพ์ด้วย แล้วมันตัดสินว่า model ที่ขยาย
+การค้นหาจาก Error เป็น error กำลังวนอยู่กับที่ ทั้งที่การค้นหาแบบ case
+sensitive สองครั้งนั้นเป็นคนละการค้นหา งานจริงเลยถูกหยุด ตอนนี้จึงมองข้าม
+แค่ช่องว่างหัวท้าย เพราะสองคำสั่งที่ต่างกันแค่ตัวพิมพ์ อาจเป็นคนละคำสั่งกันจริงๆ
 
 **หลักการทั่วไปข้อแรก** การเดาสถานะภายใน จากรูปร่างของผลลัพธ์ เป็นสิ่งที่
 ทำผิดง่ายมาก เพราะรูปร่างของผลลัพธ์ ไม่ได้เป็นของคุณ มันเป็นของ tool

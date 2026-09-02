@@ -235,10 +235,10 @@ def signature(call: ToolCall) -> str:
 นี่คือเหตุผลที่โค้ดมีสองฟังก์ชันที่หน้าตาคล้ายกัน และความคิดเห็นในไฟล์บอกไว้ชัด
 
 ```python
-    """The same idea, but blind to whitespace and letter case.
+    """The same idea, but forgiving about the edges of a value.
 
-    This one is for spotting a model going in circles, not for deciding what
-    is allowed. ... Permission decisions keep using the exact signature,
+    This one is for spotting a model going in circles, not for deciding
+    what is allowed. ... Permission decisions keep using the exact signature,
     because there the difference between two nearly identical commands can
     be the whole point.
     """
