@@ -198,8 +198,9 @@ lesson 07
 
 ## 3. One gate for every path
 
-Here is the gate, complete. It is nineteen lines including the docstring, and
-it is the most important code in the chapter.
+Here is the gate, complete apart from its docstring. In tools.py the function
+runs to twenty lines with the docstring counted, and it is the most important
+code in the chapter.
 
 ```python
 WORKSPACE = Path(os.environ.get("AGENTPATH_WORKSPACE", ".")).resolve()
@@ -306,7 +307,7 @@ the whole thing look fine.
 **A security rule you cannot review in one sitting is not a security rule.**
 This is the sharper half of the argument. Ask what it takes to answer the
 question "can this agent read files outside its workspace?" With one gate, you
-read nineteen lines and you are done, and you can be confident because you can
+read twenty lines and you are done, and you can be confident because you can
 also check that no tool builds a path any other way. With four copies, you have
 to read four functions, confirm all four checks are the same check, confirm
 none of them has an early return before the check, and confirm nobody added a
