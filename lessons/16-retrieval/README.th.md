@@ -295,7 +295,7 @@ def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN
     best = [entry for entry in ranked if score(question_words, entry, rarity) > 0]
     if not best:
         return f"nothing in the documents mentions any of the words in {question!r}"
-
+    _, _, truncate = _from_tools()
     parts = [f"{entry['source']}\n{entry['text']}" for entry in best[: int(limit)]]
     return truncate("\n\n".join(parts))
 ```
@@ -341,16 +341,33 @@ def words(text):
 คำท้ายประโยคจึงตรงกับคำเดียวกันที่อยู่กลางประโยค underscore ถูกเก็บไว้
 เพราะตัวระบุอย่าง `issue_refund` ควรอยู่เป็น token เดียวมากกว่าจะกลายเป็นสองตัว
 
+ชื่อที่ยืมมาสองตัวนั้นมาถึงผ่านฟังก์ชันเล็กๆ ตัวหนึ่ง ไม่ได้ import ตรงๆ ที่หัวไฟล์
+
+```python
+def _from_tools():
+    import tools
+
+    return tools.SKIP_DIRECTORIES, tools.looks_like_a_secret, tools.truncate
+```
+
+การวาง import ไว้ข้างในฟังก์ชันเป็นความตั้งใจ `tools.py` import `retrieval.py`
+เพื่อลงทะเบียน tool และถ้า `retrieval.py` import `tools.py` กลับที่หัวไฟล์
+แต่ละไฟล์จะต้องรอให้อีกไฟล์โหลดเสร็จก่อนถึงจะโหลดตัวเองเสร็จ Python จะพังที่ไฟล์ไหนก็ตามที่คุณเรียกก่อน
+การย้าย import เข้าไปข้างในฟังก์ชันเลื่อนมันออกไปจนถึงตอนที่ถูกเรียกจริง
+ซึ่งเป็นเวลาหลังจากทั้งสองไฟล์โหลดเสร็จไปนานแล้ว
+การยืมแทนการคัดลอกคือข้อโต้แย้งทั้งหมดของหัวข้อนี้ การยืมจึงต้องรอดจากลำดับการโหลดไฟล์ด้วย
+
 และ `build_index` อ่านไฟล์
 
 ```python
 def build_index(root, pattern=DEFAULT_PATTERN):
     """Read the documents once and remember their words."""
+    skip, is_secret, _ = _from_tools()
     index = []
     for path in sorted(root.rglob(pattern)):
-        if any(part in SKIP_DIRECTORIES for part in path.relative_to(root).parts):
+        if any(part in skip for part in path.relative_to(root).parts):
             continue
-        if looks_like_a_secret(path.name):
+        if is_secret(path.name):
             continue
         for line_number, text in passages_in(path):
             index.append(

@@ -321,7 +321,7 @@ def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN
     best = [entry for entry in ranked if score(question_words, entry, rarity) > 0]
     if not best:
         return f"nothing in the documents mentions any of the words in {question!r}"
-
+    _, _, truncate = _from_tools()
     parts = [f"{entry['source']}\n{entry['text']}" for entry in best[: int(limit)]]
     return truncate("\n\n".join(parts))
 ```
@@ -370,16 +370,36 @@ sentence matches the same word in the middle of one. Underscores are kept
 because identifiers such as `issue_refund` should stay one token rather than
 becoming two.
 
+Two of those borrowed names arrive through a small function rather than a
+plain import at the top of the file.
+
+```python
+def _from_tools():
+    import tools
+
+    return tools.SKIP_DIRECTORIES, tools.looks_like_a_secret, tools.truncate
+```
+
+The import sits inside the function on purpose. `tools.py` imports
+`retrieval.py` so it can register the tool, and if `retrieval.py` imported
+`tools.py` back at the top of the file, each one would need the other to
+finish loading before it could finish loading itself. Python fails on
+whichever you ask for first. Putting the import inside the function delays it
+until the moment it is called, which is long after both files have loaded.
+Borrowing rather than copying is the entire argument of this section, so the
+borrowing has to survive the order the files load in.
+
 And `build_index` reads the files.
 
 ```python
 def build_index(root, pattern=DEFAULT_PATTERN):
     """Read the documents once and remember their words."""
+    skip, is_secret, _ = _from_tools()
     index = []
     for path in sorted(root.rglob(pattern)):
-        if any(part in SKIP_DIRECTORIES for part in path.relative_to(root).parts):
+        if any(part in skip for part in path.relative_to(root).parts):
             continue
-        if looks_like_a_secret(path.name):
+        if is_secret(path.name):
             continue
         for line_number, text in passages_in(path):
             index.append(

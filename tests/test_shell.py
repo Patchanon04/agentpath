@@ -75,7 +75,7 @@ def test_a_timeout_really_kills_the_command(tmp_path):
 
     marker = (tmp_path / "finished.txt").as_posix()
     command = (
-        f'"{sys.executable}" -c "import time; time.sleep(5); '
+        f'"{sys.executable}" -c "import time; time.sleep(20); '
         f"open(r'{marker}','w').write('x')" + '"'
     )
     started = time.monotonic()
@@ -83,8 +83,12 @@ def test_a_timeout_really_kills_the_command(tmp_path):
     elapsed = time.monotonic() - started
 
     assert "timed out" in result
-    assert elapsed < 3.0, f"the call waited {elapsed:.1f}s for a 1 second timeout"
-    time.sleep(6)
+    # The child sleeps twenty seconds, so anything near that means the call
+    # waited for the whole run. Ten seconds is far from both ends, which
+    # matters because killing a process tree on Windows is not instant and
+    # a loaded machine made a three second budget fail.
+    assert elapsed < 10.0, f"the call waited {elapsed:.1f}s for a 1 second timeout"
+    time.sleep(22)
     assert not (tmp_path / "finished.txt").exists(), "the command survived its own timeout"
 
 
