@@ -1,7 +1,7 @@
 """The chapters have to be as safe as the library, and nothing checked that.
 
-Three times now a fix landed in src/agentpath and never reached the sixteen
-copies of the same code in lessons/. Twice it was a security fix, so the
+Three times now a fix landed in src/agentpath and never reached the
+seventeen copies of the same code in lessons/. Twice it was a security fix, so the
 course was teaching people to write the vulnerable version while the book
 told them it was fixed. Nothing caught it because the lesson checks prove a
 tool works, never that it refuses.

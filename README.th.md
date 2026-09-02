@@ -51,7 +51,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 จากนั้น clone repository แล้วเปิดบทแรก
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/agentpath.git
+git clone https://github.com/Patchanon04/agentpath.git
 cd agentpath
 ```
 
