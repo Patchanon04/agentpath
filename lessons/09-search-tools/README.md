@@ -3,9 +3,10 @@
 # Lesson 09. Search tools
 
 This is the shortest lesson in part two and one of the most consequential. You
-are going to add two functions, about thirty lines of Python between them, and
-the agent will stop being a thing you point at files and start being a thing
-that finds its own way around a code base.
+are going to add two tools, a shared walk over the workspace, and one small
+second file that runs in its own process, and the agent will stop being a thing
+you point at files and start being a thing that finds its own way around a code
+base.
 
 You are also going to spend a long section on something you will not build, and
 that section matters as much as the code. Almost everybody who reaches this
@@ -17,16 +18,24 @@ Files in this folder.
 ```text
 lessons/09-search-tools/
   tools.py       lesson 08's tools, plus glob_files and grep_files at the bottom
+  grep_worker.py the half of grep_files that runs in a separate process
   providers.py   unchanged from lesson 06
   agent.py       unchanged from lesson 06
   check.py       proves the two new tools work and that .venv is skipped
   README.md      this file
 ```
 
-Only `tools.py` changed. `agent.py` and `providers.py` are byte for byte what
-they were three lessons ago. That is worth noticing on its own. The loop learns
-a new capability without a single edit, because a tool is a schema plus a
-function in a dictionary and nothing else in the program needs to know.
+`tools.py` changed and `grep_worker.py` is new. `agent.py` and `providers.py`
+are byte for byte what they were three lessons ago. That is worth noticing on
+its own. The loop learns a new capability without a single edit, because a tool
+is a schema plus a function in a dictionary and nothing else in the program
+needs to know.
+
+`grep_worker.py` is the surprising file in that list, and section 5 is where it
+is explained properly. The short version is that a regular expression written by
+a model can run for longer than the age of the universe, that nothing inside the
+process running it can make it stop, and that the only thing you can reliably
+kill is another process. So the matching happens in one.
 
 ## 1. The problem left over from lesson 08
 
@@ -79,8 +88,7 @@ chat box so that a language model could do the typing. You did the finding and
 it did the typing. That is exactly backwards. Finding is the part a machine is
 good at and you are slow at. Typing is the part you are fine at.
 
-The whole point of the next thirty lines is to flip that back the right way
-round.
+The whole point of the next two tools is to flip that back the right way round.
 
 ## 2. The two ways humans find things in a code base
 
@@ -297,14 +305,18 @@ marker is untouched.
 ```python
 # Lesson 09 adds the search tools. Everything above is unchanged from lesson 08.
 
+import json
+import subprocess
+import sys
 import fnmatch  # noqa: E402
 import re  # noqa: E402
 
 MAX_RESULTS = 200
 ```
 
-Two new modules from the standard library, and one new cap. Section 7 is about
-the cap.
+Five modules from the standard library and one new cap. Section 7 is about the
+cap. `fnmatch` and `re` do the matching, and `json`, `subprocess` and `sys` are
+there because half of `grep_files` runs somewhere else, which is section 5.
 
 ### The walk
 
@@ -313,33 +325,49 @@ visiting. That gets its own function.
 
 ```python
 def _walk():
-    """Yield every file in the workspace that a search is allowed to look at."""
+    """Yield every file in the workspace that a search is allowed to look at.
+
+    Two exclusions happen here. Directories such as .venv are skipped because
+    searching them buries the real answer in thousands of irrelevant hits.
+    Credential files are skipped because otherwise search would be a way
+    around the refusal in read_file, and a rule that one tool honours and
+    another ignores is not a rule at all.
+    """
     for path in WORKSPACE.rglob("*"):
         if not path.is_file():
             continue
         relative = path.relative_to(WORKSPACE)
         if any(part in SKIP_DIRECTORIES for part in relative.parts):
             continue
-        if looks_like_a_secret(path.name):
+        try:
+            # The same gate every file tool uses, rather than a check on the
+            # name. rglob follows symlinks and Windows junctions, so a link
+            # planted inside the workspace would otherwise let search read
+            # anything on the machine while read_file correctly refused.
+            # Looking at the name of the link never sees the name of what it
+            # points at.
+            resolve_inside(str(relative))
+        except WorkspaceError:
             continue
         yield path
 ```
 
-`WORKSPACE`, `SKIP_DIRECTORIES` and `looks_like_a_secret` all come from lesson 07
-and are reused unchanged. `rglob("*")` walks the whole tree recursively and
-yields both files and directories, which is why the `is_file()` check is there.
-The leading underscore on the name is the Python convention for "this is
-internal, it is not one of the tools".
+`WORKSPACE`, `SKIP_DIRECTORIES` and `resolve_inside` all come from lesson 07 and
+are reused unchanged. `rglob("*")` walks the whole tree recursively and yields
+both files and directories, which is why the `is_file()` check is there. The
+leading underscore on the name is the Python convention for "this is internal,
+it is not one of the tools".
 
-Two of those four lines are refusals rather than plumbing, and each gets its own
+Two of those tests are refusals rather than plumbing, and each gets its own
 section. The `SKIP_DIRECTORIES` test is section 6 and it is about cost. The
-`looks_like_a_secret` test is section 5 and it is about a key you can never take
-back out of a conversation.
+`resolve_inside` call is section 5 and it is about a key you can never take back
+out of a conversation, and about a link that leads out of the workspace
+entirely.
 
 It is a generator, which matters more than it looks. `yield` means files come
 out one at a time as the walk proceeds rather than being collected into a list
 first. On a large tree that is the difference between holding one path in
-memory and holding a hundred thousand, and it is also what lets `grep_files`
+memory and holding a hundred thousand, and it is also what lets the grep worker
 stop walking early in section 7.
 
 Section 6 is about the `SKIP_DIRECTORIES` line.
@@ -353,7 +381,7 @@ def glob_files(pattern):
     matches = []
     for path in _walk():
         relative = path.relative_to(WORKSPACE).as_posix()
-        if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(path.name, pattern):
+        if path_matches(relative, path.name, pattern):
             matches.append(relative)
     if not matches:
         return f"no files match {pattern}"
@@ -386,17 +414,34 @@ that prevents a bug which is genuinely maddening to diagnose, because the tool
 works perfectly for the person who wrote it and silently returns nothing for
 half your readers.
 
-### Why we match twice
+### Why we match three times
 
-Here is the line that deserves the most attention.
+Here is the code that deserves the most attention, and it is not inside
+`glob_files` at all. It is a helper with a name, because `grep_files` has to
+make exactly the same decision and a rule written down twice is a rule that will
+eventually disagree with itself.
 
 ```python
-if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(path.name, pattern):
+def path_matches(relative, name, pattern):
+    """Decide whether one file matches a glob the way a person would expect.
+
+    Three attempts are made because fnmatch is stricter than people are. The
+    pattern is tried against the path inside the workspace, then against the
+    bare file name so that main.py works from anywhere, and then with a
+    leading star star slash removed so that a pattern like **/*.py also
+    finds files sitting at the top level. Without that third attempt the
+    most common pattern a model writes silently misses every file that is
+    not inside a subdirectory.
+    """
+    if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(name, pattern):
+        return True
+    return pattern.startswith("**/") and fnmatch.fnmatch(relative, pattern[3:])
 ```
 
-Every file is tested twice, once against its full relative path such as
-`src/agentpath/tools/search.py`, and once against its bare name, which is just
-`search.py`. Either match counts.
+Every file is tested up to three times. Once against its full relative path such
+as `src/agentpath/tools/search.py`, once against its bare name, which is just
+`search.py`, and once against the path again with a leading `**/` cut off the
+pattern. Any match counts.
 
 The reason is that `fnmatch` has one property that surprises people. Its `*`
 matches any character at all, including the path separator. It is not the
@@ -424,25 +469,37 @@ handles the recursive case.
 The second says `**/*.py` fails on a file sitting at the top of the workspace.
 The pattern requires a literal `/` somewhere, and a file in the root has none.
 Models write `**/*.py` constantly because that is what git and most modern
-tools use for "everywhere", so this case has to work.
+tools use for "everywhere", so this case has to work. That single false is the
+entire reason the third attempt exists. Strip the leading `**/` and the pattern
+becomes `*.py`, which matches `agent.py` in the root and, because `*` eats
+slashes, still matches everything below it as well. The tool ends up doing what
+the model meant rather than what it literally typed.
 
-The third and fourth are the pair that make the point. `test_*.py` is an
-extremely natural thing to ask for, and it fails against the full path
+The third and fourth are the pair that make the point about the name. `test_*.py`
+is an extremely natural thing to ask for, and it fails against the full path
 `tests/test_x.py` because the path does not start with `test_`. Matched against
 the bare name `test_x.py` it succeeds immediately.
 
-So one match against the path handles patterns that describe location, and one
-match against the name handles patterns that describe the file itself. Take
-either away and a whole category of reasonable request silently returns
-nothing. And silently returning nothing is the worst possible failure here,
-because the model will conclude the file does not exist and act on that.
+So the match against the path handles patterns that describe location, the match
+against the name handles patterns that describe the file itself, and the match
+against the trimmed pattern handles the one spelling of "everywhere" that models
+reach for most. Take any of the three away and a whole category of reasonable
+request silently returns nothing. And silently returning nothing is the worst
+possible failure here, because the model will conclude the file does not exist
+and act on that.
 
 You could instead translate the pattern into a proper recursive glob, or use
 `pathlib`'s own `rglob`, which does understand `**`. The reason we do not is
 that both approaches make one syntax work perfectly and every neighbouring
-syntax fail. Matching twice is three words of code and it makes the tool
-forgiving of every pattern a model is likely to produce. Forgiving is worth
-more than principled in a tool whose caller cannot read the source.
+syntax fail. Three cheap attempts make the tool forgiving of every pattern a
+model is likely to produce, and forgiving is worth more than principled in a
+tool whose caller cannot read the source.
+
+Notice also where the forgiveness is spent. You could teach the model the exact
+syntax instead, by writing the rules into the tool description, but a tool
+description is sent on every single request for the rest of the session and
+costs tokens every time. Accepting the pattern people actually write costs three
+lines once.
 
 Here is the real output, run against this project's `src` directory.
 
@@ -490,61 +547,96 @@ that errors are messages, applied to a non error.
 
 ## 5. Writing grep_files
 
-The second tool searches inside files rather than over names.
+The second tool searches inside files rather than over names. It is also the
+only tool in this course that hands untrusted input to an engine which can run
+for an unbounded length of time, so it is longer than you are expecting.
 
 ```python
 def grep_files(pattern, glob="*"):
     try:
-        expression = re.compile(pattern)
+        re.compile(pattern)
     except re.error as error:
         return f"Error: {pattern} is not a valid regular expression ({error})"
-    hits = []
-    for path in _walk():
-        relative = path.relative_to(WORKSPACE).as_posix()
-        if not (fnmatch.fnmatch(relative, glob) or fnmatch.fnmatch(path.name, glob)):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue
-        for number, line in enumerate(text.splitlines(), start=1):
-            if expression.search(line):
-                hits.append(f"{relative}:{number}: {line.strip()[:200]}")
-                if len(hits) >= MAX_RESULTS:
-                    break
-        if len(hits) >= MAX_RESULTS:
-            break
+    if NESTED_QUANTIFIER.search(pattern):
+        return (
+            f"Error: {pattern} has one repeat wrapped in another, which can take "
+            "effectively forever to match. Write it without the nested repeat."
+        )
+
+    # The search runs in a separate process. Two earlier attempts at this did
+    # not work and both are worth knowing about. Checking a deadline between
+    # lines never gets a turn, because one line is enough to go exponential
+    # and nothing interrupts a regular expression that is already running.
+    # Moving it to a thread does not help either, because matching does not
+    # release the global interpreter lock, so the thread waiting on the
+    # deadline cannot run until the matching it waits on has finished.
+    #
+    # A separate process can simply be killed, which is the only thing that
+    # actually works. The cost is about a tenth of a second of start up.
+    request = json.dumps({"root": str(WORKSPACE), "pattern": pattern, "glob": glob})
+    try:
+        # -I matters more than it looks. Without it, the directory the child
+        # starts in goes first on the import path, and that directory is the
+        # workspace. A file the agent wrote there called json.py would be
+        # imported and run before the search began, with no permission check,
+        # because searching is a safe tool. -I removes it and ignores the
+        # environment variables that could put it back.
+        worker = Path(__file__).with_name("grep_worker.py")
+        completed = subprocess.run(
+            [sys.executable, "-I", str(worker)],
+            input=request,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=SEARCH_SECONDS,
+            cwd=str(worker.parent),
+        )
+    except OSError as error:
+        return f"Error: the search could not be started. {error}"
+    except subprocess.TimeoutExpired:
+        return (
+            f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "
+            "seconds and was given up on. Try a simpler pattern, or narrow the "
+            "search with the glob argument."
+        )
+    if completed.returncode != 0:
+        return f"Error: the search failed. {completed.stderr.strip()[:200]}"
+    hits = json.loads(completed.stdout or "[]")
     if not hits:
         return f"no matches for {pattern}"
     return truncate("\n".join(hits))
 ```
 
-Read it in four parts.
+Notice what is not in that function. There is no loop over files and no call to
+`search` on a line. `grep_files` never matches anything. It checks the pattern,
+starts a second Python process, waits five seconds for an answer in JSON, and
+formats whatever comes back. The matching itself lives in `grep_worker.py`.
 
-### The compile step, and why a bad pattern is a message
+That shape is the whole subject of this section, and it is easiest to read as
+three layers stacked in front of the same danger, followed by the worker, and
+then the ordinary result formatting `glob_files` already taught you.
+
+### Layer one. The compile step, and why a bad pattern is a message
 
 ```python
     try:
-        expression = re.compile(pattern)
+        re.compile(pattern)
     except re.error as error:
         return f"Error: {pattern} is not a valid regular expression ({error})"
 ```
 
-`re.compile` turns the pattern string into a compiled expression object once,
-before the walk starts. You could skip it and call `re.search(pattern, line)`
-inside the loop, and Python would still be reasonably fast because it caches
-compiled patterns internally. Compiling explicitly is better for two reasons
-and only one of them is speed.
+The compiled object is thrown away, which looks like a mistake and is not. This
+call is a validity test, not a preparation step. The matching happens in another
+process, and that process compiles the pattern again for itself, so nothing
+compiled here could be handed to it anyway.
 
-The speed reason is straightforward. The pattern is compiled once instead of
-being looked up in a cache several hundred thousand times.
-
-The important reason is that compiling first is what makes a bad pattern
-detectable before any work happens. A regular expression is a small program,
-and the model writes it. Models write broken regular expressions regularly,
-usually by forgetting to escape a bracket or a parenthesis that they meant
-literally. Searching for a function call by typing `def (` is an extremely
-natural mistake, and it is not a valid expression.
+What it buys is the ability to reject a broken pattern in the parent, before a
+process is started, before a file is opened, and before five seconds of anybody's
+life are spent. A regular expression is a small program, and the model writes it.
+Models write broken regular expressions regularly, usually by forgetting to
+escape a bracket or a parenthesis that they meant literally. Searching for a
+function call by typing `def (` is an extremely natural mistake, and it is not a
+valid expression.
 
 Now consider the two things that could happen next.
 
@@ -577,17 +669,246 @@ exception is a message to a developer reading a stack trace. A returned string
 is a message to the caller, and here the caller is a model that is perfectly
 capable of fixing its own mistake if you tell it what the mistake was.
 
+### Layer two. The guard that reads the pattern before running it
+
+A pattern can be perfectly valid and still be a disaster. `re.compile` accepts
+`(a+)+$` without complaint, and matching that against thirty characters of the
+letter a takes longer than you will wait. This is called catastrophic
+backtracking, and the cause is a repeat wrapped inside another repeat, which
+gives the engine an exponential number of ways to split the input between the
+two. Three more constants sit above `_walk` for this.
+
+```python
+# Two quantifiers stacked on one group, as in (a+)+ or (a*)*, is the shape
+# that makes a regular expression take exponential time. A model writing one
+# by accident would otherwise wedge the whole process, and no cancellation
+# token can help because the matching never returns to check one.
+NESTED_QUANTIFIER = re.compile(r"\([^()]*[+*][^()]*\)\s*[+*{]")
+
+# A line longer than this is truncated before matching. Catastrophic
+# backtracking grows with the length of the input, so bounding the input is
+# the one guard that works whatever the pattern turns out to be.
+MAX_LINE = 2000
+
+SEARCH_SECONDS = 5
+```
+
+The first one is a regular expression that reads regular expressions. It looks
+for a group containing `+` or `*`, followed by another `+` or `*` or `{`. That
+is the classic exploding shape, and when it is found the tool refuses before
+anything runs.
+
+```python
+    if NESTED_QUANTIFIER.search(pattern):
+        return (
+            f"Error: {pattern} has one repeat wrapped in another, which can take "
+            "effectively forever to match. Write it without the nested repeat."
+        )
+```
+
+Why check the pattern at all when there is already a timeout further down. Two
+reasons. A refusal is instant and a timeout costs five seconds of wall clock time
+in a loop the user is watching, and the refusal is a sentence the model can act
+on while a timeout only tells it that something was slow. `Write it without the
+nested repeat` is a repair instruction. `it took too long` is a shrug.
+
+Why not rely on the guard alone and skip the process work. Because this guard
+cannot be complete and it is important to say so plainly. It recognises one
+known shape. Slow regular expressions are a much larger family than anyone can
+enumerate, and a pattern that is safe against one input can explode against
+another. A list of bad shapes is a filter, not a proof.
+
+That is what `MAX_LINE` is for, and it is the guard that does not depend on
+recognising anything. Backtracking blows up as a function of the length of the
+subject, so bounding the subject bounds the damage whatever the pattern turns
+out to be. Two thousand characters is long enough that a real line of source is
+never cut in a way that loses a match, and short enough that even a bad pattern
+finishes. It is applied in the worker, on the line, at the moment of matching.
+
+`SEARCH_SECONDS` is the last resort behind both of them, and it is the subject
+of the next part.
+
+### Layer three. Why the deadline has to be another process
+
+This is the part worth slowing down for, because the two designs everybody
+reaches for first are both wrong, and being able to say why is more valuable
+than the code itself.
+
+The first idea is to check the clock between lines. Read the deadline, match a
+line, look at the clock, give up if the budget is spent. It does not work,
+because a single line is enough to go exponential. The check sits after the call
+that never returns. Code that never gets a turn is not a deadline, it is a
+comment.
+
+The second idea is to move the matching into a thread and have another thread
+watch the clock. This one fails for a reason specific to Python. Matching does
+not release the global interpreter lock, which is the lock that lets exactly one
+thread run Python at a time. The watcher thread cannot be scheduled until the
+matching it is waiting on has already finished, at which point there is nothing
+left to interrupt. Threads let you wait on things. They do not let you take the
+processor away from a piece of C code that has no intention of giving it back.
+
+And there is no third clever variant. You cannot cancel a running regular
+expression from inside the process running it, because cancellation in Python is
+cooperative and this code never cooperates.
+
+What is left is the operating system. A separate process can be killed by
+something outside it, unconditionally, without its agreement. That is the only
+mechanism in the list that does not require the runaway code to volunteer.
+
+```python
+        completed = subprocess.run(
+            [sys.executable, "-I", str(worker)],
+            input=request,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=SEARCH_SECONDS,
+            cwd=str(worker.parent),
+        )
+```
+
+`sys.executable` is the same interpreter that is already running, so the child
+is guaranteed to be the right Python and the right virtual environment. `input`
+and `capture_output` mean the two processes speak over pipes, with the request as
+one JSON object in and the list of hits as one JSON array out. `timeout` is the
+part that matters, and when it expires `subprocess.run` kills the child and
+raises.
+
+```python
+    except subprocess.TimeoutExpired:
+        return (
+            f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "
+            "seconds and was given up on. Try a simpler pattern, or narrow the "
+            "search with the glob argument."
+        )
+```
+
+Notice that this is a returned sentence rather than an exception, and that it
+tells the model two specific things it can do next. That is the same rule as the
+compile step, applied to a failure the model did not know was possible.
+
+The price is written in the code as a comment, which is where a price belongs.
+Starting a Python process costs roughly a tenth of a second, and every single
+search pays it, including the ones that would have finished in a millisecond.
+That is a real cost and it is worth it, because the alternative is an agent that
+can be stopped dead by one unlucky pattern.
+
+### Why the child runs with `-I` and in a folder we choose
+
+Two arguments in that call are not about performance and are easy to skip past.
+
+```python
+        worker = Path(__file__).with_name("grep_worker.py")
+```
+
+The worker is found next to `tools.py`, not relative to wherever the program was
+started. That is what makes the tool work no matter which directory the agent
+was launched from.
+
+The interesting one is `-I`, isolated mode, together with `cwd`. To see why they
+matter, remember what normally happens when Python starts a script. The directory
+the script is in goes on the front of the import path, and so, under some
+invocations, does the directory the process started in. First on the path wins.
+So the first `import json` in the child imports the first `json.py` the
+interpreter finds, and if a file with that name sits in the folder the process
+started in, that file is imported and its top level code runs.
+
+Now put that next to what this agent does for a living. It writes files into the
+workspace. It writes them because a model asked it to, and the model can be
+talked into things by text it read out of a file. If the child process started in
+the workspace, then a file the agent had written called `json.py` would be
+imported and executed the moment the search began. Not matched, not read as data.
+Executed, as Python, inside your interpreter, with your permissions.
+
+The worst part is the approval story. Lesson 08 put a person in front of
+`run_shell` because running commands is obviously dangerous. Nobody puts a
+confirmation prompt in front of a search, because searching is a safe tool that
+reads and returns text. So this path executes code with no prompt at all, on the
+strength of a tool the user has correctly decided is harmless.
+
+`-I` removes the script directory and the current directory from the import path
+and ignores the environment variables such as `PYTHONPATH` that could put them
+back. `cwd=str(worker.parent)` starts the child in the lesson folder rather than
+in the workspace, so even a mistake about the path lands somewhere the agent
+cannot write. The two together mean the child imports only the standard library
+and the one file we point it at.
+
+### grep_worker.py, and why the rules are imported rather than copied
+
+The other half of the tool is a file of its own.
+
+```python
+"""The part of grep_files that runs in its own process.
+
+It lives in a separate file so it can be killed. A regular expression that
+takes exponential time cannot be interrupted from inside the process running
+it, so the only way to put a limit on a search is to run it somewhere that
+can be shut down from outside.
+
+The rules about which files may be searched are imported from tools.py
+rather than copied here. An earlier version of this file had its own copy of
+the secret names and the skip list, which is exactly what lesson 09 tells
+you not to do. Two copies agree until the day somebody edits one.
+"""
+import json
+import sys
+from pathlib import Path
+
+# Isolated mode removes every directory from the import path, including the
+# one this file lives in, so the lesson folder has to be put back by hand.
+# Only this folder, and never the folder the agent is working in, which is
+# the whole point of starting isolated in the first place.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import tools  # noqa: E402
+```
+
+Why a separate file rather than a function, a flag or a thread. Because the unit
+the operating system can kill is a process, and the unit a process can be started
+from is a file. Everything smaller than a file shares the interpreter with the
+code that is trying to stop it, and section 5 has already been through why that
+fails. The file boundary is not a style choice, it is the smallest thing with a
+kill switch.
+
+Why does it put the lesson folder back on `sys.path` by hand. Because `-I` took
+every directory off, including the one the worker itself lives in, so importing
+`tools` would fail. The insert adds back exactly one directory, the one computed
+from the worker's own location. It never adds the workspace. Isolated mode is
+kept and one known door is opened, rather than isolated mode being abandoned.
+
+And the important one. Why import the rules from `tools.py` instead of writing
+them here. The worker needs `_walk`, `path_matches`, `MAX_LINE` and
+`MAX_RESULTS`. Every one of those is a rule about what a search may see and how
+much of it may come back. Copying them into this file would produce a second
+statement of the same rules, and a second statement is a thing that can drift.
+The docstring is honest that this already happened once, with the secret names
+and the skip list living in two places.
+
+Think about what drift means here. Somebody adds `.pgpass` to `SECRET_NAMES` in
+`tools.py`, the copy in the worker is not touched, and now `read_file` refuses
+the file while `grep_files` prints it. Nothing crashes. No test fails unless
+somebody thought to write that exact test. The rule is still in the code, in
+writing, and it is no longer enforced.
+
+This is the same argument section 5 makes about the walk and the same one
+lesson 07 makes about `resolve_inside`, arriving for the third time in three
+lessons. A rule enforced in one place is a rule. A rule written down in two
+places is a coincidence waiting to end.
+
 ### The glob filter
 
 ```python
-        if not (fnmatch.fnmatch(relative, glob) or fnmatch.fnmatch(path.name, glob)):
+        relative = path.relative_to(root).as_posix()
+        if not tools.path_matches(relative, path.name, glob):
             continue
 ```
 
-The optional second parameter narrows the search to matching files, and it uses
-exactly the same double match as `glob_files` for exactly the same reasons. The
-default is `"*"`, which matches everything, so the parameter is genuinely
-optional and the schema marks only `pattern` as required.
+The optional second parameter narrows the search to matching files, and it calls
+the same `path_matches` helper `glob_files` uses, which is why a `glob` argument
+behaves exactly like a `pattern` argument. The default is `"*"`, which matches
+everything, so the parameter is genuinely optional and the schema marks only
+`pattern` as required.
 
 This exists because the agent frequently knows something about where to look
 even when it does not know the file. Searching for the word `test` across every
@@ -609,7 +930,9 @@ A real repository contains PNGs, compiled binaries, database files and fonts.
 `read_text` on any of those raises `UnicodeDecodeError`, and a file that has
 been deleted between the walk and the read, or that the process has no
 permission to open, raises `OSError`. Neither is worth reporting. The file is
-simply skipped and the walk continues.
+simply skipped and the walk continues. This runs in the worker, so a file the
+child cannot open costs one skipped iteration and never reaches the parent as an
+error.
 
 Note the deliberate contrast with lesson 07, where `read_file` passes
 `errors="replace"` so that a partly broken text file still comes back with
@@ -621,11 +944,21 @@ library call, opposite decision, because the caller's intent is different.
 
 ### The file name and the line number
 
-This is the part that makes the tool useful rather than merely correct.
+This is the part that makes the tool useful rather than merely correct, and it
+is the innermost loop of the worker.
 
 ```python
+        for number, line in enumerate(text.splitlines(), start=1):
+            if expression.search(line[: tools.MAX_LINE]):
                 hits.append(f"{relative}:{number}: {line.strip()[:200]}")
+                if len(hits) >= tools.MAX_RESULTS:
+                    return hits
 ```
+
+`line[: tools.MAX_LINE]` is the guard from layer two arriving where it actually
+does its work. The subject handed to the engine is never longer than two
+thousand characters, whatever the file contains and whatever the pattern turned
+out to be.
 
 `enumerate(..., start=1)` counts from one because that is how editors and
 compilers and every other tool number lines. Counting from zero here would be
@@ -663,21 +996,25 @@ agent can chain them without inventing anything. Return a pretty summary with
 no paths in it and the chain breaks at the first link.
 
 `line.strip()` removes indentation, which on deeply nested code can be twenty
-wasted characters on every single hit. `[:200]` caps one line, because a
-minified JavaScript file is one line of ninety thousand characters and without
-the cap a single hit would fill the entire tool result. That is the third of
-three caps in these two functions, and section 7 puts them together.
+wasted characters on every single hit. `[:200]` caps what one hit contributes to
+the output, because a minified JavaScript file is one line of ninety thousand
+characters and without the cap a single hit would fill the entire tool result.
+Note that this is a different cap from `MAX_LINE` on the line above, and they
+are not redundant. `MAX_LINE` bounds what the engine is asked to match, which is
+about time. `[:200]` bounds what comes back, which is about the context window.
+Those are the second and third of four caps in this lesson, and section 7 puts
+all four together.
 
-### The one thing grep_files does not inherit for free
+### The one thing the search tools do not inherit for free
 
 There is a check in `_walk` that has nothing to do with search, and it is the
-most important three lines in this chapter.
+most important lines in this chapter.
 
 In lesson 07 you built `resolve_inside`, and part of its job was refusing to
 read credential files, so that a key could never enter the conversation. The
-search tools do not go through `resolve_inside`. They walk the tree themselves
-and call `read_text` directly. Written the obvious way, they would inherit
-nothing from that refusal, and you would have this.
+search tools do not read files through `resolve_inside`. They walk the tree
+themselves and call `read_text` directly. Written the obvious way, they would
+inherit nothing from that refusal, and you would have this.
 
 ```text
 read_file(".env")   -> Error: this tool refuses to read .env because credential
@@ -687,13 +1024,54 @@ grep_files("KEY")   -> .env:1: OPENAI_API_KEY=sk-secret-value
 
 The front door locked and the window open. That is not a subtle bug, it is a
 missing check, and it is exactly the kind of gap that appears when a safety
-rule lives in one function rather than in the walk that every tool shares. So
-`_walk` reuses the `looks_like_a_secret` helper you already wrote.
+rule lives in one function rather than in the walk that every tool shares.
+
+The obvious repair is to test the name in the walk, with the
+`looks_like_a_secret` helper lesson 07 already gave you. That repair is what this
+lesson shipped first, and it was not enough. Filtering on a name closes the
+`.env` case and leaves a larger one wide open, so `_walk` sends every candidate
+through the gate itself instead.
 
 ```python
-        if looks_like_a_secret(path.name):
+        try:
+            # The same gate every file tool uses, rather than a check on the
+            # name. rglob follows symlinks and Windows junctions, so a link
+            # planted inside the workspace would otherwise let search read
+            # anything on the machine while read_file correctly refused.
+            # Looking at the name of the link never sees the name of what it
+            # points at.
+            resolve_inside(str(relative))
+        except WorkspaceError:
             continue
 ```
+
+Here is why the name is not enough, and it is worth being precise about the
+mechanism. `rglob` follows symbolic links, and on Windows it follows junctions
+too. A symbolic link is a file whose contents are a path to somewhere else, and
+the operating system quietly substitutes the target when anything opens it. So a
+link sitting inside the workspace is visited by the walk like any other file, and
+`read_text` on it reads whatever it points at, which can be anywhere on the
+machine that the user can read.
+
+Now look at what a name check sees in that situation. It sees the name of the
+link. The name of a link is chosen by whoever created the link, and it has no
+relationship at all to the name of the target. A link called `notes.txt` can
+point at `/home/you/.ssh/id_rsa`. A link called `docs` can point at the root of
+the drive. `looks_like_a_secret("notes.txt")` is `False`, correctly, and the
+secret is read anyway. The check was not wrong about the name. It was looking at
+the wrong object.
+
+`resolve_inside` is not fooled, because resolving a path is exactly the operation
+that follows the link and produces the real location. Once it has the real
+location, both of its existing refusals apply on their own. A link pointing
+outside the workspace fails the containment test, and a link pointing at a
+credential file inside the workspace fails the name test on the target's real
+name. Neither rule had to be rewritten. The walk simply stopped inventing its own
+version of the question and asked the function that already knew the answer.
+
+That is the shape a fix of this kind should have. Four lines, no new rule, and
+the new lines are a call to the old gate. If you ever find yourself writing the
+same safety rule a second time in different words, you are treating a symptom.
 
 Try it against the real file in `lessons/09-search-tools/tools.py`. Put an
 `.env` in a scratch workspace and both doors are shut.
@@ -710,11 +1088,13 @@ That is the point of putting the check in the walk rather than in each tool. A
 file name alone can be the leak. `secrets.prod.env` sitting in a listing tells
 an attacker reading the conversation exactly what to ask for next.
 
-The general lesson is worth more than the two lines. **A rule enforced at one
-entry point is not enforced.** It has to live where every path passes through.
-`resolve_inside` is that place for the file tools and `_walk` is that place for
-the search tools, which is two places for one rule, and two is already one too
-many. Part 3 rebuilds the tools around exactly that idea.
+The general lesson is worth more than the four lines. **A rule enforced at one
+entry point is not enforced.** It has to live where every path passes through,
+and every new tool that touches the same resource has to be routed to it rather
+than given a filter of its own. `resolve_inside` is that place, the file tools
+call it directly, `_walk` calls it for both search tools, and `grep_worker.py`
+imports `_walk` rather than repeating any of it. One rule, one function, three
+callers. Part 3 rebuilds the tools around exactly that idea.
 
 ## 6. Why we skip directories such as .git and .venv
 
@@ -803,17 +1183,19 @@ exercise at the end of the chapter.
 
 ## 7. Why we cap the number of results
 
-`MAX_RESULTS = 200`, and it is applied in both tools.
+`MAX_RESULTS = 200`, and it is applied in both tools. In `glob_files` it is a
+slice taken after the sort.
 
 ```python
     return truncate("\n".join(sorted(matches)[:MAX_RESULTS]))
 ```
 
+In the worker it is a test inside the innermost loop, and the constant is
+reached through the import rather than restated.
+
 ```python
-                if len(hits) >= MAX_RESULTS:
-                    break
-        if len(hits) >= MAX_RESULTS:
-            break
+                if len(hits) >= tools.MAX_RESULTS:
+                    return hits
 ```
 
 The reasoning is the same as section 6, so it can be short. A search that
@@ -830,14 +1212,17 @@ exists.
 
 ### How this connects to lesson 07's truncation
 
-You now have three separate limits stacked on top of each other, and it is
-worth seeing them as one system rather than three unrelated numbers.
+You now have four separate limits stacked on top of each other, plus a deadline
+behind all of them, and it is worth seeing them as one system rather than five
+unrelated numbers.
 
 | Limit | Where it came from | What it bounds |
 | --- | --- | --- |
+| `MAX_LINE = 2000` | lesson 09 | how much of a line is matched |
 | `[:200]` on a line | lesson 09 | one result line |
 | `MAX_RESULTS = 200` | lesson 09 | how many result lines |
 | `MAX_OUTPUT = 4000` | lesson 07 | the whole returned string |
+| `SEARCH_SECONDS = 5` | lesson 09 | how long the whole search may take |
 
 They compose, and each one catches a case the others cannot. Two hundred
 matches of two hundred characters each would be 40,000 characters, so the
@@ -848,47 +1233,61 @@ line cap prevents. And a search returning fifty thousand short matches would
 pass the per line cap and pass `truncate`, but waste the whole walk, which is
 what `MAX_RESULTS` prevents.
 
-The rule underneath all three is the one from lesson 07, and it is the single
+The first and the last of the five are a different kind of limit from the middle
+three, and the difference is worth naming. `[:200]`, `MAX_RESULTS` and
+`MAX_OUTPUT` bound how much text comes back, so they protect the context window.
+`MAX_LINE` and `SEARCH_SECONDS` bound how much work happens, so they protect the
+process. A tool that hands model written input to an engine needs both, because
+a search that returns nothing after burning the machine for an hour has stayed
+inside every output cap and still ruined the session.
+
+The rule underneath all of them is the one from lesson 07, and it is the single
 most important habit in tool design. Every tool result is permanent. It goes
 into the conversation, it is sent again on every later request, and there is no
-way to take it back. So every tool must have a bound on what it can return, and
-that bound belongs in the tool rather than in a hope that the caller is
-sensible.
+way to take it back. So every tool must have a bound on what it can return and a
+bound on what it can spend, and both bounds belong in the tool rather than in a
+hope that the caller is sensible.
 
 ### Why the two tools cap differently
 
-Look again and notice the two functions do not stop the same way.
+Look again and notice the two tools do not stop the same way.
 
 `glob_files` walks the entire tree, collects every match, sorts, and then takes
-the first 200. `grep_files` stops walking the moment it has 200 hits.
+the first 200. The worker behind `grep_files` stops walking the moment it has 200
+hits.
 
 That difference is deliberate and it is about cost. `glob_files` only reads
 directory entries, which is cheap, and it wants sorted output, which means it
 needs all the names before it can decide which 200 come first. Stopping early
 would give you the first 200 in filesystem order, which is arbitrary.
 
-`grep_files` opens and reads the contents of every candidate file, which is
+The worker opens and reads the contents of every candidate file, which is
 enormously more expensive. Once it has 200 hits, continuing to read files is
-pure waste, so it breaks out. The consequence is that grep results are in walk
-order rather than sorted, and a capped grep shows you hits from wherever the
-walk happened to be. That is a real trade, made knowingly. Reading a hundred
+pure waste, so it stops. The consequence is that grep results are in walk order
+rather than sorted, and a capped grep shows you hits from wherever the walk
+happened to be. That is a real trade, made knowingly. Reading a hundred
 megabytes to produce output you are about to discard is worse than an arbitrary
 ordering.
 
-The two `break` statements are also worth a sentence, because a single `break`
-would be a bug. The inner one leaves the loop over lines in the current file.
-The outer one leaves the loop over files. Without the second, the walk would
-continue reading every remaining file in the repository and simply add nothing,
-which is the expensive half of the work with none of the benefit.
+The way it stops is worth a sentence, because the obvious spelling would be a
+bug. There are two loops here, one over files and one over the lines of the
+current file, and a `break` in the inner one only ends the current file. The walk
+would then carry on opening every remaining file in the repository and adding
+nothing, which is the expensive half of the work with none of the benefit.
+`return hits` leaves both loops and the function at once, which is what the
+situation actually calls for. Two nested breaks would work too, and the return
+says the same thing in one line without leaving a reader to check that the second
+one is there.
 
 ## 8. Why we did not just call ripgrep
 
 An obvious objection to everything above. `ripgrep`, the command line tool
 `rg`, already does all of this. It is written in Rust, it is extremely fast, it
-respects `.gitignore` automatically, it detects binary files properly, and it
-has years of edge case handling that these thirty lines do not. And you already
-have `run_shell` from lesson 08. So why not make `grep_files` a two line
-wrapper.
+respects `.gitignore` automatically, it detects binary files properly, its regular
+expression engine has no catastrophic backtracking to guard against in the first
+place, and it has years of edge case handling that these few dozen lines do not.
+And you already have `run_shell` from lesson 08. So why not make `grep_files` a
+two line wrapper.
 
 ```python
 def grep_files(pattern, glob="*"):
@@ -918,14 +1317,15 @@ There is a second reason and it is about what you learn. If `grep_files` is a
 wrapper, the interesting decisions are all inside somebody else's binary. You
 would not have thought about matching the path and the name, about a bad
 pattern being a message, about which directories to skip, about where the caps
-go, about line numbers being for planning rather than for seeking. Those are
-the transferable ideas in this chapter, and writing the walk yourself is what
-forces you to meet them.
+go, about line numbers being for planning rather than for seeking, or about why
+a deadline needs a process rather than a thread. Those are the transferable
+ideas in this chapter, and writing the walk yourself is what forces you to meet
+them.
 
-The standard library is genuinely enough here. `fnmatch` and `re` and
-`pathlib`, all present in every Python installation since well before you
-started reading this, and the result is a tool that works identically on
-Windows, macOS and Linux with no installation step at all.
+The standard library is genuinely enough here. `fnmatch`, `re`, `pathlib`,
+`json` and `subprocess`, all present in every Python installation since well
+before you started reading this, and the result is a tool that works identically
+on Windows, macOS and Linux with no installation step at all.
 
 Now the fair half.
 
@@ -1053,7 +1453,11 @@ OK grep_files reported the file name and line number
 OK the glob filter narrowed the search
 ```
 
-Four lines, no network, no API key, and it takes a few hundredths of a second.
+Four lines, no network, no API key, and it takes under a second on a laptop.
+Most of that is not the searching. The two `grep_files` calls start one Python
+process each, and that is the tenth of a second per search from section 5,
+showing up on a stopwatch rather than in a comment.
+
 Note the difference from lesson 06's check, which needed the fake server
 running because it exercised the provider. Nothing in this lesson talks to a
 model, because search tools are ordinary Python functions and the fact that a
@@ -1064,7 +1468,10 @@ course has been building.
 If the second line fails, your `_walk` is not checking `relative.parts`. If the
 third fails and prints a result containing `src/main.py` but no `:1:`, your
 format string lost the line number. If the fourth fails and includes
-`main.py`, the glob filter is not being applied.
+`main.py`, the glob filter is not being applied. And if the third and fourth
+both fail with `Error: the search failed`, the message after it is the worker's
+own standard error, which almost always means `grep_worker.py` is not sitting
+next to `tools.py` or could not import it.
 
 ## 10. What you cannot do yet
 
@@ -1117,9 +1524,10 @@ change code in a folder, and part two ends.
 matches and a search that found exactly two hundred produce output the model
 cannot tell apart. It reads two hundred lines, concludes it has seen everything,
 and narrows in the wrong direction. Change both tools to append a line such as
-`[stopped at 200 results, narrow the pattern or the glob]`, which means
-`grep_files` has to count past the cap rather than break on it, then write a
-check that creates three hundred matching lines and asserts the note is there.
+`[stopped at 200 results, narrow the pattern or the glob]`, which means the
+worker has to count past the cap rather than return on it, and has to carry that
+fact back to the parent in the JSON, then write a check that creates three
+hundred matching lines and asserts the note is there.
 This is the most valuable of the three because it is a real defect and the
 symptom is a confidently wrong answer rather than an error.
 

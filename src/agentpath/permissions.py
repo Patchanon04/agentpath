@@ -41,9 +41,12 @@ def loose_signature(call: ToolCall) -> str:
     because there the difference between two nearly identical commands can
     be the whole point.
     """
-    flattened = {
-        key: " ".join(str(value).split()).lower() for key, value in call.arguments.items()
-    }
+    # Trailing and leading space only. An earlier version also folded case
+    # and collapsed interior spaces, which made three genuinely different
+    # searches look identical. A model widening a case sensitive pattern from
+    # Error to ERROR to error is doing the right thing, and it was being told
+    # it was going in circles and then stopped.
+    flattened = {key: str(value).strip() for key, value in call.arguments.items()}
     return f"{call.name}({json.dumps(flattened, sort_keys=True)})"
 
 

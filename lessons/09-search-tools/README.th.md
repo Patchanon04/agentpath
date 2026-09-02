@@ -2,9 +2,10 @@
 
 # บทที่ 09 เครื่องมือค้นหา
 
-บทนี้สั้นที่สุดในภาคสอง และเป็นบทที่ส่งผลมากที่สุดบทหนึ่ง คุณกำลังจะเพิ่ม
-function สองตัว รวมกันประมาณสามสิบบรรทัดของ Python แล้ว agent จะเลิกเป็นสิ่งที่
-คุณต้องชี้ไปที่ไฟล์ให้ และกลายเป็นสิ่งที่หาทางเดินใน code base ได้ด้วยตัวเอง
+บทนี้สั้นที่สุดในภาคสอง และเป็นบทที่ส่งผลมากที่สุดบทหนึ่ง คุณกำลังจะเพิ่ม tool
+สองตัว การเดินไฟล์ที่ใช้ร่วมกันหนึ่งชุด และไฟล์ที่สองเล็ก ๆ อีกหนึ่งไฟล์ที่รันใน
+process ของตัวเอง แล้ว agent จะเลิกเป็นสิ่งที่คุณต้องชี้ไปที่ไฟล์ให้ และกลายเป็น
+สิ่งที่หาทางเดินใน code base ได้ด้วยตัวเอง
 
 คุณจะใช้เวลาอีกส่วนยาวไปกับสิ่งที่คุณจะไม่สร้าง และส่วนนั้นสำคัญพอ ๆ กับโค้ด
 เกือบทุกคนที่มาถึงจุดนี้ในคอร์สคาดว่าคำถัดไปคือ embeddings แต่มันไม่ใช่ และเหตุผล
@@ -15,16 +16,23 @@ function สองตัว รวมกันประมาณสามสิ�
 ```text
 lessons/09-search-tools/
   tools.py       lesson 08's tools, plus glob_files and grep_files at the bottom
+  grep_worker.py the half of grep_files that runs in a separate process
   providers.py   unchanged from lesson 06
   agent.py       unchanged from lesson 06
   check.py       proves the two new tools work and that .venv is skipped
   README.md      this file
 ```
 
-มีแค่ `tools.py` ที่เปลี่ยน ส่วน `agent.py` และ `providers.py` เหมือนเดิมทุกไบต์
-กับเมื่อสามบทก่อน เรื่องนี้น่าสังเกตในตัวมันเอง loop เรียนรู้ความสามารถใหม่ได้
-โดยไม่ต้องแก้แม้แต่บรรทัดเดียว เพราะ tool คือ schema บวกกับ function ใน dictionary
-เท่านั้น และไม่มีส่วนอื่นของโปรแกรมที่ต้องรู้เรื่องนี้
+`tools.py` เปลี่ยน และ `grep_worker.py` เป็นไฟล์ใหม่ ส่วน `agent.py` และ
+`providers.py` เหมือนเดิมทุกไบต์กับเมื่อสามบทก่อน เรื่องนี้น่าสังเกตในตัวมันเอง
+loop เรียนรู้ความสามารถใหม่ได้โดยไม่ต้องแก้แม้แต่บรรทัดเดียว เพราะ tool คือ
+schema บวกกับ function ใน dictionary เท่านั้น และไม่มีส่วนอื่นของโปรแกรมที่ต้อง
+รู้เรื่องนี้
+
+`grep_worker.py` คือไฟล์ที่น่าแปลกใจในรายการนั้น และหัวข้อ 5 คือที่ที่มันถูก
+อธิบายอย่างละเอียด ฉบับย่อคือ regular expression ที่ model เขียนอาจรันนานกว่าอายุ
+ของจักรวาล ไม่มีอะไรใน process ที่กำลังรันมันทำให้มันหยุดได้ และสิ่งเดียวที่คุณ
+ฆ่าได้อย่างแน่นอนคืออีก process หนึ่ง การแมตช์จึงเกิดขึ้นใน process นั้น
 
 ## 1. ปัญหาที่ค้างมาจากบทที่ 08
 
@@ -73,7 +81,7 @@ You: the tool argument parsing is in src/agentpath/providers/base.py,
 มันเป็นคนพิมพ์ นั่นคือสลับกันพอดี การหาคือส่วนที่เครื่องจักรเก่งและคุณช้า การ
 พิมพ์คือส่วนที่คุณทำได้สบายอยู่แล้ว
 
-สามสิบบรรทัดถัดจากนี้มีจุดประสงค์เดียว คือพลิกมันกลับให้ถูกทาง
+tool สองตัวถัดจากนี้มีจุดประสงค์เดียว คือพลิกมันกลับให้ถูกทาง
 
 ## 2. สองวิธีที่มนุษย์ใช้หาของใน code base
 
@@ -266,13 +274,18 @@ search เอารายการผลลัพธ์ทั้งสองม�
 ```python
 # Lesson 09 adds the search tools. Everything above is unchanged from lesson 08.
 
+import json
+import subprocess
+import sys
 import fnmatch  # noqa: E402
 import re  # noqa: E402
 
 MAX_RESULTS = 200
 ```
 
-โมดูลใหม่สองตัวจาก standard library และเพดานใหม่หนึ่งค่า หัวข้อ 7 พูดถึงเพดานนั้น
+ห้าโมดูลจาก standard library และเพดานใหม่หนึ่งค่า หัวข้อ 7 พูดถึงเพดานนั้น
+`fnmatch` กับ `re` ทำหน้าที่จับคู่ ส่วน `json` `subprocess` และ `sys` อยู่ตรงนี้
+เพราะครึ่งหนึ่งของ `grep_files` รันอยู่ที่อื่น ซึ่งคือหัวข้อ 5
 
 ### การเดินต้นไม้
 
@@ -281,32 +294,47 @@ tool ทั้งสองตัวต้องการสิ่งเดีย
 
 ```python
 def _walk():
-    """Yield every file in the workspace that a search is allowed to look at."""
+    """Yield every file in the workspace that a search is allowed to look at.
+
+    Two exclusions happen here. Directories such as .venv are skipped because
+    searching them buries the real answer in thousands of irrelevant hits.
+    Credential files are skipped because otherwise search would be a way
+    around the refusal in read_file, and a rule that one tool honours and
+    another ignores is not a rule at all.
+    """
     for path in WORKSPACE.rglob("*"):
         if not path.is_file():
             continue
         relative = path.relative_to(WORKSPACE)
         if any(part in SKIP_DIRECTORIES for part in relative.parts):
             continue
-        if looks_like_a_secret(path.name):
+        try:
+            # The same gate every file tool uses, rather than a check on the
+            # name. rglob follows symlinks and Windows junctions, so a link
+            # planted inside the workspace would otherwise let search read
+            # anything on the machine while read_file correctly refused.
+            # Looking at the name of the link never sees the name of what it
+            # points at.
+            resolve_inside(str(relative))
+        except WorkspaceError:
             continue
         yield path
 ```
 
-`WORKSPACE` `SKIP_DIRECTORIES` และ `looks_like_a_secret` มาจากบทที่ 07 ทั้งหมด
+`WORKSPACE` `SKIP_DIRECTORIES` และ `resolve_inside` มาจากบทที่ 07 ทั้งหมด
 และถูกนำมาใช้ซ้ำโดยไม่เปลี่ยน `rglob("*")` เดินทั้งต้นไม้แบบ recursive
 และให้ทั้งไฟล์และ directory ออกมา จึงเป็นเหตุผลที่มีการเช็ค `is_file()` อยู่ตรงนั้น
 ขีดล่างนำหน้าชื่อคือธรรมเนียมของ Python ที่แปลว่า "อันนี้ใช้ภายใน ไม่ใช่หนึ่งใน tool"
 
-สองในสี่บรรทัดนั้นเป็นการปฏิเสธ ไม่ใช่ท่อส่งของ และแต่ละอันได้หัวข้อของตัวเอง
-การเช็ค `SKIP_DIRECTORIES` คือหัวข้อ 6 และมันเป็นเรื่องต้นทุน ส่วนการเช็ค
-`looks_like_a_secret` คือหัวข้อ 5 และมันเป็นเรื่อง key ที่คุณเอาออกจากบทสนทนา
-ไม่ได้อีกเลย
+การตรวจสอบสองอันในนั้นเป็นการปฏิเสธ ไม่ใช่ท่อส่งของ และแต่ละอันได้หัวข้อของตัวเอง
+การเช็ค `SKIP_DIRECTORIES` คือหัวข้อ 6 และมันเป็นเรื่องต้นทุน ส่วนการเรียก
+`resolve_inside` คือหัวข้อ 5 และมันเป็นเรื่อง key ที่คุณเอาออกจากบทสนทนาไม่ได้
+อีกเลย และเรื่องลิงก์ที่พาออกไปนอก workspace ทั้งดุ้น
 
 มันเป็น generator ซึ่งสำคัญกว่าที่เห็น `yield` แปลว่าไฟล์ทยอยออกมาทีละไฟล์ตามที่
 การเดินคืบหน้าไป แทนที่จะถูกเก็บรวมเป็น list ก่อน บนต้นไม้ขนาดใหญ่นั่นคือความ
 ต่างระหว่างการถือ path เดียวไว้ในหน่วยความจำกับการถือแสน path และมันยังเป็นสิ่งที่
-ทำให้ `grep_files` หยุดเดินก่อนกำหนดได้ในหัวข้อ 7
+ทำให้ worker ของ grep หยุดเดินก่อนกำหนดได้ในหัวข้อ 7
 
 หัวข้อ 6 พูดถึงบรรทัด `SKIP_DIRECTORIES`
 
@@ -319,7 +347,7 @@ def glob_files(pattern):
     matches = []
     for path in _walk():
         relative = path.relative_to(WORKSPACE).as_posix()
-        if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(path.name, pattern):
+        if path_matches(relative, path.name, pattern):
             matches.append(relative)
     if not matches:
         return f"no files match {pattern}"
@@ -350,17 +378,32 @@ pattern มาเป็นล้านครั้งจะส่ง `src/*.py` 
 หงุดหงิดมาก เพราะ tool ทำงานได้สมบูรณ์แบบสำหรับคนที่เขียนมัน แต่คืนค่าว่างเปล่า
 เงียบ ๆ ให้กับผู้อ่านอีกครึ่งหนึ่งของคุณ
 
-### ทำไมเราจับคู่สองครั้ง
+### ทำไมเราจับคู่สามครั้ง
 
-นี่คือบรรทัดที่สมควรได้รับความสนใจมากที่สุด
+นี่คือโค้ดที่สมควรได้รับความสนใจมากที่สุด และมันไม่ได้อยู่ใน `glob_files` เลย
+มันเป็น helper ที่มีชื่อของตัวเอง เพราะ `grep_files` ต้องตัดสินใจเรื่องเดียวกัน
+เป๊ะ ๆ และกฎที่ถูกเขียนไว้สองที่คือกฎที่วันหนึ่งจะขัดกันเอง
 
 ```python
-if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(path.name, pattern):
+def path_matches(relative, name, pattern):
+    """Decide whether one file matches a glob the way a person would expect.
+
+    Three attempts are made because fnmatch is stricter than people are. The
+    pattern is tried against the path inside the workspace, then against the
+    bare file name so that main.py works from anywhere, and then with a
+    leading star star slash removed so that a pattern like **/*.py also
+    finds files sitting at the top level. Without that third attempt the
+    most common pattern a model writes silently misses every file that is
+    not inside a subdirectory.
+    """
+    if fnmatch.fnmatch(relative, pattern) or fnmatch.fnmatch(name, pattern):
+        return True
+    return pattern.startswith("**/") and fnmatch.fnmatch(relative, pattern[3:])
 ```
 
-ทุกไฟล์ถูกทดสอบสองครั้ง ครั้งหนึ่งกับ relative path เต็ม ๆ เช่น
-`src/agentpath/tools/search.py` และอีกครั้งกับชื่อเปล่า ๆ ซึ่งก็คือ `search.py`
-ตรงอันไหนก็นับทั้งนั้น
+ทุกไฟล์ถูกทดสอบได้ถึงสามครั้ง ครั้งหนึ่งกับ relative path เต็ม ๆ เช่น
+`src/agentpath/tools/search.py` ครั้งหนึ่งกับชื่อเปล่า ๆ ซึ่งก็คือ `search.py`
+และอีกครั้งกับ path เดิม โดยตัด `**/` ที่นำหน้า pattern ออก ตรงอันไหนก็นับทั้งนั้น
 
 เหตุผลคือ `fnmatch` มีคุณสมบัติหนึ่งที่ทำให้คนแปลกใจ `*` ของมันจับคู่กับตัวอักษร
 อะไรก็ได้ รวมถึงตัวคั่น path ด้วย มันไม่ใช่การ glob ที่รู้เรื่อง directory แบบที่
@@ -386,23 +429,34 @@ True
 อันที่สองบอกว่า `**/*.py` ล้มเหลวกับไฟล์ที่วางอยู่บนสุดของ workspace pattern นั้น
 ต้องการ `/` จริง ๆ อยู่ที่ไหนสักแห่ง และไฟล์ที่ root ไม่มีเลย model เขียน
 `**/*.py` ตลอดเวลาเพราะนั่นคือสิ่งที่ git และเครื่องมือสมัยใหม่ส่วนใหญ่ใช้แทนคำ
-ว่า "ทุกที่" กรณีนี้จึงต้องทำงานได้
+ว่า "ทุกที่" กรณีนี้จึงต้องทำงานได้ ค่า false อันเดียวนั้นคือเหตุผลทั้งหมดที่การ
+จับคู่ครั้งที่สามมีอยู่ ตัด `**/` ที่นำหน้าออกแล้ว pattern จะกลายเป็น `*.py`
+ซึ่งจับคู่กับ `agent.py` ที่ root ได้ และเพราะ `*` กลืน slash มันจึงยังจับคู่กับ
+ทุกอย่างที่อยู่ต่ำลงไปได้ด้วย tool จึงทำในสิ่งที่ model ตั้งใจ ไม่ใช่สิ่งที่มัน
+พิมพ์มาตรง ๆ
 
-อันที่สามกับอันที่สี่คือคู่ที่ทำให้เห็นประเด็น `test_*.py` เป็นสิ่งที่ขอกันอย่าง
-เป็นธรรมชาติมาก และมันล้มเหลวเมื่อเทียบกับ path เต็ม `tests/test_x.py` เพราะ path
-ไม่ได้ขึ้นต้นด้วย `test_` แต่เมื่อจับคู่กับชื่อเปล่า `test_x.py` มันสำเร็จทันที
+อันที่สามกับอันที่สี่คือคู่ที่ทำให้เห็นประเด็นเรื่องชื่อ `test_*.py` เป็นสิ่งที่ขอ
+กันอย่างเป็นธรรมชาติมาก และมันล้มเหลวเมื่อเทียบกับ path เต็ม `tests/test_x.py`
+เพราะ path ไม่ได้ขึ้นต้นด้วย `test_` แต่เมื่อจับคู่กับชื่อเปล่า `test_x.py` มัน
+สำเร็จทันที
 
-ดังนั้นการจับคู่หนึ่งครั้งกับ path รองรับ pattern ที่บรรยายตำแหน่ง และการจับคู่
-หนึ่งครั้งกับชื่อรองรับ pattern ที่บรรยายตัวไฟล์เอง ตัดอันใดอันหนึ่งออก แล้วคำขอ
-ที่สมเหตุสมผลทั้งหมวดจะคืนค่าว่างเปล่าอย่างเงียบ ๆ และการคืนค่าว่างเปล่าอย่าง
+ดังนั้นการจับคู่กับ path รองรับ pattern ที่บรรยายตำแหน่ง การจับคู่กับชื่อรองรับ
+pattern ที่บรรยายตัวไฟล์เอง และการจับคู่กับ pattern ที่ถูกตัดหัวรองรับคำว่า
+"ทุกที่" ในการสะกดแบบที่ model หยิบมาใช้บ่อยที่สุด ตัดอันใดอันหนึ่งในสามออก แล้ว
+คำขอที่สมเหตุสมผลทั้งหมวดจะคืนค่าว่างเปล่าอย่างเงียบ ๆ และการคืนค่าว่างเปล่าอย่าง
 เงียบ ๆ คือความล้มเหลวที่แย่ที่สุดตรงนี้ เพราะ model จะสรุปว่าไฟล์นั้นไม่มีอยู่
 แล้วลงมือทำตามข้อสรุปนั้น
 
 คุณอาจแปลง pattern ให้เป็น glob แบบ recursive จริง ๆ แทน หรือใช้ `rglob` ของ
 `pathlib` เองซึ่งเข้าใจ `**` เหตุผลที่เราไม่ทำคือทั้งสองแนวทางทำให้ syntax หนึ่ง
-แบบทำงานได้สมบูรณ์แบบ แต่ syntax ข้างเคียงทุกแบบล้มเหลว การจับคู่สองครั้งคือโค้ด
-สามคำ และมันทำให้ tool ผ่อนปรนกับทุก pattern ที่ model น่าจะผลิตออกมา ความผ่อนปรน
-มีค่ามากกว่าความถูกหลักการ ใน tool ที่ผู้เรียกใช้อ่าน source ไม่ได้
+แบบทำงานได้สมบูรณ์แบบ แต่ syntax ข้างเคียงทุกแบบล้มเหลว การลองสามครั้งซึ่งราคาถูก
+ทำให้ tool ผ่อนปรนกับทุก pattern ที่ model น่าจะผลิตออกมา และความผ่อนปรนมีค่ามาก
+กว่าความถูกหลักการ ใน tool ที่ผู้เรียกใช้อ่าน source ไม่ได้
+
+สังเกตด้วยว่าความผ่อนปรนนี้ถูกจ่ายที่ไหน คุณอาจเลือกสอน syntax ที่ถูกต้องให้ model
+แทน ด้วยการเขียนกฎลงในคำบรรยายของ tool แต่คำบรรยาย tool ถูกส่งทุก request ไปตลอด
+เซสชัน และเสีย token ทุกครั้ง ส่วนการยอมรับ pattern ที่คนเขียนกันจริงเสียโค้ดสาม
+บรรทัดครั้งเดียว
 
 นี่คือ output จริง ที่รันกับ directory `src` ของโปรเจกต์นี้
 
@@ -449,58 +503,93 @@ agentpath/testing/mock_server.py
 
 ## 5. เขียน grep_files
 
-tool ตัวที่สองค้นหาข้างในไฟล์ แทนที่จะค้นบนชื่อ
+tool ตัวที่สองค้นหาข้างในไฟล์ แทนที่จะค้นบนชื่อ และมันยังเป็น tool เดียวในคอร์ส
+นี้ที่ส่ง input ที่ไม่น่าเชื่อถือให้เครื่องยนต์ซึ่งทำงานนานเท่าไหร่ก็ได้ มันจึงยาว
+กว่าที่คุณคาดไว้
 
 ```python
 def grep_files(pattern, glob="*"):
     try:
-        expression = re.compile(pattern)
+        re.compile(pattern)
     except re.error as error:
         return f"Error: {pattern} is not a valid regular expression ({error})"
-    hits = []
-    for path in _walk():
-        relative = path.relative_to(WORKSPACE).as_posix()
-        if not (fnmatch.fnmatch(relative, glob) or fnmatch.fnmatch(path.name, glob)):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue
-        for number, line in enumerate(text.splitlines(), start=1):
-            if expression.search(line):
-                hits.append(f"{relative}:{number}: {line.strip()[:200]}")
-                if len(hits) >= MAX_RESULTS:
-                    break
-        if len(hits) >= MAX_RESULTS:
-            break
+    if NESTED_QUANTIFIER.search(pattern):
+        return (
+            f"Error: {pattern} has one repeat wrapped in another, which can take "
+            "effectively forever to match. Write it without the nested repeat."
+        )
+
+    # The search runs in a separate process. Two earlier attempts at this did
+    # not work and both are worth knowing about. Checking a deadline between
+    # lines never gets a turn, because one line is enough to go exponential
+    # and nothing interrupts a regular expression that is already running.
+    # Moving it to a thread does not help either, because matching does not
+    # release the global interpreter lock, so the thread waiting on the
+    # deadline cannot run until the matching it waits on has finished.
+    #
+    # A separate process can simply be killed, which is the only thing that
+    # actually works. The cost is about a tenth of a second of start up.
+    request = json.dumps({"root": str(WORKSPACE), "pattern": pattern, "glob": glob})
+    try:
+        # -I matters more than it looks. Without it, the directory the child
+        # starts in goes first on the import path, and that directory is the
+        # workspace. A file the agent wrote there called json.py would be
+        # imported and run before the search began, with no permission check,
+        # because searching is a safe tool. -I removes it and ignores the
+        # environment variables that could put it back.
+        worker = Path(__file__).with_name("grep_worker.py")
+        completed = subprocess.run(
+            [sys.executable, "-I", str(worker)],
+            input=request,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=SEARCH_SECONDS,
+            cwd=str(worker.parent),
+        )
+    except OSError as error:
+        return f"Error: the search could not be started. {error}"
+    except subprocess.TimeoutExpired:
+        return (
+            f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "
+            "seconds and was given up on. Try a simpler pattern, or narrow the "
+            "search with the glob argument."
+        )
+    if completed.returncode != 0:
+        return f"Error: the search failed. {completed.stderr.strip()[:200]}"
+    hits = json.loads(completed.stdout or "[]")
     if not hits:
         return f"no matches for {pattern}"
     return truncate("\n".join(hits))
 ```
 
-อ่านมันเป็นสี่ส่วน
+สังเกตสิ่งที่ไม่ได้อยู่ใน function นั้น ไม่มีลูปที่วนไฟล์ และไม่มีการเรียก
+`search` บนบรรทัดใดเลย `grep_files` ไม่ได้แมตช์อะไรทั้งสิ้น มันตรวจ pattern
+เริ่ม process Python ตัวที่สอง รอคำตอบเป็น JSON ห้าวินาที แล้วจัดรูปแบบสิ่งที่
+กลับมา ส่วนการแมตช์จริงอยู่ใน `grep_worker.py`
 
-### ขั้นตอน compile และทำไม pattern ที่ผิดจึงเป็นข้อความ
+รูปทรงนั้นคือหัวข้อทั้งหมดของส่วนนี้ และวิธีอ่านที่ง่ายที่สุดคือมองเป็นเกราะสาม
+ชั้นที่วางซ้อนกันอยู่หน้าอันตรายเดียวกัน ตามด้วย worker แล้วจึงเป็นการจัดรูปแบบ
+ผลลัพธ์ธรรมดาที่ `glob_files` สอนคุณไปแล้ว
+
+### ชั้นที่หนึ่ง ขั้นตอน compile และทำไม pattern ที่ผิดจึงเป็นข้อความ
 
 ```python
     try:
-        expression = re.compile(pattern)
+        re.compile(pattern)
     except re.error as error:
         return f"Error: {pattern} is not a valid regular expression ({error})"
 ```
 
-`re.compile` แปลงสตริง pattern ให้เป็นอ็อบเจกต์ expression ที่ compile แล้วครั้ง
-เดียว ก่อนที่การเดินต้นไม้จะเริ่ม คุณจะข้ามมันแล้วเรียก `re.search(pattern, line)`
-ในลูปก็ได้ และ Python ก็ยังเร็วพอสมควรเพราะมัน cache pattern ที่ compile แล้วไว้
-ภายใน แต่การ compile อย่างชัดเจนดีกว่าด้วยสองเหตุผล และมีแค่หนึ่งเหตุผลที่เป็น
-เรื่องความเร็ว
+อ็อบเจกต์ที่ compile แล้วถูกทิ้งไปเฉย ๆ ซึ่งดูเหมือนความผิดพลาดแต่ไม่ใช่ การเรียก
+นี้คือการทดสอบความถูกต้อง ไม่ใช่การเตรียมของ เพราะการแมตช์เกิดขึ้นในอีก process
+หนึ่ง และ process นั้น compile pattern ใหม่เองอยู่แล้ว ของที่ compile ตรงนี้จึง
+ส่งต่อไปให้มันไม่ได้อยู่ดี
 
-เหตุผลด้านความเร็วนั้นตรงไปตรงมา pattern ถูก compile ครั้งเดียว แทนที่จะถูกค้นหา
-ใน cache หลายแสนครั้ง
-
-เหตุผลที่สำคัญคือการ compile ก่อนคือสิ่งที่ทำให้ pattern ที่ผิดถูกตรวจพบก่อนที่จะ
-มีงานใดเกิดขึ้น regular expression คือโปรแกรมเล็ก ๆ และ model เป็นคนเขียนมัน
-model เขียน regular expression พังเป็นประจำ มักเป็นเพราะลืม escape วงเล็บเหลี่ยม
+สิ่งที่ได้มาคือความสามารถในการปฏิเสธ pattern ที่พังตั้งแต่ใน process แม่ ก่อนที่
+process ลูกจะถูกสร้าง ก่อนที่ไฟล์จะถูกเปิด และก่อนที่ห้าวินาทีในชีวิตของใครจะถูก
+ใช้ไป regular expression คือโปรแกรมเล็ก ๆ และ model เป็นคนเขียนมัน model เขียน
+regular expression พังเป็นประจำ มักเป็นเพราะลืม escape วงเล็บเหลี่ยม
 หรือวงเล็บกลมที่ตั้งใจให้เป็นตัวอักษรตรง ๆ การค้นหาการเรียก function ด้วยการพิมพ์
 `def (` เป็นความผิดพลาดที่เป็นธรรมชาติมาก และมันไม่ใช่ expression ที่ถูกต้อง
 
@@ -532,15 +621,228 @@ Error: def ( is not a valid regular expression (missing ), unterminated subpatte
 สตริงที่คืนกลับคือข้อความถึงผู้เรียก และตรงนี้ผู้เรียกคือ model ที่สามารถแก้ความ
 ผิดพลาดของตัวเองได้สบาย ถ้าคุณบอกมันว่าความผิดพลาดคืออะไร
 
+### ชั้นที่สอง เกราะที่อ่าน pattern ก่อนจะรันมัน
+
+pattern หนึ่งอาจถูกต้องสมบูรณ์แบบและยังเป็นหายนะได้ `re.compile` รับ `(a+)+$` ไป
+โดยไม่บ่นสักคำ และการเอามันไปแมตช์กับตัวอักษร a สามสิบตัวใช้เวลานานกว่าที่คุณจะรอ
+ไหว สิ่งนี้เรียกว่า catastrophic backtracking และสาเหตุคือตัวทำซ้ำที่ถูกห่ออยู่ใน
+ตัวทำซ้ำอีกชั้น ซึ่งทำให้เครื่องยนต์มีวิธีแบ่ง input ระหว่างสองตัวนั้นมากแบบชี้
+กำลัง มีค่าคงที่อีกสามตัวอยู่เหนือ `_walk` เพื่อเรื่องนี้
+
+```python
+# Two quantifiers stacked on one group, as in (a+)+ or (a*)*, is the shape
+# that makes a regular expression take exponential time. A model writing one
+# by accident would otherwise wedge the whole process, and no cancellation
+# token can help because the matching never returns to check one.
+NESTED_QUANTIFIER = re.compile(r"\([^()]*[+*][^()]*\)\s*[+*{]")
+
+# A line longer than this is truncated before matching. Catastrophic
+# backtracking grows with the length of the input, so bounding the input is
+# the one guard that works whatever the pattern turns out to be.
+MAX_LINE = 2000
+
+SEARCH_SECONDS = 5
+```
+
+ตัวแรกคือ regular expression ที่เอาไว้อ่าน regular expression มันมองหากลุ่มที่มี
+`+` หรือ `*` อยู่ข้างใน แล้วตามด้วย `+` หรือ `*` หรือ `{` อีกตัว นั่นคือรูปทรง
+ระเบิดแบบคลาสสิก และเมื่อเจอ tool จะปฏิเสธก่อนที่อะไรจะได้รัน
+
+```python
+    if NESTED_QUANTIFIER.search(pattern):
+        return (
+            f"Error: {pattern} has one repeat wrapped in another, which can take "
+            "effectively forever to match. Write it without the nested repeat."
+        )
+```
+
+ทำไมต้องตรวจ pattern ทั้งที่มี timeout อยู่ข้างล่างแล้ว มีสองเหตุผล การปฏิเสธเกิด
+ขึ้นทันที ส่วน timeout เสียเวลาจริงห้าวินาทีในลูปที่ผู้ใช้นั่งมองอยู่ และการปฏิเสธ
+เป็นประโยคที่ model ทำตามได้ ขณะที่ timeout บอกมันได้แค่ว่ามีอะไรบางอย่างช้า
+`Write it without the nested repeat` คือคำสั่งซ่อม ส่วน `it took too long` คือ
+การยักไหล่
+
+ทำไมไม่พึ่งเกราะนี้อย่างเดียวแล้วตัดงาน process ทิ้งไป เพราะเกราะนี้ครบไม่ได้ และ
+เรื่องนี้ต้องพูดตรง ๆ มันรู้จักรูปทรงเดียวที่เรารู้จัก regular expression ที่ช้า
+เป็นตระกูลที่ใหญ่กว่าที่ใครจะเขียนรายการไว้ได้ และ pattern ที่ปลอดภัยกับ input
+หนึ่งอาจระเบิดกับอีก input หนึ่ง รายการของรูปทรงที่ไม่ดีคือตัวกรอง ไม่ใช่ข้อพิสูจน์
+
+นั่นคือหน้าที่ของ `MAX_LINE` และมันคือเกราะที่ไม่ต้องพึ่งการจดจำรูปทรงใด ๆ
+backtracking บานปลายตามความยาวของข้อความที่ถูกแมตช์ การจำกัดข้อความนั้นจึงจำกัด
+ความเสียหายได้ ไม่ว่า pattern จะกลายเป็นอะไรก็ตาม สองพันตัวอักษรยาวพอที่บรรทัด
+โค้ดจริงจะไม่ถูกตัดจนเสียจุดที่ตรงกัน และสั้นพอที่แม้แต่ pattern ที่แย่ก็ทำงานจบ
+มันถูกใช้ใน worker บนตัวบรรทัด ณ ขณะที่แมตช์
+
+`SEARCH_SECONDS` คือทางสุดท้ายที่รออยู่หลังทั้งสองอัน และมันคือหัวข้อของส่วนถัดไป
+
+### ชั้นที่สาม ทำไมเส้นตายต้องเป็นอีก process
+
+นี่คือส่วนที่ควรอ่านช้า ๆ เพราะสองแบบที่ทุกคนคิดออกก่อนนั้นผิดทั้งคู่ และการอธิบาย
+ได้ว่าทำไมมันผิด มีค่ามากกว่าตัวโค้ดเสียอีก
+
+ไอเดียแรกคือเช็คนาฬิกาคั่นระหว่างบรรทัด อ่านเส้นตาย แมตช์หนึ่งบรรทัด ดูนาฬิกา
+เลิกถ้าหมดงบ มันไม่ทำงาน เพราะบรรทัดเดียวก็พอที่จะระเบิดแบบชี้กำลังแล้ว การเช็ค
+นั้นอยู่หลังการเรียกที่ไม่มีวันคืนค่ากลับมา โค้ดที่ไม่เคยได้คิวไม่ใช่เส้นตาย
+มันคือคอมเมนต์
+
+ไอเดียที่สองคือย้ายการแมตช์ไปไว้ใน thread แล้วให้อีก thread จับเวลา อันนี้ล้มเหลว
+ด้วยเหตุผลที่เฉพาะกับ Python การแมตช์ไม่ปล่อย global interpreter lock ซึ่งคือ
+กุญแจที่ยอมให้ thread เดียวรัน Python ได้ในหนึ่งขณะ thread ที่เฝ้านาฬิกาจึงไม่ได้
+คิวจนกว่าการแมตช์ที่มันรออยู่จะจบไปแล้ว ซึ่งถึงตอนนั้นก็ไม่เหลืออะไรให้ขัดจังหวะ
+thread ให้คุณรอสิ่งต่าง ๆ ได้ แต่มันไม่ได้ให้คุณแย่งหน่วยประมวลผลคืนจากโค้ด C
+ที่ไม่มีความตั้งใจจะคืนมันเลย
+
+และไม่มีรูปแบบที่สามที่ฉลาดกว่านั้น คุณยกเลิก regular expression ที่กำลังรันจาก
+ข้างใน process ที่รันมันไม่ได้ เพราะการยกเลิกใน Python เป็นแบบร่วมมือ และโค้ดนี้
+ไม่เคยร่วมมือ
+
+สิ่งที่เหลืออยู่คือระบบปฏิบัติการ process แยกถูกฆ่าได้จากข้างนอก โดยไม่มีเงื่อนไข
+และไม่ต้องขอความยินยอมจากมัน นั่นคือกลไกเดียวในรายการที่ไม่ต้องการให้โค้ดที่กำลัง
+วิ่งหนีอาสาสมัครหยุดเอง
+
+```python
+        completed = subprocess.run(
+            [sys.executable, "-I", str(worker)],
+            input=request,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=SEARCH_SECONDS,
+            cwd=str(worker.parent),
+        )
+```
+
+`sys.executable` คือ interpreter ตัวเดียวกับที่กำลังรันอยู่ process ลูกจึงเป็น
+Python ตัวที่ถูกและ virtual environment ที่ถูกอย่างแน่นอน ส่วน `input` กับ
+`capture_output` แปลว่าสอง process คุยกันผ่าน pipe โดยส่งคำขอเป็น JSON หนึ่ง
+อ็อบเจกต์เข้าไป และรับรายการ hit เป็น JSON หนึ่งอาร์เรย์ออกมา `timeout` คือส่วนที่
+สำคัญ และเมื่อมันหมดเวลา `subprocess.run` จะฆ่า process ลูกแล้วโยน exception
+
+```python
+    except subprocess.TimeoutExpired:
+        return (
+            f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "
+            "seconds and was given up on. Try a simpler pattern, or narrow the "
+            "search with the glob argument."
+        )
+```
+
+สังเกตว่านี่คือประโยคที่คืนกลับ ไม่ใช่ exception และมันบอก model สองอย่างที่ทำต่อ
+ได้จริง นั่นคือกฎเดียวกับขั้นตอน compile ที่ถูกใช้กับความล้มเหลวซึ่ง model ไม่รู้
+ด้วยซ้ำว่าเป็นไปได้
+
+ราคาถูกเขียนไว้ในโค้ดเป็นคอมเมนต์ ซึ่งเป็นที่ที่ราคาควรอยู่ การเริ่ม process
+Python เสียเวลาราวหนึ่งในสิบวินาที และการค้นหาทุกครั้งจ่ายค่านั้น รวมถึงครั้งที่
+จะเสร็จภายในหนึ่งมิลลิวินาทีด้วย นั่นคือต้นทุนจริงและมันคุ้ม เพราะทางเลือกอีกทาง
+คือ agent ที่ถูก pattern โชคร้ายอันเดียวทำให้หยุดนิ่งไปเลย
+
+### ทำไม process ลูกจึงรันด้วย `-I` และในโฟลเดอร์ที่เราเลือก
+
+มีอาร์กิวเมนต์สองตัวในการเรียกนั้นที่ไม่เกี่ยวกับประสิทธิภาพ และอ่านผ่านได้ง่าย
+
+```python
+        worker = Path(__file__).with_name("grep_worker.py")
+```
+
+worker ถูกหาจากตำแหน่งข้าง ๆ `tools.py` ไม่ใช่จากตำแหน่งที่โปรแกรมถูกสั่งให้เริ่ม
+นั่นคือสิ่งที่ทำให้ tool ทำงานได้ไม่ว่า agent จะถูกเปิดจาก directory ไหน
+
+ตัวที่น่าสนใจคือ `-I` ซึ่งคือโหมด isolated ใช้คู่กับ `cwd` และการจะเห็นว่าทำไมมัน
+สำคัญ ให้นึกถึงสิ่งที่เกิดขึ้นตามปกติเวลา Python เริ่มรันสคริปต์ directory ที่
+สคริปต์อยู่จะไปอยู่หน้าสุดของ import path และในบางวิธีการเรียก directory ที่
+process เริ่มต้นก็ไปอยู่ตรงนั้นด้วย ของที่อยู่หน้าสุดชนะ ดังนั้น `import json`
+ครั้งแรกใน process ลูกจะ import ไฟล์ `json.py` ตัวแรกที่ interpreter หาเจอ และถ้า
+ไฟล์ชื่อนั้นวางอยู่ในโฟลเดอร์ที่ process เริ่มต้น ไฟล์นั้นจะถูก import และโค้ด
+ระดับบนสุดของมันจะรัน
+
+ทีนี้เอาเรื่องนั้นไปวางข้าง ๆ สิ่งที่ agent ตัวนี้ทำเป็นอาชีพ มันเขียนไฟล์ลงใน
+workspace มันเขียนเพราะ model สั่ง และ model ถูกชักจูงได้ด้วยข้อความที่มันอ่านมา
+จากไฟล์ ถ้า process ลูกเริ่มต้นใน workspace ไฟล์ชื่อ `json.py` ที่ agent เขียนไว้
+จะถูก import และถูกรันทันทีที่การค้นหาเริ่มขึ้น ไม่ใช่ถูกแมตช์ ไม่ใช่ถูกอ่านเป็น
+ข้อมูล แต่ถูกรันในฐานะ Python ในตัว interpreter ของคุณ ด้วยสิทธิ์ของคุณ
+
+ส่วนที่แย่ที่สุดคือเรื่องการขออนุมัติ บทที่ 08 วางคนไว้หน้า `run_shell` เพราะการ
+รันคำสั่งอันตรายอย่างเห็นได้ชัด แต่ไม่มีใครวางคำถามยืนยันไว้หน้าการค้นหา เพราะการ
+ค้นหาคือ tool ที่ปลอดภัยซึ่งแค่อ่านและคืนข้อความ เส้นทางนี้จึงรันโค้ดโดยไม่มีการ
+ถามใด ๆ เลย บนความไว้ใจใน tool ที่ผู้ใช้ตัดสินอย่างถูกต้องแล้วว่าไม่มีพิษภัย
+
+`-I` เอา directory ของสคริปต์และ directory ปัจจุบันออกจาก import path และไม่สนใจ
+ตัวแปรสภาพแวดล้อมอย่าง `PYTHONPATH` ที่จะเอามันกลับมาได้ ส่วน
+`cwd=str(worker.parent)` ทำให้ process ลูกเริ่มต้นในโฟลเดอร์ของบทเรียน ไม่ใช่ใน
+workspace ดังนั้นแม้จะพลาดเรื่อง path ก็ยังไปตกอยู่ในที่ที่ agent เขียนไม่ได้
+สองอย่างรวมกันแปลว่า process ลูก import ได้แค่ standard library กับไฟล์เดียวที่
+เราชี้ให้มัน
+
+### grep_worker.py และทำไมกฎจึงถูก import แทนที่จะถูกคัดลอก
+
+อีกครึ่งหนึ่งของ tool คือไฟล์ของมันเอง
+
+```python
+"""The part of grep_files that runs in its own process.
+
+It lives in a separate file so it can be killed. A regular expression that
+takes exponential time cannot be interrupted from inside the process running
+it, so the only way to put a limit on a search is to run it somewhere that
+can be shut down from outside.
+
+The rules about which files may be searched are imported from tools.py
+rather than copied here. An earlier version of this file had its own copy of
+the secret names and the skip list, which is exactly what lesson 09 tells
+you not to do. Two copies agree until the day somebody edits one.
+"""
+import json
+import sys
+from pathlib import Path
+
+# Isolated mode removes every directory from the import path, including the
+# one this file lives in, so the lesson folder has to be put back by hand.
+# Only this folder, and never the folder the agent is working in, which is
+# the whole point of starting isolated in the first place.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import tools  # noqa: E402
+```
+
+ทำไมต้องเป็นไฟล์แยก แทนที่จะเป็น function เป็น flag หรือเป็น thread เพราะหน่วยที่
+ระบบปฏิบัติการฆ่าได้คือ process และหน่วยที่ process ถูกเริ่มจากได้คือไฟล์ ทุกอย่าง
+ที่เล็กกว่าไฟล์ใช้ interpreter ร่วมกับโค้ดที่พยายามจะหยุดมัน และหัวข้อ 5 ผ่านเรื่อง
+ที่ว่านั่นล้มเหลวอย่างไรมาแล้ว เส้นแบ่งที่เป็นไฟล์ไม่ใช่ทางเลือกด้านสไตล์ มันคือ
+สิ่งที่เล็กที่สุดที่มีสวิตช์ปิด
+
+ทำไมมันจึงเอาโฟลเดอร์ของบทเรียนใส่กลับเข้า `sys.path` ด้วยมือ เพราะ `-I` เอาทุก
+directory ออกไปหมด รวมถึงอันที่ worker เองอาศัยอยู่ การ import `tools` จึงจะพัง
+การ insert เพิ่มกลับเข้ามาแค่ directory เดียว คืออันที่คำนวณจากตำแหน่งของ worker
+เอง มันไม่เคยเพิ่ม workspace เข้าไป โหมด isolated ถูกรักษาไว้แล้วเปิดประตูที่รู้จัก
+หนึ่งบาน แทนที่จะทิ้งโหมด isolated ไปทั้งอัน
+
+และอันที่สำคัญที่สุด ทำไมจึง import กฎมาจาก `tools.py` แทนที่จะเขียนมันตรงนี้
+worker ต้องใช้ `_walk` `path_matches` `MAX_LINE` และ `MAX_RESULTS` ทุกอันในนั้นคือ
+กฎว่าการค้นหาเห็นอะไรได้บ้าง และคืนกลับมาได้มากแค่ไหน การคัดลอกมันมาไว้ในไฟล์นี้
+จะสร้างการประกาศกฎเดิมเป็นครั้งที่สอง และการประกาศครั้งที่สองคือสิ่งที่เคลื่อนออก
+จากกันได้ docstring พูดตรง ๆ ว่าเรื่องนี้เคยเกิดขึ้นมาแล้วครั้งหนึ่ง กับรายชื่อ
+ไฟล์ลับและรายการ directory ที่ต้องข้าม ซึ่งเคยอยู่สองที่
+
+ลองคิดว่าการเคลื่อนออกจากกันแปลว่าอะไรตรงนี้ มีคนเพิ่ม `.pgpass` เข้าไปใน
+`SECRET_NAMES` ใน `tools.py` สำเนาใน worker ไม่ถูกแตะ และตอนนี้ `read_file`
+ปฏิเสธไฟล์นั้น ขณะที่ `grep_files` พิมพ์มันออกมา ไม่มีอะไรพัง ไม่มี test ไหนล้ม
+เว้นแต่จะมีคนคิดเขียน test อันนั้นไว้พอดี กฎยังอยู่ในโค้ด เป็นลายลักษณ์อักษร
+และมันไม่ถูกบังคับใช้อีกต่อไป
+
+นี่คือข้อโต้แย้งเดียวกับที่หัวข้อ 5 พูดเรื่องการเดินต้นไม้ และเป็นข้อเดียวกับที่
+บทที่ 07 พูดเรื่อง `resolve_inside` ซึ่งมาถึงเป็นครั้งที่สามในสามบท กฎที่ถูกบังคับ
+ใช้ที่เดียวคือกฎ ส่วนกฎที่ถูกเขียนไว้สองที่คือความบังเอิญที่รอวันหมดอายุ
+
 ### ตัวกรอง glob
 
 ```python
-        if not (fnmatch.fnmatch(relative, glob) or fnmatch.fnmatch(path.name, glob)):
+        relative = path.relative_to(root).as_posix()
+        if not tools.path_matches(relative, path.name, glob):
             continue
 ```
 
-พารามิเตอร์ตัวที่สองซึ่งไม่บังคับ ทำให้การค้นแคบลงเหลือเฉพาะไฟล์ที่ตรง และมันใช้
-การจับคู่สองครั้งแบบเดียวกับ `glob_files` ด้วยเหตุผลเดียวกันเป๊ะ ค่าเริ่มต้นคือ
+พารามิเตอร์ตัวที่สองซึ่งไม่บังคับ ทำให้การค้นแคบลงเหลือเฉพาะไฟล์ที่ตรง และมันเรียก
+helper ตัวเดียวกันคือ `path_matches` ที่ `glob_files` ใช้ ซึ่งเป็นเหตุผลว่าทำไม
+อาร์กิวเมนต์ `glob` จึงทำตัวเหมือนอาร์กิวเมนต์ `pattern` เป๊ะ ๆ ค่าเริ่มต้นคือ
 `"*"` ซึ่งจับคู่กับทุกอย่าง พารามิเตอร์นี้จึงไม่บังคับจริง ๆ และ schema ระบุแค่
 `pattern` ว่าจำเป็น
 
@@ -562,7 +864,9 @@ Error: def ( is not a valid regular expression (missing ), unterminated subpatte
 repository จริงมีไฟล์ PNG ไบนารีที่ compile แล้ว ไฟล์ database และ font
 `read_text` กับไฟล์เหล่านั้นจะโยน `UnicodeDecodeError` และไฟล์ที่ถูกลบไประหว่าง
 การเดินกับการอ่าน หรือไฟล์ที่โปรเซสไม่มีสิทธิ์เปิด จะโยน `OSError` ทั้งสองอย่าง
-ไม่คุ้มที่จะรายงาน ไฟล์นั้นถูกข้ามไปเฉย ๆ แล้วการเดินก็ดำเนินต่อ
+ไม่คุ้มที่จะรายงาน ไฟล์นั้นถูกข้ามไปเฉย ๆ แล้วการเดินก็ดำเนินต่อ ส่วนนี้รันอยู่ใน
+worker ไฟล์ที่ process ลูกเปิดไม่ได้จึงเสียแค่การวนหนึ่งรอบ และไม่เคยกลายเป็น
+error ที่ส่งกลับไปถึง process แม่
 
 สังเกตความต่างที่จงใจกับบทที่ 07 ที่ `read_file` ส่ง `errors="replace"` เพื่อให้
 ไฟล์ข้อความที่เสียบางส่วนยังกลับมาพร้อมตัวอักษรแทนที่ แทนที่จะล้มเหลว นั่นถูก
@@ -573,11 +877,20 @@ pattern อย่าง `.` จะจับคู่กับทุกบรร�
 
 ### ชื่อไฟล์และหมายเลขบรรทัด
 
-นี่คือส่วนที่ทำให้ tool มีประโยชน์ ไม่ใช่แค่ถูกต้อง
+นี่คือส่วนที่ทำให้ tool มีประโยชน์ ไม่ใช่แค่ถูกต้อง และมันคือลูปชั้นในสุดของ
+worker
 
 ```python
+        for number, line in enumerate(text.splitlines(), start=1):
+            if expression.search(line[: tools.MAX_LINE]):
                 hits.append(f"{relative}:{number}: {line.strip()[:200]}")
+                if len(hits) >= tools.MAX_RESULTS:
+                    return hits
 ```
+
+`line[: tools.MAX_LINE]` คือเกราะจากชั้นที่สองที่มาถึงจุดที่มันทำงานจริง ข้อความ
+ที่ถูกส่งให้เครื่องยนต์ไม่เคยยาวเกินสองพันตัวอักษร ไม่ว่าไฟล์จะมีอะไรอยู่ และไม่
+ว่า pattern จะกลายเป็นอะไร
 
 `enumerate(..., start=1)` นับจากหนึ่ง เพราะนั่นคือวิธีที่ editor และ compiler และ
 เครื่องมืออื่นทุกตัวนับบรรทัด การนับจากศูนย์ตรงนี้จะสอดคล้องกับ Python ในทาง
@@ -612,20 +925,23 @@ agentpath/tools/workspace.py:27: def resolve_inside(root, path) -> Path:
 อะไรขึ้นมา ถ้าคืนสรุปสวย ๆ ที่ไม่มี path อยู่ในนั้น สายโซ่จะขาดตั้งแต่ข้อแรก
 
 `line.strip()` เอา indentation ออก ซึ่งในโค้ดที่ซ้อนลึกอาจเป็นตัวอักษรที่เสียเปล่า
-ยี่สิบตัวในทุกจุดที่ตรงกัน ส่วน `[:200]` จำกัดหนึ่งบรรทัด เพราะไฟล์ JavaScript ที่
-ถูก minify คือหนึ่งบรรทัดที่ยาวเก้าหมื่นตัวอักษร และถ้าไม่มีเพดานนี้ จุดที่ตรงกัน
-เพียงจุดเดียวจะเติมเต็มผลลัพธ์ของ tool ทั้งหมด นั่นคือเพดานที่สามจากสามเพดานใน
-สอง function นี้ และหัวข้อ 7 จะรวมมันเข้าด้วยกัน
+ยี่สิบตัวในทุกจุดที่ตรงกัน ส่วน `[:200]` จำกัดสิ่งที่หนึ่ง hit ใส่ลงใน output
+เพราะไฟล์ JavaScript ที่ถูก minify คือหนึ่งบรรทัดที่ยาวเก้าหมื่นตัวอักษร และถ้า
+ไม่มีเพดานนี้ จุดที่ตรงกันเพียงจุดเดียวจะเติมเต็มผลลัพธ์ของ tool ทั้งหมด สังเกต
+ว่านี่เป็นคนละเพดานกับ `MAX_LINE` ในบรรทัดข้างบน และทั้งสองไม่ได้ซ้ำซ้อนกัน
+`MAX_LINE` จำกัดสิ่งที่เครื่องยนต์ถูกขอให้แมตช์ ซึ่งเป็นเรื่องเวลา ส่วน `[:200]`
+จำกัดสิ่งที่คืนกลับมา ซึ่งเป็นเรื่อง context window นั่นคือเพดานที่สองกับที่สาม
+จากสี่เพดานในบทนี้ และหัวข้อ 7 จะรวมทั้งสี่เข้าด้วยกัน
 
-### สิ่งเดียวที่ grep_files ไม่ได้สืบทอดมาฟรี ๆ
+### สิ่งเดียวที่ tool ค้นหาไม่ได้สืบทอดมาฟรี ๆ
 
-มีการตรวจสอบหนึ่งอันใน `_walk` ที่ไม่เกี่ยวอะไรกับการค้นหาเลย และมันคือสามบรรทัด
-ที่สำคัญที่สุดในบทนี้
+มีการตรวจสอบหนึ่งอันใน `_walk` ที่ไม่เกี่ยวอะไรกับการค้นหาเลย และมันคือบรรทัดที่
+สำคัญที่สุดในบทนี้
 
 ในบทที่ 07 คุณสร้าง `resolve_inside` และส่วนหนึ่งของหน้าที่มันคือปฏิเสธการอ่าน
-ไฟล์ credential เพื่อให้ key ไม่มีวันเข้าสู่บทสนทนา แต่ tool ค้นหาไม่ได้ผ่าน
-`resolve_inside` มันเดินต้นไม้เองและเรียก `read_text` ตรง ๆ ถ้าเขียนแบบตรงไปตรงมา
-มันจะไม่สืบทอดอะไรจากการปฏิเสธนั้นเลย และคุณจะได้แบบนี้
+ไฟล์ credential เพื่อให้ key ไม่มีวันเข้าสู่บทสนทนา แต่ tool ค้นหาไม่ได้อ่านไฟล์
+ผ่าน `resolve_inside` มันเดินต้นไม้เองและเรียก `read_text` ตรง ๆ ถ้าเขียนแบบตรงไป
+ตรงมา มันจะไม่สืบทอดอะไรจากการปฏิเสธนั้นเลย และคุณจะได้แบบนี้
 
 ```text
 read_file(".env")   -> Error: this tool refuses to read .env because credential
@@ -635,13 +951,49 @@ grep_files("KEY")   -> .env:1: OPENAI_API_KEY=sk-secret-value
 
 ประตูหน้าล็อกอยู่ แต่หน้าต่างเปิด นั่นไม่ใช่บั๊กที่แนบเนียน มันคือการตรวจสอบที่
 หายไป และมันคือช่องโหว่แบบที่เกิดขึ้นพอดีเมื่อกฎความปลอดภัยอยู่ใน function เดียว
-แทนที่จะอยู่ในการเดินต้นไม้ที่ tool ทุกตัวใช้ร่วมกัน `_walk` จึงนำ helper ชื่อ
-`looks_like_a_secret` ที่คุณเขียนไว้แล้วมาใช้ซ้ำ
+แทนที่จะอยู่ในการเดินต้นไม้ที่ tool ทุกตัวใช้ร่วมกัน
+
+การซ่อมที่ชัดเจนคือเทียบชื่อในการเดินต้นไม้ ด้วย helper ชื่อ `looks_like_a_secret`
+ที่บทที่ 07 ให้คุณไว้แล้ว การซ่อมแบบนั้นคือสิ่งที่บทเรียนนี้ปล่อยออกมาเป็นครั้งแรก
+และมันไม่พอ การกรองด้วยชื่อปิดกรณี `.env` ได้ แต่เปิดกรณีที่ใหญ่กว่าทิ้งไว้เต็ม
+บาน `_walk` จึงส่งทุกไฟล์ที่เข้าข่ายผ่านประตูเดิมแทน
 
 ```python
-        if looks_like_a_secret(path.name):
+        try:
+            # The same gate every file tool uses, rather than a check on the
+            # name. rglob follows symlinks and Windows junctions, so a link
+            # planted inside the workspace would otherwise let search read
+            # anything on the machine while read_file correctly refused.
+            # Looking at the name of the link never sees the name of what it
+            # points at.
+            resolve_inside(str(relative))
+        except WorkspaceError:
             continue
 ```
+
+นี่คือเหตุผลที่ชื่อไม่พอ และกลไกของมันควรพูดให้แม่นยำ `rglob` เดินตาม symbolic
+link และบน Windows มันเดินตาม junction ด้วย symbolic link คือไฟล์ที่เนื้อในของมัน
+คือ path ไปยังที่อื่น และระบบปฏิบัติการจะสลับไปใช้ปลายทางให้เงียบ ๆ เมื่อมีอะไรมา
+เปิดมัน ลิงก์ที่วางอยู่ใน workspace จึงถูกการเดินต้นไม้เยี่ยมชมเหมือนไฟล์อื่นทุก
+ประการ และ `read_text` บนมันจะอ่านสิ่งที่มันชี้ไป ซึ่งอยู่ที่ไหนก็ได้บนเครื่องที่
+ผู้ใช้อ่านได้
+
+ทีนี้ดูว่าการเช็คชื่อเห็นอะไรในสถานการณ์นั้น มันเห็นชื่อของลิงก์ และชื่อของลิงก์
+คือชื่อที่คนวางลิงก์เป็นคนตั้ง มันไม่มีความสัมพันธ์ใด ๆ กับชื่อของปลายทางเลย ลิงก์
+ชื่อ `notes.txt` ชี้ไปที่ `/home/you/.ssh/id_rsa` ได้ ลิงก์ชื่อ `docs` ชี้ไปที่
+root ของไดรฟ์ได้ `looks_like_a_secret("notes.txt")` คืน `False` อย่างถูกต้อง และ
+ความลับก็ถูกอ่านอยู่ดี การเช็คนั้นไม่ได้ตัดสินชื่อผิด มันแค่มองผิดวัตถุ
+
+`resolve_inside` ถูกหลอกไม่ได้ เพราะการ resolve path คือปฏิบัติการที่เดินตามลิงก์
+และให้ตำแหน่งจริงออกมาพอดี เมื่อมันได้ตำแหน่งจริงแล้ว การปฏิเสธสองข้อที่มันมีอยู่
+เดิมก็ทำงานเอง ลิงก์ที่ชี้ออกไปนอก workspace ตกการทดสอบเรื่องขอบเขต และลิงก์ที่ชี้
+ไปยังไฟล์ credential ใน workspace ตกการทดสอบชื่อบนชื่อจริงของปลายทาง ไม่มีกฎข้อ
+ไหนต้องถูกเขียนใหม่เลย การเดินต้นไม้แค่เลิกประดิษฐ์คำถามเวอร์ชันของตัวเอง แล้วไป
+ถามฟังก์ชันที่รู้คำตอบอยู่แล้ว
+
+นั่นคือรูปทรงที่การแก้บั๊กแบบนี้ควรมี สี่บรรทัด ไม่มีกฎใหม่ และบรรทัดใหม่คือการ
+เรียกประตูเดิม ถ้าคุณพบว่าตัวเองกำลังเขียนกฎความปลอดภัยข้อเดิมเป็นครั้งที่สองด้วย
+ถ้อยคำที่ต่างออกไป แปลว่าคุณกำลังรักษาที่อาการ
 
 ลองกับไฟล์จริงใน `lessons/09-search-tools/tools.py` ดู วาง `.env` ไว้ใน
 workspace ชั่วคราวแล้วประตูทั้งสองบานก็ปิดสนิท
@@ -658,10 +1010,12 @@ glob_files("**/*")  -> the other files, and no .env in the list
 ชื่อไฟล์เพียงอย่างเดียวก็เป็นการรั่วไหลได้ `secrets.prod.env` ที่โผล่อยู่ในรายการ
 บอกผู้โจมตีที่อ่านบทสนทนาอยู่ได้ทันทีว่าควรขออะไรต่อ
 
-บทเรียนทั่วไปมีค่ามากกว่าสองบรรทัดนั้น **กฎที่บังคับใช้ที่จุดเข้าจุดเดียวเท่ากับ
-ไม่ได้บังคับใช้** มันต้องอยู่ในที่ที่ทุกเส้นทางผ่าน `resolve_inside` คือที่นั้น
-สำหรับ tool ไฟล์ และ `_walk` คือที่นั้นสำหรับ tool ค้นหา ซึ่งเป็นสองที่สำหรับกฎ
-เดียว และสองก็มากไปหนึ่งที่แล้ว ภาคสามจะสร้าง tool ใหม่รอบแนวคิดนี้พอดี
+บทเรียนทั่วไปมีค่ามากกว่าสี่บรรทัดนั้น **กฎที่บังคับใช้ที่จุดเข้าจุดเดียวเท่ากับ
+ไม่ได้บังคับใช้** มันต้องอยู่ในที่ที่ทุกเส้นทางผ่าน และ tool ใหม่ทุกตัวที่แตะ
+ทรัพยากรเดียวกันต้องถูกพาไปหามัน ไม่ใช่ได้ตัวกรองของตัวเอง `resolve_inside` คือ
+ที่นั้น tool ไฟล์เรียกมันตรง ๆ `_walk` เรียกมันแทน tool ค้นหาทั้งสองตัว และ
+`grep_worker.py` import `_walk` มาใช้แทนที่จะเขียนซ้ำสักส่วนเดียว หนึ่งกฎ หนึ่ง
+function สามผู้เรียก ภาคสามจะสร้าง tool ใหม่รอบแนวคิดนี้พอดี
 
 ## 6. ทำไมเราจึงข้าม directory อย่าง .git และ .venv
 
@@ -746,17 +1100,19 @@ request โทเคน 140,000 ตัวของโครงสร้างภ
 
 ## 7. ทำไมเราจึงจำกัดจำนวนผลลัพธ์
 
-`MAX_RESULTS = 200` และมันถูกใช้ใน tool ทั้งสองตัว
+`MAX_RESULTS = 200` และมันถูกใช้ใน tool ทั้งสองตัว ใน `glob_files` มันคือการเฉือน
+ที่ทำหลังการเรียงลำดับ
 
 ```python
     return truncate("\n".join(sorted(matches)[:MAX_RESULTS]))
 ```
 
+ส่วนใน worker มันคือการทดสอบในลูปชั้นในสุด และค่าคงที่ถูกเข้าถึงผ่าน import แทน
+ที่จะถูกประกาศซ้ำ
+
 ```python
-                if len(hits) >= MAX_RESULTS:
-                    break
-        if len(hits) >= MAX_RESULTS:
-            break
+                if len(hits) >= tools.MAX_RESULTS:
+                    return hits
 ```
 
 เหตุผลเหมือนกับหัวข้อ 6 จึงเขียนสั้นได้ การค้นหาที่ตรงกันหนึ่งหมื่นบรรทัดไม่ได้
@@ -771,14 +1127,16 @@ model ของคุณเอง สิ่งที่สำคัญคือ�
 
 ### เรื่องนี้เชื่อมกับการตัดข้อความของบทที่ 07 อย่างไร
 
-ตอนนี้คุณมีสามขีดจำกัดแยกกันซ้อนกันอยู่ และมันคุ้มที่จะมองพวกมันเป็นระบบเดียว
-มากกว่าเป็นตัวเลขสามตัวที่ไม่เกี่ยวกัน
+ตอนนี้คุณมีสี่ขีดจำกัดแยกกันซ้อนกันอยู่ บวกกับเส้นตายอีกหนึ่งอันที่รออยู่หลังทุก
+ตัว และมันคุ้มที่จะมองพวกมันเป็นระบบเดียว มากกว่าเป็นตัวเลขห้าตัวที่ไม่เกี่ยวกัน
 
 | ขีดจำกัด | มาจากไหน | มันจำกัดอะไร |
 | --- | --- | --- |
+| `MAX_LINE = 2000` | บทที่ 09 | ส่วนของบรรทัดที่ถูกเอาไปแมตช์ |
 | `[:200]` บนหนึ่งบรรทัด | บทที่ 09 | หนึ่งบรรทัดผลลัพธ์ |
 | `MAX_RESULTS = 200` | บทที่ 09 | จำนวนบรรทัดผลลัพธ์ |
 | `MAX_OUTPUT = 4000` | บทที่ 07 | สตริงทั้งก้อนที่คืนกลับ |
+| `SEARCH_SECONDS = 5` | บทที่ 09 | เวลาที่การค้นหาทั้งครั้งใช้ได้ |
 
 พวกมันประกอบกัน และแต่ละตัวจับกรณีที่ตัวอื่นจับไม่ได้ ผลลัพธ์สองร้อยรายการ
 รายการละสองร้อยตัวอักษรจะเป็น 40,000 ตัวอักษร ดังนั้น `truncate` จากบทที่ 07 จึง
@@ -788,43 +1146,55 @@ model ของคุณเอง สิ่งที่สำคัญคือ�
 รายการจะผ่านเพดานต่อบรรทัดและผ่าน `truncate` แต่เสียการเดินต้นไม้ไปทั้งหมด ซึ่ง
 เป็นสิ่งที่ `MAX_RESULTS` ป้องกันไว้
 
-กฎที่อยู่ใต้ทั้งสามข้อคือกฎจากบทที่ 07 และมันคือนิสัยที่สำคัญที่สุดข้อเดียวใน
+อันแรกกับอันสุดท้ายในห้าตัวนั้นเป็นขีดจำกัดคนละชนิดกับสามตัวตรงกลาง และความต่าง
+นี้ควรถูกเรียกชื่อ `[:200]` `MAX_RESULTS` และ `MAX_OUTPUT` จำกัดปริมาณข้อความที่
+คืนกลับมา พวกมันจึงปกป้อง context window ส่วน `MAX_LINE` กับ `SEARCH_SECONDS`
+จำกัดปริมาณงานที่เกิดขึ้น พวกมันจึงปกป้อง process tool ที่ส่ง input ซึ่ง model
+เขียนให้เครื่องยนต์ ต้องมีทั้งสองชนิด เพราะการค้นหาที่ไม่คืนอะไรเลยหลังจากเผา
+เครื่องไปหนึ่งชั่วโมง อยู่ในกรอบของเพดาน output ทุกอันครบถ้วน และยังทำลายเซสชัน
+ทิ้งอยู่ดี
+
+กฎที่อยู่ใต้ทั้งหมดคือกฎจากบทที่ 07 และมันคือนิสัยที่สำคัญที่สุดข้อเดียวใน
 การออกแบบ tool ผลลัพธ์ของ tool ทุกอันเป็นสิ่งถาวร มันเข้าไปอยู่ในบทสนทนา มันถูก
 ส่งอีกครั้งในทุก request ถัดไป และไม่มีทางเอาคืนได้ ดังนั้น tool ทุกตัวจึงต้องมี
-ขอบเขตของสิ่งที่มันคืนได้ และขอบเขตนั้นต้องอยู่ใน tool ไม่ใช่อยู่ในความหวังว่า
-ผู้เรียกจะมีสติ
+ขอบเขตของสิ่งที่มันคืนได้ และขอบเขตของสิ่งที่มันใช้ไปได้ และขอบเขตทั้งสองต้องอยู่
+ใน tool ไม่ใช่อยู่ในความหวังว่าผู้เรียกจะมีสติ
 
 ### ทำไม tool ทั้งสองจึงจำกัดต่างกัน
 
-ลองดูอีกครั้งแล้วสังเกตว่าสอง function นี้ไม่ได้หยุดแบบเดียวกัน
+ลองดูอีกครั้งแล้วสังเกตว่า tool สองตัวนี้ไม่ได้หยุดแบบเดียวกัน
 
 `glob_files` เดินทั้งต้นไม้ เก็บทุกจุดที่ตรงกัน เรียงลำดับ แล้วค่อยหยิบ 200 อันแรก
-ส่วน `grep_files` หยุดเดินทันทีที่มี 200 hit
+ส่วน worker ที่อยู่หลัง `grep_files` หยุดเดินทันทีที่มี 200 hit
 
 ความต่างนั้นจงใจ และมันเป็นเรื่องต้นทุน `glob_files` อ่านแค่รายการใน directory
 ซึ่งถูก และมันต้องการ output ที่เรียงแล้ว ซึ่งแปลว่ามันต้องมีชื่อครบทั้งหมดก่อน
 จึงจะตัดสินได้ว่า 200 อันไหนมาก่อน การหยุดก่อนกำหนดจะให้ 200 อันแรกตามลำดับของ
 ระบบไฟล์ ซึ่งไม่มีความหมาย
 
-`grep_files` เปิดและอ่านเนื้อหาของทุกไฟล์ที่เข้าข่าย ซึ่งแพงกว่ามหาศาล เมื่อมัน
-มี 200 hit แล้ว การอ่านไฟล์ต่อไปคือความสูญเปล่าล้วน ๆ มันจึง break ออกมา ผลที่ตาม
-มาคือผลลัพธ์ของ grep เรียงตามลำดับการเดินแทนที่จะเรียงลำดับ และ grep ที่ถูกจำกัด
+worker เปิดและอ่านเนื้อหาของทุกไฟล์ที่เข้าข่าย ซึ่งแพงกว่ามหาศาล เมื่อมันมี 200
+hit แล้ว การอ่านไฟล์ต่อไปคือความสูญเปล่าล้วน ๆ มันจึงหยุด ผลที่ตามมาคือผลลัพธ์
+ของ grep เรียงตามลำดับการเดินแทนที่จะเรียงลำดับ และ grep ที่ถูกจำกัด
 จะแสดงจุดที่ตรงกันจากตำแหน่งที่การเดินบังเอิญไปถึง นั่นคือการแลกจริง ที่ทำอย่างรู้
 ตัว การอ่านข้อมูลร้อยเมกะไบต์เพื่อผลิต output ที่คุณกำลังจะทิ้ง แย่กว่าลำดับที่
 ไม่มีความหมาย
 
-คำสั่ง `break` สองตัวก็ควรค่าแก่การอธิบายสักประโยค เพราะ `break` ตัวเดียวจะเป็นบั๊ก
-ตัวในออกจากลูปที่วนบรรทัดในไฟล์ปัจจุบัน ตัวนอกออกจากลูปที่วนไฟล์ ถ้าไม่มีตัวที่
-สอง การเดินจะอ่านทุกไฟล์ที่เหลือใน repository ต่อไปแล้วไม่เพิ่มอะไรเลย ซึ่งคือ
-ครึ่งที่แพงของงาน โดยไม่ได้ประโยชน์ใด ๆ
+วิธีที่มันหยุดควรค่าแก่การอธิบายสักประโยค เพราะการสะกดแบบที่ชัดเจนที่สุดจะเป็นบั๊ก
+ตรงนี้มีสองลูป อันหนึ่งวนไฟล์และอีกอันวนบรรทัดในไฟล์ปัจจุบัน และ `break` ในลูปชั้น
+ในจบแค่ไฟล์ปัจจุบัน การเดินจะเดินหน้าเปิดทุกไฟล์ที่เหลือใน repository ต่อไปแล้ว
+ไม่เพิ่มอะไรเลย ซึ่งคือครึ่งที่แพงของงาน โดยไม่ได้ประโยชน์ใด ๆ ส่วน `return hits`
+ออกจากทั้งสองลูปและออกจาก function พร้อมกัน ซึ่งเป็นสิ่งที่สถานการณ์นี้ต้องการ
+จริง ๆ การใช้ `break` ซ้อนกันสองตัวก็ได้ผลเหมือนกัน และการ `return` พูดเรื่อง
+เดียวกันในบรรทัดเดียว โดยไม่ทิ้งให้คนอ่านต้องไปตรวจว่าตัวที่สองอยู่ครบไหม
 
 ## 8. ทำไมเราไม่เรียก ripgrep ไปเลย
 
 ข้อโต้แย้งที่เห็นได้ชัดต่อทุกอย่างข้างบน `ripgrep` ซึ่งเป็นเครื่องมือ command
 line ชื่อ `rg` ทำทั้งหมดนี้ได้อยู่แล้ว มันเขียนด้วย Rust มันเร็วมาก มันเคารพ
-`.gitignore` โดยอัตโนมัติ มันตรวจไฟล์ไบนารีได้อย่างถูกต้อง และมันผ่านการจัดการ
-กรณีขอบมาหลายปีซึ่งสามสิบบรรทัดนี้ไม่มี และคุณก็มี `run_shell` จากบทที่ 08 อยู่
-แล้ว แล้วทำไมไม่ทำ `grep_files` เป็น wrapper สองบรรทัดเสียเลย
+`.gitignore` โดยอัตโนมัติ มันตรวจไฟล์ไบนารีได้อย่างถูกต้อง เครื่องยนต์ regular
+expression ของมันไม่มี catastrophic backtracking ให้ต้องกันตั้งแต่แรก และมันผ่าน
+การจัดการกรณีขอบมาหลายปีซึ่งโค้ดไม่กี่สิบบรรทัดนี้ไม่มี และคุณก็มี `run_shell`
+จากบทที่ 08 อยู่แล้ว แล้วทำไมไม่ทำ `grep_files` เป็น wrapper สองบรรทัดเสียเลย
 
 ```python
 def grep_files(pattern, glob="*"):
@@ -853,12 +1223,14 @@ package manager และเรื่องซอฟต์แวร์ชิ้�
 การตัดสินใจที่น่าสนใจทั้งหมดก็อยู่ในไบนารีของคนอื่น คุณจะไม่ได้คิดเรื่องการจับคู่
 ทั้ง path และชื่อ เรื่อง pattern ที่ผิดกลายเป็นข้อความ เรื่องว่าควรข้าม directory
 ไหน เรื่องว่าเพดานควรอยู่ตรงไหน เรื่องหมายเลขบรรทัดที่มีไว้วางแผนไม่ใช่ไว้กระโดด
-สิ่งเหล่านั้นคือไอเดียที่ถ่ายโอนไปใช้ที่อื่นได้ในบทนี้ และการเขียนการเดินต้นไม้
-เองคือสิ่งที่บังคับให้คุณได้พบกับพวกมัน
+หรือเรื่องว่าทำไมเส้นตายจึงต้องใช้ process ไม่ใช่ thread สิ่งเหล่านั้นคือไอเดียที่
+ถ่ายโอนไปใช้ที่อื่นได้ในบทนี้ และการเขียนการเดินต้นไม้เองคือสิ่งที่บังคับให้คุณได้
+พบกับพวกมัน
 
-standard library เพียงพอจริง ๆ ตรงนี้ `fnmatch` และ `re` และ `pathlib` ทั้งหมดมี
-อยู่ในทุกการติดตั้ง Python มานานก่อนที่คุณจะเริ่มอ่านสิ่งนี้ และผลลัพธ์คือ tool ที่
-ทำงานเหมือนกันเป๊ะบน Windows macOS และ Linux โดยไม่ต้องติดตั้งอะไรเลย
+standard library เพียงพอจริง ๆ ตรงนี้ `fnmatch` `re` `pathlib` `json` และ
+`subprocess` ทั้งหมดมีอยู่ในทุกการติดตั้ง Python มานานก่อนที่คุณจะเริ่มอ่านสิ่งนี้
+และผลลัพธ์คือ tool ที่ทำงานเหมือนกันเป๊ะบน Windows macOS และ Linux โดยไม่ต้อง
+ติดตั้งอะไรเลย
 
 ทีนี้มาถึงครึ่งที่แฟร์
 
@@ -979,7 +1351,11 @@ OK grep_files reported the file name and line number
 OK the glob filter narrowed the search
 ```
 
-สี่บรรทัด ไม่ต้องใช้เครือข่าย ไม่ต้องใช้ API key และใช้เวลาไม่กี่ในร้อยของวินาที
+สี่บรรทัด ไม่ต้องใช้เครือข่าย ไม่ต้องใช้ API key และใช้เวลาไม่ถึงหนึ่งวินาทีบน
+แล็ปท็อป และเวลาส่วนใหญ่นั้นไม่ใช่การค้นหา การเรียก `grep_files` สองครั้งเริ่ม
+process Python ครั้งละหนึ่งตัว นั่นคือหนึ่งในสิบวินาทีต่อการค้นหาจากหัวข้อ 5 ที่
+โผล่มาบนนาฬิกาจับเวลา แทนที่จะอยู่แค่ในคอมเมนต์
+
 สังเกตความต่างจาก check ของบทที่ 06 ซึ่งต้องมี fake server รันอยู่เพราะมันทดสอบ
 provider ไม่มีอะไรในบทนี้ที่คุยกับ model เพราะ tool ค้นหาคือ function Python
 ธรรมดา และข้อเท็จจริงที่ว่าสุดท้ายจะมี model มาเรียกมันนั้นไม่เกี่ยวกับว่ามันทำงาน
@@ -989,7 +1365,10 @@ provider ไม่มีอะไรในบทนี้ที่คุยก�
 ถ้าบรรทัดที่สองล้มเหลว แสดงว่า `_walk` ของคุณไม่ได้เช็ค `relative.parts` ถ้าบรรทัดที่
 สามล้มเหลวและพิมพ์ผลลัพธ์ที่มี `src/main.py` แต่ไม่มี `:1:` แสดงว่า format string
 ของคุณทำหมายเลขบรรทัดหาย ถ้าบรรทัดที่สี่ล้มเหลวและมี `main.py` อยู่ด้วย แสดงว่า
-ตัวกรอง glob ไม่ได้ถูกนำมาใช้
+ตัวกรอง glob ไม่ได้ถูกนำมาใช้ และถ้าบรรทัดที่สามกับที่สี่ล้มเหลวทั้งคู่ด้วย
+`Error: the search failed` ข้อความที่ตามหลังมันคือ standard error ของ worker เอง
+ซึ่งเกือบทุกครั้งแปลว่า `grep_worker.py` ไม่ได้วางอยู่ข้าง ๆ `tools.py` หรือ
+import มันไม่ได้
 
 ## 10. สิ่งที่คุณยังทำไม่ได้
 
@@ -1037,9 +1416,10 @@ prompt อะไรควรอยู่ใน user message และอะไ�
 `MAX_RESULTS` แล้วไม่พูดอะไรเลย ดังนั้นการค้นหาที่เจอสี่พันแมตช์กับการค้นหาที่เจอ
 สองร้อยแมตช์พอดี ให้ output ที่ model แยกไม่ออก มันอ่านสองร้อยบรรทัด สรุปว่ามัน
 เห็นครบแล้ว แล้วก็แคบลงไปผิดทาง เปลี่ยน tool ทั้งสองให้ต่อท้ายบรรทัดอย่างเช่น
-`[stopped at 200 results, narrow the pattern or the glob]` ซึ่งแปลว่า
-`grep_files` ต้องนับต่อไปเกินเพดานแทนที่จะ break ทันที จากนั้นเขียน check ที่สร้าง
-สามร้อยบรรทัดที่แมตช์และ assert ว่าหมายเหตุนั้นอยู่ตรงนั้น ข้อนี้มีค่าที่สุดใน
+`[stopped at 200 results, narrow the pattern or the glob]` ซึ่งแปลว่า worker
+ต้องนับต่อไปเกินเพดานแทนที่จะ return ทันที และต้องส่งข้อเท็จจริงนั้นกลับไปหา
+process แม่ใน JSON ด้วย จากนั้นเขียน check ที่สร้างสามร้อยบรรทัดที่แมตช์และ
+assert ว่าหมายเหตุนั้นอยู่ตรงนั้น ข้อนี้มีค่าที่สุดใน
 สามข้อ เพราะมันเป็นข้อบกพร่องจริง และอาการของมันคือคำตอบที่ผิดอย่างมั่นใจ ไม่ใช่
 error
 

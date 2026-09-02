@@ -135,6 +135,12 @@ def search_tools(root) -> list[Tool]:
                 timeout=SEARCH_SECONDS,
                 cwd=str(Path(__file__).resolve().parent),
             )
+        except OSError as error:
+            # The child could not be started at all, which is a different
+            # thing from the search failing. Saying so, and naming the tool,
+            # is what lets the model try something else instead of repeating
+            # a search that can never run.
+            return f"Error: the search could not be started. {error}"
         except subprocess.TimeoutExpired:
             return (
                 f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "

@@ -46,9 +46,10 @@ def loose_signature(name, arguments):
     because there the difference between two nearly identical commands can be
     the whole point.
     """
-    flattened = {
-        key: " ".join(str(value).split()).lower() for key, value in arguments.items()
-    }
+    # Trailing and leading space only. Folding case as well made three
+    # genuinely different searches look identical, and a model widening a
+    # pattern from Error to error was told it was going in circles.
+    flattened = {key: str(value).strip() for key, value in arguments.items()}
     return f"{name}({json.dumps(flattened, sort_keys=True)})"
 
 class Permissions:

@@ -164,11 +164,15 @@ def test_giving_up_on_a_loop_also_leaves_no_orphan():
 def test_a_model_nudging_the_whitespace_is_still_caught():
     """The case a strict fingerprint misses.
 
-    A model that retries with a space added or a word capitalised has not
-    changed anything, but a fingerprint taken from the exact arguments
-    says it has, so a strict check never fires.
+    A model that retries with a space added on either end has not changed
+    anything, but a fingerprint taken from the exact arguments says it has,
+    so a strict check never fires.
+
+    Only the ends are trimmed. An earlier version folded case as well, which
+    made Error and ERROR and error look like one search and refused the third
+    one, so the fingerprint has to stay narrow enough to be right.
     """
-    wiggles = iter(["a.txt", "a.txt ", " a.txt", "A.TXT", "a.txt  ", "a.txt"])
+    wiggles = iter(["a.txt", "a.txt ", " a.txt", "a.txt  ", " a.txt ", "a.txt"])
 
     class NudgesTheWhitespace:
         def stream(self, messages, tools=None):
@@ -282,3 +286,45 @@ def test_an_interrupt_inside_a_tool_still_answers_the_calls_behind_it():
     requested = {c.id for m in saved for c in m.tool_calls}
     answered = {m.tool_call_id for m in saved if m.role == "tool"}
     assert requested == answered, f"orphaned in the session {sorted(requested - answered)}"
+
+
+def test_widening_a_case_sensitive_search_is_not_mistaken_for_a_loop():
+    """The false positive the whitespace and case fingerprint produced.
+
+    Widening a pattern from Error to ERROR to error is a model doing the
+    right thing. Folding case made all three look like one call and the
+    third was refused with a message saying nothing had changed.
+    """
+    patterns = iter(["Error", "ERROR", "error", "err"])
+    searched = []
+
+    class WidensTheSearch:
+        def stream(self, messages, tools=None):
+            try:
+                pattern = next(patterns)
+            except StopIteration:
+                yield TurnDone(message=Message(role="assistant", content="found them"))
+                return
+            yield TurnDone(
+                message=Message(
+                    role="assistant",
+                    tool_calls=[ToolCall(id="c", name="find", arguments={"pattern": pattern})],
+                )
+            )
+
+    find = Tool(
+        name="find",
+        description="d",
+        parameters={"type": "object", "properties": {}},
+        fn=lambda pattern: searched.append(pattern) or f"looked for {pattern}",
+        safe=True,
+    )
+    agent = Agent(
+        provider=WidensTheSearch(),
+        tools=ToolRegistry([find]),
+        permissions=Permissions(auto_approve=True),
+        max_turns=8,
+    )
+    events = list(agent.run("find the errors"))
+    assert searched == ["Error", "ERROR", "error", "err"], f"a search was refused, ran {searched}"
+    assert not any("going in circles" in e.content for e in events if isinstance(e, ToolResult))

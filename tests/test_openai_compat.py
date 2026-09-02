@@ -118,3 +118,21 @@ def test_missing_tool_call_ids_are_filled_in_and_made_unique():
     assert len(set(identifiers)) == 3
     assert "" not in identifiers
     assert "keep" in identifiers
+
+
+def test_a_replacement_id_never_collides_with_one_already_taken():
+    """The collision the function exists to prevent, produced by the function.
+
+    The check ran against the original id and the replacement was assigned
+    without being checked, so filling a gap with call_2 while another call
+    already answered to call_2 produced two calls sharing an id.
+    """
+    from agentpath.providers.base import ensure_ids
+
+    calls = [
+        ToolCall(id="call_2", name="a", arguments={}),
+        ToolCall(id="", name="b", arguments={}),
+        ToolCall(id="", name="c", arguments={}),
+    ]
+    identifiers = [call.id for call in ensure_ids(calls)]
+    assert len(set(identifiers)) == 3, identifiers

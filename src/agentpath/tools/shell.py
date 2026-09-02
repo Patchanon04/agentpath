@@ -77,10 +77,17 @@ def _use_utf8_console():
         return
     _CONSOLE_READY = True
     try:
+        import atexit
         import ctypes
 
+        previous = ctypes.windll.kernel32.GetConsoleOutputCP()
         ctypes.windll.kernel32.SetConsoleOutputCP(65001)
-        ctypes.windll.kernel32.SetConsoleCP(65001)
+        # Put it back on the way out. This is the terminal the person is
+        # sitting in, and leaving it changed after the program has finished
+        # is rude in a way that is hard to trace back to us. The input
+        # codepage is left alone entirely, because nothing here needs it and
+        # changing it is the half with the known trouble.
+        atexit.register(ctypes.windll.kernel32.SetConsoleOutputCP, previous)
     except Exception:
         # No console attached, or not permitted. The chcp in the command is
         # the fallback and still helps every program the shell launches.

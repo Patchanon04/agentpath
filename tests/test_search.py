@@ -149,3 +149,32 @@ def test_a_catastrophic_pattern_gives_up_instead_of_hanging(tmp_path):
 
     assert elapsed < 20, f"the search ran for {elapsed:.1f} seconds"
     assert "given up on" in result or "nested repeat" in result
+
+
+def test_a_search_that_cannot_start_says_so(tmp_path, monkeypatch):
+    """A child that will not start is not the same as a search that failed."""
+    import agentpath.tools.search as module
+
+    monkeypatch.setattr(module.sys, "executable", str(tmp_path / "no-such-python.exe"))
+    registry = ToolRegistry(search_tools(tmp_path))
+    result = call(registry, "grep_files", pattern="anything")
+    assert "could not be started" in result
+
+
+def test_a_workspace_file_cannot_be_imported_by_the_search(tmp_path, monkeypatch):
+    """The child used to start with the workspace first on the import path.
+
+    A file the agent had written there called json.py or types.py was
+    imported and run before any searching began, and searching is a safe
+    tool so nothing asked permission first.
+    """
+    monkeypatch.chdir(tmp_path)
+    proof = tmp_path / "EXECUTED.txt"
+    (tmp_path / "fnmatch.py").write_text(
+        f'open(r"{proof}", "w").write("workspace code ran")\n', encoding="utf-8"
+    )
+    (tmp_path / "app.py").write_text("needle\n", encoding="utf-8")
+
+    registry = ToolRegistry(search_tools(tmp_path))
+    assert "app.py:1: needle" in call(registry, "grep_files", pattern="needle")
+    assert not proof.exists(), "the search executed a file out of the workspace"

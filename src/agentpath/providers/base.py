@@ -53,9 +53,17 @@ def ensure_ids(calls):
     rather than passed along.
     """
     seen = set()
-    for index, call in enumerate(calls):
+    counter = 0
+    for call in calls:
         if not call.id or call.id in seen:
-            call.id = f"call_{index + 1}"
+            # The replacement has to be checked too. Handing out call_2
+            # to fill a gap when another call already answers to call_2
+            # produces exactly the collision this function exists to
+            # prevent, and servers really do use that shape of id.
+            counter += 1
+            while f"call_{counter}" in seen:
+                counter += 1
+            call.id = f"call_{counter}"
         seen.add(call.id)
     return calls
 
