@@ -31,7 +31,7 @@ def test_read_file_refuses_env(registry):
     reg, root = registry
     (root / ".env").write_text("KEY=supersecret\n", encoding="utf-8")
     result = call(reg, "read_file", path=".env")
-    assert "refuses to read" in result
+    assert "refuses to touch" in result
     assert "supersecret" not in result
 
 

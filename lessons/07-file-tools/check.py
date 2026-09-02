@@ -56,7 +56,7 @@ def main():
     print("OK a path outside the workspace was refused")
 
     secret = tools.run("read_file", {"path": ".env"})
-    if "refuses to read" not in secret or "supersecretvalue" in secret:
+    if "refuses to touch" not in secret or "supersecretvalue" in secret:
         fail(f"the credential file was not protected. Got {secret!r}")
     print("OK reading .env was refused and the secret did not leak")
 

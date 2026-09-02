@@ -119,7 +119,7 @@ function rather than being restated in four places.
 The second is that everything a tool returns is not a print statement. It is
 data that goes into the conversation and gets sent to the model provider on this
 request and on every request after it. That single fact is why the tools
-truncate their output and why they refuse to read credential files, and both of
+truncate their output and why they refuse to touch credential files, and both of
 those decisions are covered in full below.
 
 ## 2. The problem left over from lesson 06
@@ -215,8 +215,8 @@ def resolve_inside(path):
         raise WorkspaceError(f"{path} is outside the workspace")
     if looks_like_a_secret(candidate.name):
         raise WorkspaceError(
-            f"this tool refuses to read {candidate.name} because credential files "
-            "must not enter the conversation"
+            f"this tool refuses to touch {candidate.name} because credential files "
+            "must not enter the conversation or be changed by an agent"
         )
     return candidate
 ```
@@ -542,8 +542,8 @@ tools.run("read_file", {"path": "deploy.pem"})
 ```
 
 ```text
-'Error: this tool refuses to read .env because credential files must not enter the conversation'
-'Error: this tool refuses to read deploy.pem because credential files must not enter the conversation'
+'Error: this tool refuses to touch .env because credential files must not enter the conversation or be changed by an agent'
+'Error: this tool refuses to touch deploy.pem because credential files must not enter the conversation or be changed by an agent'
 ```
 
 ### The specific failure this prevents
@@ -1328,7 +1328,7 @@ test a control by attacking it yourself.
 
 ```python
     secret = tools.run("read_file", {"path": ".env"})
-    if "refuses to read" not in secret or "supersecretvalue" in secret:
+    if "refuses to touch" not in secret or "supersecretvalue" in secret:
         fail(f"the credential file was not protected. Got {secret!r}")
 ```
 

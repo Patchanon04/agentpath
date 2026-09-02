@@ -1017,8 +1017,9 @@ themselves and call `read_text` directly. Written the obvious way, they would
 inherit nothing from that refusal, and you would have this.
 
 ```text
-read_file(".env")   -> Error: this tool refuses to read .env because credential
-                       files must not enter the conversation
+read_file(".env")   -> Error: this tool refuses to touch .env because credential
+                       files must not enter the conversation or be changed by
+                       an agent
 grep_files("KEY")   -> .env:1: OPENAI_API_KEY=sk-secret-value
 ```
 
@@ -1077,8 +1078,9 @@ Try it against the real file in `lessons/09-search-tools/tools.py`. Put an
 `.env` in a scratch workspace and both doors are shut.
 
 ```text
-read_file(".env")   -> Error: this tool refuses to read .env because credential
-                       files must not enter the conversation
+read_file(".env")   -> Error: this tool refuses to touch .env because credential
+                       files must not enter the conversation or be changed by
+                       an agent
 grep_files("KEY")   -> no matches for KEY
 glob_files("**/*")  -> the other files, and no .env in the list
 ```

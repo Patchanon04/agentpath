@@ -28,7 +28,7 @@ def test_absolute_path_outside_is_refused(tmp_path):
     "name", [".env", ".env.local", "id_rsa", "server.pem", "secret.key", ".npmrc"]
 )
 def test_secret_files_are_refused(tmp_path, name):
-    with pytest.raises(WorkspaceError, match="refuses to read"):
+    with pytest.raises(WorkspaceError, match="refuses to touch"):
         resolve_inside(tmp_path, name)
 
 

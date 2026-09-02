@@ -203,8 +203,8 @@ tool คือสิ่งที่ model ขอ ไม่ใช่สิ่ง�
 ```python
     if looks_like_a_secret(candidate.name):
         raise WorkspaceError(
-            f"this tool refuses to read {candidate.name} because credential files "
-            "must not enter the conversation"
+            f"this tool refuses to touch {candidate.name} because credential files "
+            "must not enter the conversation or be changed by an agent"
         )
 ```
 

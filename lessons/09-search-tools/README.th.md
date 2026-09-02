@@ -944,8 +944,9 @@ agentpath/tools/workspace.py:27: def resolve_inside(root, path) -> Path:
 ตรงมา มันจะไม่สืบทอดอะไรจากการปฏิเสธนั้นเลย และคุณจะได้แบบนี้
 
 ```text
-read_file(".env")   -> Error: this tool refuses to read .env because credential
-                       files must not enter the conversation
+read_file(".env")   -> Error: this tool refuses to touch .env because credential
+                       files must not enter the conversation or be changed by
+                       an agent
 grep_files("KEY")   -> .env:1: OPENAI_API_KEY=sk-secret-value
 ```
 
@@ -999,8 +1000,9 @@ root ของไดรฟ์ได้ `looks_like_a_secret("notes.txt")` คื
 workspace ชั่วคราวแล้วประตูทั้งสองบานก็ปิดสนิท
 
 ```text
-read_file(".env")   -> Error: this tool refuses to read .env because credential
-                       files must not enter the conversation
+read_file(".env")   -> Error: this tool refuses to touch .env because credential
+                       files must not enter the conversation or be changed by
+                       an agent
 grep_files("KEY")   -> no matches for KEY
 glob_files("**/*")  -> the other files, and no .env in the list
 ```

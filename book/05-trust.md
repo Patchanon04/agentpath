@@ -94,10 +94,11 @@ def resolve_inside(root, path) -> Path:
 
     Two separate refusals happen here. The first stops the agent reaching
     outside its workspace at all, which covers both parent directory escapes
-    and absolute paths. The second stops it reading credential files that
-    happen to live inside the workspace, because anything a tool reads is
-    sent to the model provider on every later request and stays in the
-    conversation from then on.
+    and absolute paths. The second stops it opening credential files that
+    happen to live inside the workspace, to read or to write. Anything a
+    tool reads is sent to the model provider on every later request and
+    stays in the conversation from then on, and a credential a tool writes
+    over is simply gone.
     """
     root = Path(root).resolve()
     candidate = (root / Path(path)).resolve()
@@ -105,8 +106,8 @@ def resolve_inside(root, path) -> Path:
         raise WorkspaceError(f"{path} is outside the workspace")
     if looks_like_a_secret(candidate.name):
         raise WorkspaceError(
-            f"this tool refuses to read {candidate.name} because credential files "
-            "must not enter the conversation"
+            f"this tool refuses to touch {candidate.name} because credential files "
+            "must not enter the conversation or be changed by an agent"
         )
     return candidate
 ```

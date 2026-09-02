@@ -6,6 +6,8 @@ what may be touched live in one place instead of being repeated in four
 functions. The second is that everything a tool returns is sent to the model
 provider on this request and on every later request in the conversation,
 which is why we truncate output and why we refuse to read credential files.
+The same gate refuses to write over them, because a key the agent replaces
+is gone and nothing in the conversation brings it back.
 """
 import os
 from pathlib import Path
@@ -35,17 +37,18 @@ def resolve_inside(path):
     Two separate refusals happen here. The first stops the agent from
     reaching outside its workspace at all, which covers both parent
     directory escapes such as ../../etc/passwd and absolute paths. The
-    second stops it from reading credential files that happen to live inside
-    the workspace, because once a key is in the conversation it is sent to
-    the model provider on every later call and you cannot take it back.
+    second stops it from opening credential files that happen to live inside
+    the workspace, to read or to write. Once a key is in the conversation it
+    is sent to the model provider on every later call and you cannot take it
+    back, and a key the agent writes over is gone.
     """
     candidate = (WORKSPACE / Path(path)).resolve()
     if candidate != WORKSPACE and not candidate.is_relative_to(WORKSPACE):
         raise WorkspaceError(f"{path} is outside the workspace")
     if looks_like_a_secret(candidate.name):
         raise WorkspaceError(
-            f"this tool refuses to read {candidate.name} because credential files "
-            "must not enter the conversation"
+            f"this tool refuses to touch {candidate.name} because credential files "
+            "must not enter the conversation or be changed by an agent"
         )
     return candidate
 
