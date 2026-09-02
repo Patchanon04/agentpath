@@ -1,6 +1,6 @@
 # บทที่ 3 tool คือสัญญา ไม่ใช่ฟังก์ชัน
 
-คนส่วนใหญ่เข้าใจว่า tool (เครื่องมือ คือความสามารถหนึ่งอย่างที่ agent เรียกใช้ได้)
+คนส่วนใหญ่เข้าใจว่า tool (เครื่องมือ คือฟังก์ชันที่ model ขอให้เรารันได้)
 คือฟังก์ชันที่ AI เรียกได้ ประโยคนี้ผิดในจุดที่สำคัญที่สุด
 
 model ไม่เคยเรียกอะไรเลย มันขอ แล้วเราเป็นคนรัน
@@ -163,7 +163,94 @@ agent แย่ลงได้ ไม่ใช่แค่แพงขึ้น
 ต้องน้อยพอที่จะมีอะไรให้เลือก และสอง tool ที่ทำงานทับกันเกือบหมด
 ควรรวมเป็นตัวเดียวครับ
 
-## 4. error ของ tool ต้องเป็นข้อความ ไม่ใช่ exception
+## 4. system prompt กับ description แบ่งงานกันยังไง
+
+หัวข้อที่แล้วบอกว่า description คือ prompt engineering คำถามที่ตามมาทันที
+คือแล้วอะไรควรไปอยู่ที่ไหน เพราะสามที่นี้ถูกส่งไปพร้อมกันทุกคำขอ และมัน
+ทำงานคนละอย่าง
+
+โปรเจกต์นี้ตอบคำถามนั้นไว้ในไฟล์เดียว คือ `src/agentpath/prompt.py`
+ซึ่งยาวสามสิบห้าบรรทัด และแบ่ง system prompt ออกเป็นสองงานตั้งแต่ย่อหน้าแรก
+
+```python
+"""The system prompt.
+
+A system prompt does two different jobs and it helps to keep them apart in
+your head. The first job is telling the model who it is and how to behave.
+The second is telling it facts about the world it cannot see, such as which
+directory it is working in and what operating system it is on. Without the
+second job the model guesses, and it guesses wrong in ways that waste turns.
+"""
+```
+
+**งานที่หนึ่งคือพฤติกรรม** และมันเป็นค่าคงที่ ข้อความเดียวกันทุกครั้ง
+ทุกผู้ใช้ ทุกงาน
+
+```python
+BEHAVIOUR = """You are a careful software assistant working inside one directory.
+
+Work in small steps. Look before you change anything. When you need to know
+what a file contains, read it rather than guessing. When you change a file,
+change the smallest amount of text that does the job.
+
+Prefer edit_file over write_file for existing files, because write_file
+replaces the whole file and loses anything you did not include.
+
+When you are done, say what you changed in one or two sentences."""
+```
+
+**งานที่สองคือข้อเท็จจริงที่ model มองไม่เห็น** และมันถูกประกอบตอนรัน
+
+```python
+def build_system_prompt(root, extra: str = "") -> str:
+    """Assemble the system prompt for a run inside root."""
+    facts = [
+        f"Workspace directory {Path(root).resolve()}",
+        f"Platform {platform.system()}",
+        f"Python {sys.version_info.major}.{sys.version_info.minor}",
+    ]
+    prompt = BEHAVIOUR + "\n\nFacts about this environment\n" + "\n".join(facts)
+    if extra:
+        prompt += "\n\n" + extra
+    return prompt
+```
+
+สามบรรทัดนั้นดูน้อยจนน่าขำ แต่ลองเอาออกดู model ที่ไม่รู้ว่ากำลังยืนอยู่
+โฟลเดอร์ไหนจะเดาพาธ model ที่ไม่รู้ว่าอยู่บน Windows จะเขียนคำสั่งฝั่ง Unix
+แล้วรอบนั้นก็เสียไปทั้งรอบ ข้อเท็จจริงที่ราคาสามสิบ token ตัดการเดาที่ราคา
+หนึ่งรอบเต็มออกไป
+
+**เส้นแบ่งที่ใช้ตัดสินว่าอะไรอยู่ที่ไหน** มีสามข้อ และแต่ละข้อมาจากคำถามเดียว
+คือสิ่งนี้เปลี่ยนตามอะไร
+
+| ที่อยู่ | ใส่อะไร | เพราะมันเปลี่ยนตาม |
+| --- | --- | --- |
+| `BEHAVIOUR` ใน system prompt | นิสัย มาตรฐานงาน สิ่งที่ห้ามทำ | ไม่เปลี่ยนเลย |
+| ส่วน facts ของ system prompt | โฟลเดอร์ ระบบปฏิบัติการ รุ่นภาษา เวลา | เปลี่ยนตามการรัน |
+| `description` ของ tool | tool ตัวนี้ทำอะไร เมื่อไหร่ควรใช้ตัวอื่น เงื่อนไขที่ทำให้พัง | เปลี่ยนตาม tool |
+| user message | งานที่ต้องทำครั้งนี้ | เปลี่ยนทุกข้อความ |
+
+**กฎที่ตามมาข้อแรก อย่าเขียนวิธีใช้ tool ไว้ใน system prompt** ประโยคว่า
+"เวลาจะแก้ไฟล์ให้ใช้ edit_file ไม่ใช่ write_file" อยู่ผิดที่ ถ้ามันอยู่ใน
+`description` ของ `write_file` มันจะเดินทางไปพร้อมกับ tool ตัวนั้นเสมอ
+รวมถึงตอนที่ tool ถูกยืมไปใช้ที่อื่น และตอนที่คุณลืมว่าเคยเขียนกฎนั้นไว้
+system prompt ที่สะสมวิธีใช้ tool ทีละข้อ คือ system prompt ที่จะขัดกับ
+`description` ในวันที่มีคนแก้ที่เดียว
+
+**กฎข้อที่สอง อย่าเอางานของครั้งนี้ไปไว้ใน system prompt** มันน่าดึงดูดมาก
+เพราะรู้สึกว่าคำสั่งใน system prompt มีน้ำหนักกว่า แต่จากบทที่ 4 ของนิ่งต้อง
+อยู่หน้าเพื่อให้ cache ทำงาน system prompt ที่เปลี่ยนทุกคำขอคือ cache ที่
+ไม่เคยทำงาน และอาการของมันคือไม่มี error อะไรเลย มีแต่บิลที่แพงกว่าที่ควร
+
+**กฎข้อที่สาม ส่วนที่เปลี่ยนได้มีช่องของมันอยู่แล้ว** คือ argument ชื่อ
+`extra` ซึ่งต่อท้ายเสมอ ไม่ใช่แทรกกลาง subagent ในบทที่ 15 ใช้ช่องนี้เพื่อ
+บอกลูกว่างานของมันคืออะไร โดยที่ `BEHAVIOUR` ยังเป็น prefix ชุดเดิมทุกตัวอักษร
+
+ทดสอบข้อเดียวที่ใช้ได้จริงคือ ถ้าคุณลบ tool ตัวหนึ่งทิ้ง มีประโยคไหนใน
+system prompt ที่กลายเป็นเรื่องโกหกไหม ถ้ามี ประโยคนั้นควรอยู่ใน
+`description` ของ tool ตัวนั้นตั้งแต่แรกครับ
+
+## 5. error ของ tool ต้องเป็นข้อความ ไม่ใช่ exception
 
 นี่คือหัวข้อที่แยกโค้ดสาธิตออกจาก harness ที่ใช้งานได้จริง
 
@@ -270,7 +357,7 @@ argument ทุกตัวที่ tool ได้รับ มาจาก mod
 หน้าที่ของมันคือทำให้ model อยู่ในตำแหน่งที่ทำถูกได้ในความพยายามครั้งถัดไป
 error ที่รายงานความล้มเหลวอย่างเดียวทำงานไปได้แค่ครึ่งเดียว
 
-## 5. ค่าเริ่มต้นของ safe คือ False และนั่นคือการตัดสินใจเชิงออกแบบ
+## 6. ค่าเริ่มต้นของ safe คือ False และนั่นคือการตัดสินใจเชิงออกแบบ
 
 `Tool` มีฟิลด์ `safe` ที่บอกว่ารันได้เลยโดยไม่ต้องถามคนหรือไม่ ค่าเริ่มต้นคือ
 `False`
@@ -284,7 +371,7 @@ error ที่รายงานความล้มเหลวอย่า�
 รู้ว่ามันทำลายอะไรได้บ้าง การเก็บรายชื่อ tool อันตรายไว้ในไฟล์อื่นแปลว่ามีสอง
 ที่ที่ต้องแก้ตอนเพิ่ม tool และที่ที่คนลืมแก้คือที่ที่สองครับ
 
-## 6. สรุปสัญญาที่ tool ต้องรักษา
+## 7. สรุปสัญญาที่ tool ต้องรักษา
 
 - รับ argument ของตัวเองอย่างเดียว ไม่ต้องรู้ว่ามีบทสนทนาอยู่
 - คืน string เสมอ ไม่โยน exception ออกไปหา loop

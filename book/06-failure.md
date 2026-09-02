@@ -10,6 +10,7 @@ agent เรียกใช้บริการที่อยู่อีก�
 ลองใหม่แล้วแค่ช้าลง ที่เคารพสิ่งที่ server บอกก่อนสูตรของตัวเองเสมอ และคุณจะมี
 token ตัวเดียวที่ทำให้การกดหยุดหนึ่งครั้ง หยุดทั้ง stream ทั้ง subprocess
 และทั้ง loop พร้อมกัน พร้อมกับเส้นสองเส้นที่บอกว่าตรงไหน retry ไม่ได้เลย
+และไฟล์ session แบบ JSONL ที่รอดจากการถูกฆ่ากลางทาง
 
 หัวข้อที่ 6 เป็นหัวข้อที่หนักที่สุด เพราะมันขอให้คุณถือสามเรื่องไว้ในหัว
 พร้อมกัน คือ retry ที่อยากลองใหม่ timeout ที่อยากเลิกรอ และการกดหยุดที่มา
@@ -263,7 +264,84 @@ than only the display.
 มาพร้อมกับรายการสั้นๆ ของสิ่งที่ต้องปล่อยผ่าน สัญญาณหยุดที่มาจากคน
 เป็นข้อแรกในรายการนั้นเสมอครับ
 
-## 8. สรุป
+## 8. บทสนทนาที่รอดจาก crash คือบทสนทนาที่ถูกเขียนไว้แล้ว
+
+หัวข้อที่ผ่านมาทั้งหมดว่าด้วยการล้มเหลวที่โปรแกรมยังอยู่ หัวข้อนี้ว่าด้วย
+กรณีที่โปรแกรมไม่อยู่แล้ว ไฟดับ เครื่องรีสตาร์ท หรือ orchestrator ฆ่า
+process ทิ้ง ในกรณีนั้น `finally` ไม่ทำงาน `except` ไม่ทำงาน และสิ่งเดียว
+ที่เหลืออยู่คือสิ่งที่อยู่บนดิสก์ไปแล้ว
+
+`src/agentpath/session.py` ยาวแปดสิบเอ็ดบรรทัด และเลือกไว้สามอย่าง
+
+```python
+"""Saving a conversation so you can come back to it.
+
+The format is one JSON object per line, which is called JSONL. Two things
+make it the right choice here. Each message is written the moment it
+happens rather than at the end, so a crash loses nothing that already
+finished. And you can open the file and read it, which matters more than it
+sounds, because the session file is the first place to look when you want
+to know why the agent did something.
+
+This version supports one writer. Two processes appending to the same
+session will interleave their lines and corrupt it. Real harnesses take a
+lock before writing and release it after. That is left out here because the
+locking is not the lesson, but the limit is real and you should know it.
+"""
+```
+
+**ทำไม JSONL ไม่ใช่ JSON ก้อนเดียว** เพราะ JSON ก้อนเดียวต้องปิดวงเล็บถึงจะ
+อ่านได้ ไฟล์ที่เขียนค้างไว้ครึ่งทางจึงเป็นไฟล์เสียทั้งไฟล์ ส่วน JSONL คือ
+หนึ่งบรรทัดหนึ่งข้อความ บรรทัดสุดท้ายที่เขียนไม่จบเป็นบรรทัดเดียวที่เสีย
+และทุกบรรทัดก่อนหน้ายังอ่านได้ตามปกติ นี่คือความต่างระหว่างการเสียบทสนทนา
+ทั้งบท กับการเสียข้อความสุดท้ายหนึ่งข้อความ
+
+**ทำไมเขียนทีละบรรทัดตอนเกิด ไม่ใช่เขียนตอนจบ** ด้วยเหตุผลเดียวกับที่บทนี้
+ทั้งบทตั้งอยู่บน คือของที่ทำเสร็จไปแล้วต้องไม่หายไปกับสิ่งที่ยังไม่เสร็จ
+
+```python
+    def append(self, message: Message) -> None:
+        """Write one message immediately.
+
+        Appending as we go rather than saving at the end is what makes a
+        crash survivable. Everything that already happened is on disk.
+        """
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(to_json(message) + "\n")
+```
+
+ราคาของทางเลือกนี้คือการเปิดปิดไฟล์ทุกข้อความ ซึ่งช้ากว่าการเขียนทีเดียว
+อย่างเห็นได้ชัดในทางทฤษฎี และวัดไม่ออกในทางปฏิบัติ เพราะจังหวะของ agent
+ถูกกำหนดโดยการรอ model ไม่ใช่โดยดิสก์
+
+**และ safe_name มีไว้เพราะชื่อ session มาจากผู้ใช้** ชื่อไฟล์ที่รับมาจาก
+argument ของบรรทัดคำสั่ง คือข้อมูลที่ไม่น่าเชื่อถือชนิดเดียวกับที่บทที่ 5
+พูดถึง ชื่อว่า `../../notes` จะเขียนไฟล์นอกโฟลเดอร์ sessions ได้ทันที
+
+```python
+def safe_name(name):
+    """Turn a session name into something that cannot leave the folder.
+
+    The name reaches us from a command line argument, so a name of
+    ../../notes would have written outside the sessions directory. Keeping
+    only the last part and refusing the two dot names is enough, and it
+    keeps the file name readable, which matters because reading these
+    files by eye is what they are for.
+    """
+```
+
+**สังเกตว่ามันไม่ได้ใช้ `resolve_inside`** เพราะสิ่งที่เข้ามาไม่ใช่พาธ
+มันคือชื่อ วิธีที่ถูกจึงไม่ใช่การตรวจว่าพาธที่ประกอบแล้วอยู่ในโฟลเดอร์ไหม
+แต่คือการทิ้งทุกอย่างที่ไม่ใช่ชื่อ เก็บเฉพาะส่วนหลังตัวคั่นตัวสุดท้าย
+แล้วแทนอักขระที่ไม่ใช่ตัวอักษรตัวเลขด้วยขีด สิ่งที่เหลือจึงเป็นชื่อไฟล์
+โดยโครงสร้าง ไม่ใช่โดยการผ่านการตรวจ
+
+**ข้อจำกัดที่เขียนไว้แทนที่จะซ่อน** คือหนึ่งไฟล์รับผู้เขียนได้คนเดียว
+สอง process ที่ append ไฟล์เดียวกันจะได้บรรทัดที่สลับกัน harness จริง
+ใช้ lock ตรงนี้ โปรเจกต์นี้ไม่ทำเพราะ lock ไม่ใช่บทเรียน แต่การรู้ว่า
+ขอบอยู่ตรงไหน คือสิ่งที่ทำให้คุณไม่เอาโค้ดนี้ไปวางในที่ที่มันพังครับ
+
+## 9. สรุป
 
 - แบ่งความล้มเหลวเป็นพวกที่คำขอผิด กับพวกที่รับไม่ไหว retry เฉพาะพวกหลัง
 
@@ -278,6 +356,9 @@ than only the display.
 
 - การหยุดต้องหยุดของจริงทุกชั้นด้วย token ตัวเดียวที่ทุกคนถือร่วมกัน
 
+- สิ่งที่รอด crash คือสิ่งที่อยู่บนดิสก์แล้ว JSONL ที่เขียนทีละบรรทัดตอนเกิด
+  จึงเสียได้อย่างมากหนึ่งบรรทัด ไม่ใช่ทั้งไฟล์
+
 ## บทเรียนที่ลงมือทำเรื่องนี้
 
 | บทเรียน | สิ่งที่ได้ลงมือทำ |
@@ -285,4 +366,5 @@ than only the display.
 | 08 shell tool | ใส่ timeout ให้ subprocess และเห็นว่าทำไมการฆ่าแค่ shell ไม่พอ |
 | 17 errors and retries | เขียน `with_retries` เอง แยกสถานะที่ retry ได้ เคารพ Retry-After ใส่ jitter และสร้าง token ที่หยุดของจริงทุกชั้น ผ่าน mock server ที่จำลอง rate limit และ 500 ได้ |
 | 18 the harness | ต่อ cancellation เข้ากับ CLI จริง แล้วกดหยุดดูว่าอะไรหยุดจริงบ้าง |
+| 13 sessions | เขียน session เป็น JSONL ทีละบรรทัด แล้วฆ่า process กลางทางเพื่อดูว่าอะไรรอด |
 | 21 multi-agent | เห็นว่า agent หลายตัวที่รันพร้อมกันทำให้การหยุดยากขึ้นอย่างไร |
