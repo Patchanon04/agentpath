@@ -14,7 +14,7 @@ import json
 
 import tools
 from context import fit_to_budget
-from permissions import Permissions, signature
+from permissions import Permissions, loose_signature
 
 REPEAT_LIMIT = 3
 
@@ -96,7 +96,7 @@ def run(
             if stop_requested():
                 raise KeyboardInterrupt("cancelled")
 
-            current = signature(call["name"], call["arguments"])
+            current = loose_signature(call["name"], call["arguments"])
             recent.append(current)
             going_in_circles = recent[-REPEAT_LIMIT:].count(current) >= REPEAT_LIMIT
 

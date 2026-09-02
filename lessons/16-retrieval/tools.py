@@ -403,6 +403,9 @@ FUNCTIONS["run_shell"] = run_shell
 
 # Lesson 09 adds the search tools. Everything above is unchanged from lesson 08.
 
+import json
+import subprocess
+import sys
 import fnmatch  # noqa: E402
 import re  # noqa: E402
 
@@ -425,6 +428,20 @@ def path_matches(relative, name, pattern):
     return pattern.startswith("**/") and fnmatch.fnmatch(relative, pattern[3:])
 
 
+# Two quantifiers stacked on one group, as in (a+)+ or (a*)*, is the shape
+# that makes a regular expression take exponential time. A model writing one
+# by accident would otherwise wedge the whole process, and no cancellation
+# token can help because the matching never returns to check one.
+NESTED_QUANTIFIER = re.compile(r"\([^()]*[+*][^()]*\)\s*[+*{]")
+
+# A line longer than this is truncated before matching. Catastrophic
+# backtracking grows with the length of the input, so bounding the input is
+# the one guard that works whatever the pattern turns out to be.
+MAX_LINE = 2000
+
+SEARCH_SECONDS = 5
+
+
 def _walk():
     """Yield every file in the workspace that a search is allowed to look at.
 
@@ -440,7 +457,15 @@ def _walk():
         relative = path.relative_to(WORKSPACE)
         if any(part in SKIP_DIRECTORIES for part in relative.parts):
             continue
-        if looks_like_a_secret(path.name):
+        try:
+            # The same gate every file tool uses, rather than a check on the
+            # name. rglob follows symlinks and Windows junctions, so a link
+            # planted inside the workspace would otherwise let search read
+            # anything on the machine while read_file correctly refused.
+            # Looking at the name of the link never sees the name of what it
+            # points at.
+            resolve_inside(str(relative))
+        except WorkspaceError:
             continue
         yield path
 
@@ -458,25 +483,44 @@ def glob_files(pattern):
 
 def grep_files(pattern, glob="*"):
     try:
-        expression = re.compile(pattern)
+        re.compile(pattern)
     except re.error as error:
         return f"Error: {pattern} is not a valid regular expression ({error})"
-    hits = []
-    for path in _walk():
-        relative = path.relative_to(WORKSPACE).as_posix()
-        if not path_matches(relative, path.name, glob):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue
-        for number, line in enumerate(text.splitlines(), start=1):
-            if expression.search(line):
-                hits.append(f"{relative}:{number}: {line.strip()[:200]}")
-                if len(hits) >= MAX_RESULTS:
-                    break
-        if len(hits) >= MAX_RESULTS:
-            break
+    if NESTED_QUANTIFIER.search(pattern):
+        return (
+            f"Error: {pattern} has one repeat wrapped in another, which can take "
+            "effectively forever to match. Write it without the nested repeat."
+        )
+
+    # The search runs in a separate process. Two earlier attempts at this did
+    # not work and both are worth knowing about. Checking a deadline between
+    # lines never gets a turn, because one line is enough to go exponential
+    # and nothing interrupts a regular expression that is already running.
+    # Moving it to a thread does not help either, because matching does not
+    # release the global interpreter lock, so the thread waiting on the
+    # deadline cannot run until the matching it waits on has finished.
+    #
+    # A separate process can simply be killed, which is the only thing that
+    # actually works. The cost is about a tenth of a second of start up.
+    request = json.dumps({"root": str(WORKSPACE), "pattern": pattern, "glob": glob})
+    try:
+        completed = subprocess.run(
+            [sys.executable, str(Path(__file__).with_name("grep_worker.py"))],
+            input=request,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=SEARCH_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return (
+            f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "
+            "seconds and was given up on. Try a simpler pattern, or narrow the "
+            "search with the glob argument."
+        )
+    if completed.returncode != 0:
+        return f"Error: the search failed. {completed.stderr.strip()[:200]}"
+    hits = json.loads(completed.stdout or "[]")
     if not hits:
         return f"no matches for {pattern}"
     return truncate("\n".join(hits))

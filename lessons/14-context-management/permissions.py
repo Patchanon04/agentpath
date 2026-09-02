@@ -36,6 +36,21 @@ def signature(name, arguments):
     return f"{name}({json.dumps(arguments, sort_keys=True)})"
 
 
+def loose_signature(name, arguments):
+    """The same idea as signature, but blind to whitespace and letter case.
+
+    This one is for spotting a model going in circles, not for deciding what
+    is allowed. A model that retries with a trailing space added, or with a
+    word capitalised, has not changed anything and should not get a fresh
+    fingerprint for it. Permission decisions keep using the exact signature,
+    because there the difference between two nearly identical commands can be
+    the whole point.
+    """
+    flattened = {
+        key: " ".join(str(value).split()).lower() for key, value in arguments.items()
+    }
+    return f"{name}({json.dumps(flattened, sort_keys=True)})"
+
 class Permissions:
     def __init__(self, ask=None, auto_approve=False):
         self.ask = ask
