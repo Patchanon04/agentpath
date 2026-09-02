@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.6
+
+The package has a front door. An import of agentpath gave you a version
+number and nothing else, so somebody who installed it and wanted an agent
+had to guess that Agent lives in agentpath.agent and that ToolRegistry is
+two levels down. What is exported is the list the project's own command
+line imports, on the argument that a name the CLI never needs has not yet
+earned a place at the front. The deeper paths still work and still say
+more about where a thing lives.
+
+A py.typed marker ships with the package. The type hints were always
+written and, without that file, PEP 561 says every type checker on every
+machine that installs this is required to ignore them.
+
+Both READMEs show how to drive the agent from Python rather than only from
+the command line, and a test runs that example in a fresh process against
+the mock server. It is extracted from the README rather than copied, so
+there is one version of it. Deleting the example fails the test rather
+than quietly retiring it.
+
 ## 1.0.5
 
 Published as agentpath-kit rather than agentpath. The index refused the bare

@@ -113,6 +113,38 @@ agentpath chat
 `resume` ทำงานต่อจาก session ที่คุณบันทึกไว้ก่อนหน้า และ `eval` รันไฟล์ของงานแล้วรายงานว่างานไหน
 ผ่านบ้าง คุณเชื่อมต่อ MCP server ได้ด้วย `--mcp` เพื่อให้ agent ใช้ tool ที่คุณไม่ได้เขียนเองได้
 
+### การใช้มันเป็น library
+
+บรรทัดคำสั่งเป็นแค่ผู้เรียกหนึ่งรายในหลายราย `run` เป็น generator ที่ yield event ออกมาตามที่มัน
+เกิดขึ้น loop ข้างล่างจึงคือการเชื่อมต่อทั้งหมด
+
+```python
+import os
+
+from agentpath import Agent, OpenAICompatProvider, TextDelta, TurnDone, file_tools
+from agentpath.tools.base import ToolRegistry
+
+agent = Agent(
+    provider=OpenAICompatProvider(),
+    tools=ToolRegistry(file_tools(os.getcwd())),
+)
+
+for event in agent.run("Summarise what this project does, in two sentences."):
+    if isinstance(event, TextDelta):
+        print(event.text, end="", flush=True)
+    elif isinstance(event, TurnDone):
+        print()
+```
+
+`agent.run` yield event สี่ชนิด `TextDelta` คือชิ้นส่วนของคำตอบตอนที่มันทยอยมาถึง
+`ToolCallRequest` บอกว่ากำลังจะรัน tool `ToolResult` คือสิ่งที่ tool คืนกลับมา และ `TurnDone`
+แปลว่าจบรอบแล้ว การเพิกเฉยต่อ event ที่คุณไม่สนใจเป็นเรื่องปกติ ซึ่งเป็นเหตุผลที่ loop ข้างบน
+เรียกชื่อแค่สองตัว
+
+ทุกอย่างข้างบน import จาก module ที่มันอยู่จริงได้ด้วย และพาธที่ลึกกว่าคืออันที่อ่านแล้วได้ประโยชน์
+มากกว่า `from agentpath.tools.base import ToolRegistry` บอกคุณว่าของอยู่ที่ไหน และบทเรียน
+สร้างโครงสร้างนั้นตามลำดับนี้ด้วยเหตุผล
+
 ## โครงสร้างของ repository นี้
 
 `lessons/` เก็บโฟลเดอร์หนึ่งโฟลเดอร์ต่อหนึ่งบท แต่ละโฟลเดอร์อยู่ได้ด้วยตัวเอง คุณจึงเปิดบทไหน

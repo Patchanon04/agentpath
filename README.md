@@ -120,6 +120,40 @@ saved earlier, and `eval` runs a file of tasks and reports which ones passed.
 An MCP server can be connected with `--mcp`, so the agent can use tools you
 did not write.
 
+### Using it as a library
+
+The command line is one caller among several. `run` is a generator that
+yields events as they happen, so the loop below is the whole integration.
+
+```python
+import os
+
+from agentpath import Agent, OpenAICompatProvider, TextDelta, TurnDone, file_tools
+from agentpath.tools.base import ToolRegistry
+
+agent = Agent(
+    provider=OpenAICompatProvider(),
+    tools=ToolRegistry(file_tools(os.getcwd())),
+)
+
+for event in agent.run("Summarise what this project does, in two sentences."):
+    if isinstance(event, TextDelta):
+        print(event.text, end="", flush=True)
+    elif isinstance(event, TurnDone):
+        print()
+```
+
+`agent.run` yields four kinds of event. `TextDelta` is a piece of the reply
+as it arrives, `ToolCallRequest` says a tool is about to run, `ToolResult`
+carries what it returned, and `TurnDone` means the turn is over. Ignoring
+an event you do not care about is the normal thing to do, which is why the
+loop above only names two of them.
+
+Everything above is also importable from the module it lives in, and the
+deeper path is the better one to read. `from agentpath.tools.base import
+ToolRegistry` tells you where a thing is, and the chapters build the layout
+in that order for a reason.
+
 ## The book
 
 The chapters teach you to build it. There is also a book that explains why it
