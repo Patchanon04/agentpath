@@ -19,7 +19,14 @@ pip install numpy
 row of numbers into probabilities. `loss` says how wrong the grid is as one
 number. `gradient` says which way to nudge every number in the grid.
 `train` starts random and steps downhill three hundred times. `predict`
-reads the trained grid back out.
+reads the trained grid back out. `perplexity` is the loss again, as a
+number a person can read.
+
+```python
+def perplexity(weights, xs, ys):
+    """The loss as a number a person can read. How many words is the model choosing between."""
+    return float(np.exp(loss(weights, xs, ys)))
+```
 
 ```python
 def train(text, steps=300, learning_rate=10.0, seed=0):
@@ -45,6 +52,7 @@ python learn.py
 
 ```text
 loss at the start 3.526, after training 0.787
+perplexity 34.0 at the start, which is the 34 words in the vocabulary, and 2.2 after training
 
 after 'the', most likely first
   agent          0.363
@@ -66,9 +74,18 @@ OK the grid learned what the count table knew, without a count table
 OK a word never seen in that position still gets a small chance rather than none
 OK the gradient points uphill, so stepping against it goes down
 OK one hot times the grid is a row lookup, and the row is the embedding
+OK perplexity starts at the size of the vocabulary and ends near two, and it is the loss
 ```
 
 ## What to notice
+
+The loss of 3.526 at the start is not a random number. It is the log of
+thirty four, and thirty four is the size of the vocabulary. Raise e to
+the loss and you get perplexity, which reads as how many words the model
+is effectively choosing between. A random grid chooses between all of
+them. After training it chooses between about two. That is the number
+papers and model cards report, and it is the same loss with the log
+taken off so that a person can read it.
 
 The previous chapter counted and found that `agent` follows `the` thirty six
 percent of the time. This chapter never counts. It starts from random

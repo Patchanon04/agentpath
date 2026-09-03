@@ -3,7 +3,18 @@ import sys
 from collections import Counter
 
 import numpy as np
-from learn import CORPUS, gradient, loss, one_hot, pairs, predict, softmax, train
+from learn import (
+    CORPUS,
+    gradient,
+    loss,
+    one_hot,
+    pairs,
+    perplexity,
+    predict,
+    softmax,
+    train,
+    vocabulary,
+)
 
 
 def fail(message):
@@ -61,3 +72,11 @@ the = index["the"]
 if not np.allclose(one_hot(the, len(index)) @ weights, weights[the]):
     fail("a one hot row times the grid should be the same as looking the row up")
 print("OK one hot times the grid is a row lookup, and the row is the embedding")
+
+words, _ = vocabulary(CORPUS)
+at_start, at_end = np.exp(history[0]), perplexity(weights, xs, ys)
+if abs(at_start - len(words)) > 0.5:
+    fail(f"a random grid should be choosing between all {len(words)} words, got {at_start:.2f}")
+if not at_end < 3:
+    fail(f"after training the grid should be choosing between few words, got {at_end:.2f}")
+print("OK perplexity starts at the size of the vocabulary and ends near two, and it is the loss")

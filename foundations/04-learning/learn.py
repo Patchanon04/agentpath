@@ -70,6 +70,18 @@ def loss(weights, xs, ys):
     return -np.log(probabilities[np.arange(len(ys)), ys]).mean()
 
 
+def perplexity(weights, xs, ys):
+    """The loss as a number a person can read. How many words is the model choosing between.
+
+    e to the power of the loss. A model that gives every one of the
+    thirty four words an equal chance has a perplexity of thirty four,
+    because that is how many it is effectively choosing between. A model
+    that always knows the answer has a perplexity of one. This is the
+    number model cards and papers report, and it is the same loss.
+    """
+    return float(np.exp(loss(weights, xs, ys)))
+
+
 def gradient(weights, xs, ys):
     """Which direction to nudge every number in the grid, and how hard.
 
@@ -111,6 +123,12 @@ def predict(weights, index, word):
 if __name__ == "__main__":
     weights, index, history = train(CORPUS)
     print(f"loss at the start {history[0]:.3f}, after training {history[-1]:.3f}")
+    xs, ys = pairs(CORPUS, index)
+    words, _ = vocabulary(CORPUS)
+    print(
+        f"perplexity {np.exp(history[0]):.1f} at the start, which is the {len(words)} words "
+        f"in the vocabulary, and {perplexity(weights, xs, ys):.1f} after training"
+    )
     print()
     beliefs = predict(weights, index, "the")
     print("after 'the', most likely first")

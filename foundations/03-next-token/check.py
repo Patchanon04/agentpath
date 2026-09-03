@@ -2,7 +2,18 @@
 import random
 import sys
 
-from ngram import CORPUS, generate, next_word, next_word_top_k, probabilities, train
+from ngram import (
+    CORPUS,
+    beam_search,
+    generate,
+    log_probability,
+    next_word,
+    next_word_top_k,
+    next_word_top_p,
+    nucleus,
+    probabilities,
+    train,
+)
 
 
 def fail(message):
@@ -50,3 +61,23 @@ drawn = {next_word_top_k(bigram, ["the"], k=2, rng=random.Random(seed)) for seed
 if not drawn <= allowed or not top_two <= drawn:
     fail(f"top k of two should only ever draw from {allowed}, drew {drawn}")
 print("OK top k cuts the tail off, so a word outside the k most likely can never be drawn")
+
+flat = len(nucleus(bigram[("the",)], p=0.8))
+sure = len(nucleus(trigram[("the", "agent")], p=0.8))
+if not sure < flat:
+    fail(f"top p should keep fewer words where the model is surer, kept {sure} and {flat}")
+if next_word_top_p(bigram, ["the"], p=0.01) != max(after_the, key=after_the.get):
+    fail("a tiny p should keep only the single most likely word")
+drawn = {next_word_top_p(bigram, ["the"], p=0.8, rng=random.Random(seed)) for seed in range(200)}
+if not drawn <= {word for word, _ in nucleus(after_the, p=0.8)}:
+    fail(f"top p drew a word outside the nucleus {drawn}")
+print("OK top p keeps fewer words where the model is sure and more where it is not")
+
+greedy = generate(bigram, ["the"], n=2, temperature=0).split()
+beam = beam_search(bigram, ["the"], n=2, beams=3).split()
+if not log_probability(bigram, beam) >= log_probability(bigram, greedy):
+    fail("beam search should find a sequence at least as probable as greedy")
+phrases = [tuple(beam[i : i + 5]) for i in range(len(beam) - 4)]
+if len(set(phrases)) == len(phrases):
+    fail(f"the most probable sequence should repeat a whole phrase, got {beam}")
+print("OK beam search finds a more probable sentence than greedy, and it repeats a whole phrase")

@@ -15,7 +15,13 @@ pip install numpy
 `learn.py` มีการฝึกทั้งหมดในห้าฟังก์ชัน `softmax` แปลงแถวตัวเลขเป็นความน่าจะเป็น
 `loss` บอกว่าตารางผิดแค่ไหนเป็นตัวเลขเดียว `gradient` บอกว่าต้องขยับตัวเลขแต่ละตัว
 ไปทางไหน `train` เริ่มจากค่าสุ่มแล้วก้าวลงเขาสามร้อยครั้ง และ `predict` อ่านตารางที่
-ฝึกแล้วออกมา
+ฝึกแล้วออกมา `perplexity` คือ loss อีกครั้ง ในรูปตัวเลขที่คนอ่านออก
+
+```python
+def perplexity(weights, xs, ys):
+    """The loss as a number a person can read. How many words is the model choosing between."""
+    return float(np.exp(loss(weights, xs, ys)))
+```
 
 ```python
 def train(text, steps=300, learning_rate=10.0, seed=0):
@@ -41,6 +47,7 @@ python learn.py
 
 ```text
 loss at the start 3.526, after training 0.787
+perplexity 34.0 at the start, which is the 34 words in the vocabulary, and 2.2 after training
 
 after 'the', most likely first
   agent          0.363
@@ -62,9 +69,15 @@ OK the grid learned what the count table knew, without a count table
 OK a word never seen in that position still gets a small chance rather than none
 OK the gradient points uphill, so stepping against it goes down
 OK one hot times the grid is a row lookup, and the row is the embedding
+OK perplexity starts at the size of the vocabulary and ends near two, and it is the loss
 ```
 
 ## สิ่งที่ควรสังเกต
+
+loss 3.526 ตอนเริ่มไม่ใช่เลขสุ่ม มันคือ log ของสามสิบสี่ และสามสิบสี่คือขนาดของ
+vocabulary ยก e ด้วย loss จะได้ perplexity ซึ่งอ่านได้ว่า model กำลังเลือกระหว่างกี่คำ
+ตารางสุ่มเลือกระหว่างทุกคำ หลังฝึกมันเลือกระหว่างราวสองคำ นั่นคือตัวเลขที่ paper กับ
+model card รายงาน และมันคือ loss ตัวเดิมที่ถอด log ออกเพื่อให้คนอ่านออก
 
 บทก่อนนับแล้วพบว่า `agent` ตามหลัง `the` สามสิบหกเปอร์เซ็นต์ของเวลา บทนี้ไม่เคยนับ
 มันเริ่มจากตัวเลขสุ่ม และหลังจากขยับสามร้อยครั้ง มันเชื่อว่าสามสิบหกเปอร์เซ็นต์ ไม่มี
