@@ -656,29 +656,30 @@ in your agent loop, the abstraction has a hole in it.
 You could solve the same problem three other ways. It is worth seeing why they
 are worse, because you will meet all three in real codebases.
 
-**A flag inside one function.** Add a `provider="openai"` argument to
-`complete_stream` and branch on it. This works for exactly two providers and
-one afternoon. Then the function has four branches in the payload builder,
-three in the URL, and two whole parse loops, all in one file, all sharing local
-variables. Adding a third provider means editing code that the other two
-depend on, so a mistake in the new one can break the old ones. That is the
-specific failure a shared function with flags always produces.
+The first shape is a flag inside one function. Add a `provider="openai"`
+argument to `complete_stream` and branch on it. This works for exactly two
+providers and one afternoon. Then the function has four branches in the payload
+builder, three in the URL, and two whole parse loops, all in one file, all
+sharing local variables. Adding a third provider means editing code that the
+other two depend on, so a mistake in the new one can break the old ones. That
+is the specific failure a shared function with flags always produces.
 
-**Translate everything into one format at the edges.** Keep a single HTTP
-client and write functions that convert requests and responses. This is closer
-to right, and in fact section 6 does exactly this conversion. The difference is
-where the converters live. Loose functions have to be selected by a caller,
-which puts a branch back into the caller. Attaching each converter to the class
-that needs it means selection happens once, when the object is constructed.
+The second shape translates everything into one format at the edges. Keep a
+single HTTP client and write functions that convert requests and responses.
+This is closer to right, and in fact section 6 does exactly this conversion.
+The difference is where the converters live. Loose functions have to be
+selected by a caller, which puts a branch back into the caller. Attaching each
+converter to the class that needs it means selection happens once, when the
+object is constructed.
 
-**Inherit from a base class with shared code.** Write a `BaseProvider` with the
-HTTP handling and let each provider override the parts that differ. This is
-tempting and it is how a lot of code ends up unreadable. The two `stream`
-methods here share almost nothing structurally. They differ in the payload,
-the URL, the headers, and the entire parse loop. What is left to share is the
-`with httpx.Client(...)` line. Hoisting one line into a parent class in
-exchange for making the reader jump between two files is a bad trade. Both
-classes in `providers.py` are written flat, top to bottom, and duplicate a
+The third shape inherits from a base class with shared code. Write a
+`BaseProvider` with the HTTP handling and let each provider override the parts
+that differ. This is tempting and it is how a lot of code ends up unreadable.
+The two `stream` methods here share almost nothing structurally. They differ in
+the payload, the URL, the headers, and the entire parse loop. What is left to
+share is the `with httpx.Client(...)` line. Hoisting one line into a parent
+class in exchange for making the reader jump between two files is a bad trade.
+Both classes in `providers.py` are written flat, top to bottom, and duplicate a
 little on purpose so that each one can be read on its own.
 
 That last decision is worth stating as a rule, because it goes against the
@@ -1213,9 +1214,9 @@ def run(provider, user_input, max_turns=10):
         )
 ```
 
-**Change one.** `from llm import complete_stream` is gone, and `provider` is
-now the first parameter of `run`. The loop no longer chooses who answers. It
-is told, by whoever called it.
+The first change is that `from llm import complete_stream` is gone, and
+`provider` is now the first parameter of `run`. The loop no longer chooses who
+answers. It is told, by whoever called it.
 
 That is the entire technique, and it has a name that sounds far grander than
 the idea. It is called dependency injection, and if you have avoided the term
@@ -1228,7 +1229,7 @@ That is it. `run(provider, ...)` is dependency injection. You have almost
 certainly written it a hundred times without calling it that. Every function
 that takes a file handle instead of opening a path is doing the same thing.
 
-**Change two.** `schemas = [t["function"] for t in tools.SCHEMAS]`. Lesson 05
+The second change is `schemas = [t["function"] for t in tools.SCHEMAS]`. Lesson 05
 passed `tools.SCHEMAS` straight through, envelope and all, because the only
 provider that existed wanted that envelope. Now the envelope is one dialect's
 opinion, so the loop unwraps it down to the neutral inner object with `name`,
@@ -1275,7 +1276,7 @@ to call has moved out of the loop and up to the caller, where it belongs.
 The payoff is not the ability to use Claude. That is a nice side effect. The
 payoff is that the loop now has a seam.
 
-**It can be tested without a network.** A test can hand `run` a small object
+It can be tested without a network. A test can hand `run` a small object
 with a `stream` method that returns canned answers from a list, and check that
 the loop appends messages correctly, that it stops when there are no calls,
 that it feeds a parse error back, and that `max_turns` raises. All in
@@ -1298,13 +1299,13 @@ Hand that to `run` and you can assert on the exact conversation the loop built.
 That object is a valid provider by the only standard that matters, which is
 that it honours the agreement.
 
-**It can be reused unchanged.** A future lesson that runs a cheap model to
+It can be reused unchanged. A future lesson that runs a cheap model to
 summarise a long conversation calls the same `run` with a different provider.
 A test that needs deterministic output calls it with a scripted one. A
 benchmark that runs the same prompt against four services calls it four times
 in a loop. None of those requires editing `agent.py`.
 
-**Providers can be developed independently.** A new provider is a new class in
+Providers can be developed independently. A new provider is a new class in
 `providers.py`. Nothing already working is touched, so nothing already working
 can break. Compare that to adding a fourth branch to a shared function.
 
@@ -1632,18 +1633,18 @@ provider interface stays. Only the tools get real.
 Three, in increasing order of difficulty. All of them are optional and all of
 them teach something the reading alone cannot.
 
-**One.** Write the `ScriptedProvider` from section 7 and use it to test `run`
+First, write the `ScriptedProvider` from section 7 and use it to test `run`
 with no network at all. Make it return a tool call on the first turn and text
 on the second, and assert on the exact list of messages the loop built. Then
 make it return a call whose arguments failed to parse, and check that the loop
 sends the error back rather than crashing.
 
-**Two.** Add a third provider class for a service you actually use, or invent
+Second, add a third provider class for a service you actually use, or invent
 a dialect and add a branch for it to the fake server. Time yourself. If it
 takes more than half an hour, the interface has a hole in it, and finding the
 hole is the real exercise.
 
-**Three.** Replace the internal conversation format. Right now `agent.py`
+Third, replace the internal conversation format. Right now `agent.py`
 keeps history in the OpenAI shape, which makes `OpenAICompatProvider` almost
 free and makes `_to_wire` do all the work, including that `json.dumps` and
 `json.loads` round trip on tool arguments. Define a neutral format of your own,

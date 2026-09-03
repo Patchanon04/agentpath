@@ -65,20 +65,20 @@ which approach it tried and abandoned. All of it is a list on the stack, and whe
 That produces three distinct problems, and it is worth separating them because
 they have different costs.
 
-**You pay for the same discovery twice.** Ask the agent to fix a second bug in
+You pay for the same discovery twice. Ask the agent to fix a second bug in
 the same project and it greps for the same things, reads the same files, and
 sends all of it to the model again. Lesson 11 showed the arithmetic. Ten turns of
 file reading is fifty five thousand tokens billed for ten thousand tokens of
 unique material, and starting from scratch means paying that a second time for a
 project the agent had already read.
 
-**You cannot leave and come back.** Real work is interrupted. You start the agent
+You cannot leave and come back. Real work is interrupted. You start the agent
 on something that takes twenty minutes, your laptop sleeps, a meeting happens, or
 you press Ctrl+C because you want to change the task slightly. Every one of those
 is currently fatal. There is no mechanism anywhere in the program for continuing
 something that has already started.
 
-**You cannot find out what happened.** This is the one that hurts most and it is
+You cannot find out what happened. This is the one that hurts most and it is
 the one people notice last. When the agent edits the wrong file, or claims a test
 passed when it did not, or reads a file and then behaves as though it had read
 something else, the only useful question is what was actually in its context at
@@ -128,7 +128,7 @@ migration. All of that is machinery for turning objects that live in memory into
 rows that live on disk, and you have no objects. You have JSON. The distance
 between what you have and what you need is one call to `json.dumps`.
 
-**Why this and not a class.** You could wrap each message in a `Message` class
+This is a plain dictionary rather than a class for a reason. You could wrap each message in a `Message` class
 with fields and validation, and then you would need a way to turn a `Message`
 into JSON for the provider and back again from disk. That is two conversions and
 a class definition bought in exchange for nothing, because the wire format is
@@ -253,7 +253,7 @@ thing is a five minute script, so you write the five minute script, and a month
 later your session format has a small pile of tooling around it that exists only
 because the format needed tooling.
 
-**The cost, stated honestly.** JSONL is not free. You cannot open it in a JSON
+There is a cost here and it is worth stating honestly. JSONL is not free. You cannot open it in a JSON
 viewer, because it is not JSON. `json.load` on the whole file fails immediately.
 Anything that consumes it has to know the one extra rule, which is to split on
 newlines first. That rule is one line of Python, and it is in `load` below. It is
@@ -300,7 +300,7 @@ Notice what is not in `agent.py`. There is no `import session`. There is no
 `open`. There is no path, no filename, no directory, no `AGENTPATH_HOME`. The
 loop cannot write a file and does not know that files exist.
 
-**Why that matters and not just why it is tidy.** The loop reports what happened
+That matters for a reason beyond tidiness. The loop reports what happened
 and something else decides what to do with the report. You have seen this exact
 shape twice before.
 
@@ -318,28 +318,28 @@ has to modify the loop.
 Count the callers that want a different way, because there are more than you
 expect.
 
-**A terminal session** passes `on_message=session.append` and gets a file it can
+A terminal session passes `on_message=session.append` and gets a file it can
 resume from.
 
-**`check.py`** passes it too, and then compares what landed on disk against what
+`check.py` passes it too, and then compares what landed on disk against what
 `run` returned. That is not the same as writing a file, it is an assertion about
 a file, and the loop should not have to know the difference.
 
-**A unit test** passes `on_message=recorded.append` with a plain list, and now
+A unit test passes `on_message=recorded.append` with a plain list, and now
 the conversation is inspectable without touching a filesystem at all. No
 temporary directory, no cleanup, no test that fails on a machine where the home
 directory is not writable.
 
-**An eval run** scoring a hundred tasks passes something that writes one row per
+An eval run scoring a hundred tasks passes something that writes one row per
 task to a results table, and does not want a hundred session files.
 
-**A user interface** passes something that pushes each message onto a queue that
+A user interface passes something that pushes each message onto a queue that
 a rendering thread reads, so the transcript updates as the agent works.
 
 Five callers, five completely different destinations, and the loop is identical
 for all of them because it does not have a destination. It has a report.
 
-**The alternative, and why it decays.** Suppose the loop took a `session_path`
+Consider the alternative and watch it decay. Suppose the loop took a `session_path`
 and wrote to it. Day one that is fine and shorter. Then the test wants to run
 without touching the disk, so `session_path=None` gets a meaning. Then the eval
 wants a different format, so a `session_format` argument appears. Then the user
@@ -351,7 +351,7 @@ This is exactly the argument lesson 11 made about `tools.run` being the right
 seam. When one side changes, how much of the other side has to change with it.
 The answer here is none, for five different sides.
 
-**The one honest cost.** `on_message` is called synchronously, inside the loop,
+There is one honest cost. `on_message` is called synchronously, inside the loop,
 before the next thing happens. If your callback is slow, the agent is slow. If it
 raises, the run dies. `Session.append` opens the file, writes one line and closes
 it, which is fast enough to be invisible next to an HTTP request to a model, so
@@ -435,11 +435,11 @@ on line 71 of `check.py` a safe thing to do.
 
 Five things in three lines.
 
-**`"a"` is append mode.** The write goes to the end of the file and nothing that
+`"a"` is append mode. The write goes to the end of the file and nothing that
 is already there is touched. Everything in section 3 depends on this one
 character.
 
-**Open and close on every message.** The obvious optimisation is to keep the file
+The file is opened and closed on every message. The obvious optimisation is to keep the file
 handle open for the life of the session. Do not, and the reason is buffering. An
 open handle holds data in a buffer that is flushed when it is convenient for
 Python, which means `tail -f` shows you nothing for a while and then eight lines
@@ -448,7 +448,7 @@ believed were written. Closing flushes. The cost is one open and one close per
 message, which on a conversation of forty messages is forty system calls against
 forty HTTP requests to a language model. It does not register.
 
-**`encoding="utf-8"` is explicit.** Python on Linux and macOS defaults to UTF-8
+`encoding="utf-8"` is explicit. Python on Linux and macOS defaults to UTF-8
 already. Python on Windows historically defaults to the system code page, which
 for a Thai Windows install is cp874 and for a Japanese one is cp932, and neither
 can represent most of what a conversation might contain. Without this argument
@@ -456,7 +456,7 @@ the same code writes a different file on different machines, and the failure is 
 `UnicodeEncodeError` in the middle of a run on somebody else's laptop. Say what
 you mean.
 
-**`+ "\n"` is the format.** `json.dumps` never emits a newline of its own, and
+`+ "\n"` is the format. `json.dumps` never emits a newline of its own, and
 `json.dumps` with default arguments never emits one internally either, so one
 object is guaranteed to be exactly one line. That guarantee is what makes
 `splitlines` a valid parser. Note that `indent=2` would break it, which is a
@@ -540,7 +540,7 @@ pasting. One empty string reaching `json.loads` raises
 refuses to load because of a blank line is a bad trade for four characters of
 code.
 
-**Why the whole file at once.** `read_text` loads everything into memory, which
+The whole file is read at once for a reason. `read_text` loads everything into memory, which
 is fine because a conversation that will not fit in a context window will
 certainly fit in RAM. A streaming read line by line would be more careful and
 would buy nothing, since the caller wants the whole list anyway.
@@ -612,14 +612,14 @@ mock server, using the same `stats.py` bug from lesson 11.
 
 Six lines. Read them in order.
 
-**Line 1 is the user message, and it contains the task exactly as sent.** Note
+Line 1 is the user message, and it contains the task exactly as sent. Note
 the `[[tool:...]]` directives, which are how the mock server is steered, as
 lesson 06 explained. Against a real model the line would be your sentence and
 nothing else. This is already the first debugging fact the file gives you for
 free, which is what the model was asked, verbatim, including anything a wrapper
 added to it that you did not know about.
 
-**Line 2 is the assistant asking for a tool.** `"content": ""` means the model
+Line 2 is the assistant asking for a tool. `"content": ""` means the model
 produced no prose in that turn, which is normal for small models and is not a
 sign of anything wrong. The interesting part is `"id": "call_mock_1"` and the
 arguments, which are a JSON string inside a JSON object. That double encoding is
@@ -627,14 +627,14 @@ not our choice. It is what the OpenAI wire format specifies, and lesson 05
 already dealt with it when it accumulated argument fragments from a stream. The
 file stores the wire format because the wire format is what the model saw.
 
-**Line 3 is the result of that call, and it sits directly under it.** This is the
+Line 3 is the result of that call, and it sits directly under it. This is the
 property worth pointing at. `"tool_call_id": "call_mock_1"` on line 3 matches
 `"id": "call_mock_1"` on line 2. The request and the answer are adjacent, in
 order, in a file you can read top to bottom. When you want to know whether
 `grep_files` found what you think it found, you do not need to rerun anything.
 It is right there. It found `stats.py:8` and nothing else.
 
-**Lines 4 and 5 are the same pattern again** with `call_mock_2`, and line 5 is
+Lines 4 and 5 are the same pattern again with `call_mock_2`, and line 5 is
 where the format earns its keep. Look at the `content` field. It is the entire
 `stats.py` file, with every newline stored as `\n` inside one JSON string. A
 multi line tool result is still exactly one line of the session file, which is
@@ -648,7 +648,7 @@ know the failure was in the model's reasoning rather than in the retrieval. That
 is the single most valuable distinction when debugging an agent, and one line of
 a text file settled it.
 
-**Line 6 is the final assistant message** with no `tool_calls`, which is the loop
+Line 6 is the final assistant message with no `tool_calls`, which is the loop
 returning. Against a real model this is where prose would be. The mock server
 echoes the last tool result instead, which is why this line repeats the file.
 
@@ -813,7 +813,7 @@ also using it. Have an editor plugin and a command line pointed at the same
 session name. Any of those corrupts the file, and you find out later, when you
 try to load it.
 
-**What real harnesses do.** They take a lock before writing. On Unix that is
+Real harnesses do something else. They take a lock before writing. On Unix that is
 `fcntl.flock` on the file descriptor. On Windows it is `msvcrt.locking`, and the
 two have different semantics, which is the first reason this is not one line of
 code. The second is deciding what happens when the lock is held. Blocking means
@@ -823,7 +823,7 @@ user their session is busy, which requires a way to tell them and a way to
 recover. Some harnesses avoid the problem instead by giving every process its own
 session file and merging on read, which is a good design and a larger one.
 
-**Why it is not implemented here.** The locking is not the lesson. Cross platform
+It is not implemented here on purpose. The locking is not the lesson. Cross platform
 file locking is perhaps forty lines of code with two platform branches, plus stale
 lock detection, plus a decision about blocking, and every one of those lines is
 about locks rather than about sessions. Putting it in this file would triple the
@@ -867,14 +867,14 @@ built it, and it appears there because the fourth claim performs a real run.
 
 Five claims, and each one is testing a different thing.
 
-**A conversation survives being written and read back.** Three messages go in,
+A conversation survives being written and read back. Three messages go in,
 including an assistant message with `tool_calls` and its matching tool result, and
 the loaded list must equal the written list. The tool call is in the fixture on
 purpose. A round trip test with three simple text messages would pass even if
 nested structures were being flattened, and the messages that actually matter are
 the nested ones.
 
-**The file is one JSON object per line.** This is asserted separately from the
+The file is one JSON object per line. This is asserted separately from the
 round trip, and it has to be, because a `pickle` file would pass the round trip
 test perfectly and be unreadable. The check counts three lines for three messages
 and parses each one on its own.
@@ -885,10 +885,10 @@ and parses each one on its own.
         fail("the file is not one readable JSON object per line")
 ```
 
-**Text in any language stays readable.** The `ensure_ascii` assertion from
+Text in any language stays readable. The `ensure_ascii` assertion from
 section 5, which checks the bytes rather than the parsed value.
 
-**A real run was saved as it happened.** This is the one that ties the chapter
+A real run was saved as it happened. This is the one that ties the chapter
 together. It builds a real provider, calls `run` with `on_message=live.append`,
 and then asserts that `live.load()` equals the `messages` that `run` returned.
 
@@ -905,7 +905,7 @@ version of it. The count is printed because it is a useful thing to see. Two
 messages for this run, being the user message and the assistant answer, with no
 system prompt and no tool calls.
 
-**The saved conversation can be loaded again to carry on from.** A fresh
+The saved conversation can be loaded again to carry on from. A fresh
 `Session("live")`, constructed from nothing but the name, loads a conversation
 whose roles are `user` then `assistant`. That shape is the requirement for
 resuming. A conversation ending on a tool call with no result, or one whose
@@ -967,7 +967,7 @@ with a `400`, because there is a result for a call that was never made. Drop lin
 And the oldest messages are frequently the most valuable ones, because they
 contain the original task.
 
-**Lesson 14, context management.** Measuring the conversation rather than guessing
+Lesson 14 is context management. Measuring the conversation rather than guessing
 at it. Deciding what to drop, with the tool call pairing treated as the hard
 constraint it is. Summarising the middle of a long session, and the question of
 who writes the summary and what that costs.

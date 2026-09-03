@@ -61,13 +61,13 @@ conversation ended mid sentence.
 Two separate things are broken here, and it helps to name them separately
 because they need different fixes.
 
-**The result never travelled back.** There is no second call to `complete`.
+The result never travelled back. There is no second call to `complete`.
 The string `"5"` exists only inside our process. The model that requested the
 addition has no memory of the request and no knowledge of the answer, because
 the API is stateless. Everything the model knows arrives in the `messages`
 list of the request we send, and we never sent another request.
 
-**We hardcoded the number of steps.** `check.py` assumes exactly one tool call,
+We hardcoded the number of steps. `check.py` assumes exactly one tool call,
 takes `calls[0]`, runs it, and stops. That works because the prompt was rigged
 to produce one call. It falls apart the moment a real question needs two.
 
@@ -178,20 +178,20 @@ Therefore this is a loop. Not by style preference. By necessity.
 Those are the usual alternatives, and it is worth saying why a plain loop wins
 here.
 
-**Recursion** would work. A function that calls itself with a longer message
+Recursion would work. A function that calls itself with a longer message
 list is exactly equivalent. It is worse for a beginner because the growing
 state is hidden in the call stack instead of sitting in a variable you can
 print, and because Python's recursion limit becomes a second failure mode you
 have to reason about on top of the one you already have.
 
-**A state machine or a graph** is what several popular frameworks give you.
+A state machine or a graph is what several popular frameworks give you.
 Nodes, edges, conditional transitions. Those become genuinely useful when you
 have branching workflows, human approval steps, and parallel sub agents, which
 is part 4 of this course. Reaching for one now would bury a five line idea
 under a hundred lines of framework, and you would learn the framework instead
 of the idea.
 
-**A plain `for` loop** keeps every piece of state in one visible list, keeps
+A plain `for` loop keeps every piece of state in one visible list, keeps
 the control flow readable top to bottom, and gives you a turn limit for free
 because `range` already counts. Start here. The fancier shapes are refinements
 of this shape, and they are much easier to understand once you know what they
@@ -859,18 +859,18 @@ Here is the output.
 
 Three lines. Stare at them, because a great deal happened.
 
-**Line one** is the model choosing. Nowhere in `agent.py` does the string
+Line one is the model choosing. Nowhere in `agent.py` does the string
 `"add"` appear, and nowhere does the number 2 or 3. The model read a sentence
 in English, read a JSON Schema it had never seen before this HTTP call, decided
 those two things were related, and produced a structured request naming the
 function and filling in both arguments. Then our Python printed what it asked
 for.
 
-**Line two** is our program acting. `tools.run` looked `add` up in a dictionary
+Line two is our program acting. `tools.run` looked `add` up in a dictionary
 we control and called it with keyword arguments. The number 5 was computed by
 CPython on your machine, not by a model on somebody's GPU.
 
-**Line three** is the payoff, and it is the thing lesson 03 could not do. The
+Line three is the payoff, and it is the thing lesson 03 could not do. The
 model wrote a sentence containing a fact it did not know one second earlier.
 That number came from our process, went out over HTTP inside a `tool` message,
 and came back embedded in prose.
@@ -1125,13 +1125,13 @@ in the original order so the ids still line up.
 
 Two reasons, and the second is the interesting one.
 
-**It hides the trace.** Concurrent output interleaves. Your careful
+It hides the trace. Concurrent output interleaves. Your careful
 `[calling ...]` and `[returned ...]` lines arrive out of order, and the clean
 sequential story you just read in section 7 becomes a jumble. While you are
 learning the shape of the loop, being able to read the trace top to bottom is
 worth more than the milliseconds.
 
-**Parallel tools create conflicts.** This is the real reason, and it is not
+Parallel tools create conflicts. This is the real reason, and it is not
 about performance at all. Concurrency is safe when operations are independent
 and unsafe when they are not, and the model asking for two tools in one turn is
 no guarantee whatsoever that they are independent.

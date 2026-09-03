@@ -200,7 +200,7 @@ twenty files before it changes one. If every one of those reads asked you a
 question, the agent would be slower than doing the job yourself, and you would
 be habituated before it found anything.
 
-**Why a set rather than a flag on each tool.** The alternative is to mark each
+A set is used rather than a flag on each tool for a reason. The alternative is to mark each
 tool as safe or unsafe in its schema, next to its description. That reads nicely
 and it puts the property next to the thing it describes. It is the wrong place
 for it, for one reason. `SCHEMAS` is data that gets serialised and sent to the
@@ -210,7 +210,7 @@ argue with, or it has to be stripped before sending, which means the schema is
 no longer the schema. Keeping the safe list in `permissions.py` keeps the safety
 decision on the side of the wire that a model cannot reach.
 
-**One honest limit.** Safe here means cannot change anything. It does not mean
+One honest limit is worth stating. Safe here means cannot change anything. It does not mean
 cannot leak anything. `read_file` pulls a file into the conversation, and the
 conversation goes to your model provider. That specific hole was closed in
 lesson 07, by `resolve_inside`, which confines every path to the workspace and
@@ -238,16 +238,16 @@ Allow? [y]es once, [a]lways for this exact call, [N]o
 
 The three answers map onto three genuinely different states of mind.
 
-**Yes once** means this is fine right now and I want to see it again. Use it for
+Answering yes once means this is fine right now and I want to see it again. Use it for
 anything with a side effect you are not fully sure about. A migration, a
 deploy script, something touching a file you care about. The gate stays armed.
 
-**Always for this exact call** means I have thought about this specific thing,
+Answering always for this exact call means I have thought about this specific thing,
 it is fine, and asking me again teaches me nothing. This is the answer that
 kills the fatigue. The test suite gets approved once and then runs eleven times
 without a word.
 
-**No** is the default, which is why it is capitalised in the prompt and why
+Answering no is the default, which is why it is capitalised in the prompt and why
 anything unrecognised falls through to it.
 
 ```python
@@ -398,7 +398,7 @@ and records that it was called. From that point on, anything that gets through
 got through by being remembered, and anything remembered incorrectly is a
 silent pass rather than a visible question. There is no way for the leak to hide.
 
-**What this costs, and why the cost is right.** Exact matching means
+This costs something, and the cost is right. Exact matching means
 `pytest tests/test_a.py` and `pytest tests/test_b.py` are two separate
 approvals. That is genuinely annoying, and the obvious improvement is to match
 on patterns instead, so one rule covers a family of commands. Real harnesses do
@@ -672,13 +672,13 @@ what section 2 was about.
 Two limits, stated plainly, because a defence you overestimate is the same
 problem as a gate you stopped reading.
 
-**Injected reads are not gated.** `read_file` is on the safe list, so text that
+Injected reads are not gated. `read_file` is on the safe list, so text that
 persuades the model to read a different file and put its contents in the summary
 meets no gate at all. The workspace confinement and the secret refusal from
 lesson 07 bound how bad that gets, which is exactly why those were built before
 this chapter rather than after it.
 
-**Always is a decision with a lifetime.** Approving `python -m pytest -q` with
+Always is a decision with a lifetime. Approving `python -m pytest -q` with
 `a` is a judgement that the command is safe, and it stays true only as long as
 the thing it names is unchanged. If an attacker can write to `conftest.py`, then
 running `pytest` executes their code and your approval covers it. This is why
@@ -763,17 +763,17 @@ OK the memory does not leak to a different command
 Five lines, one per claim, and they are five rather than one because each one
 can fail on its own.
 
-**Line one.** A `read_file` call returns `True`, and the recording `ask`
+Line one checks that a `read_file` call returns `True`, and the recording `ask`
 function was never invoked. Both halves are asserted, because a version that
 asks and then approves would satisfy the first half while missing the entire
 point.
 
-**Line two.** A `run_shell` with `rm -rf /` is refused, and `ask` was called
+Line two checks that a `run_shell` with `rm -rf /` is refused, and `ask` was called
 exactly once. Again both halves. Exactly once matters, because a `check` that
 asks twice per call is a bug you would otherwise only find by watching a
 terminal.
 
-**Line four and line five.** These are the pair from section 4. Approve
+Line four and line five are the pair from section 4. Approve
 `git status` with `ALLOW_ALWAYS`, then replace `ask` with a function that
 refuses everything and records that it ran. The same call must pass without
 asking, and a different command must ask.
@@ -865,7 +865,7 @@ at the moment it decided, because the thing it saw no longer exists anywhere.
 Both of those are one missing capability. The harness has no memory that
 outlives a process.
 
-**Lesson 13, sessions.** The conversation written to a JSONL file as it happens,
+Lesson 13 adds sessions. The conversation written to a JSONL file as it happens,
 one message per line, and a way to resume from it. The format is deliberately
 boring, and the reason is that the highest value of a session file turns out not
 to be resuming at all. It is that when an agent does something strange you can

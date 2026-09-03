@@ -176,36 +176,36 @@ Here is the `add` schema exactly as it appears in `tools.py`.
 
 Now the same thing field by field.
 
-**The outer `type` field.** Its value is the literal string `function`. Today
+The outer `type` field holds the literal string `function` as its value. Today
 that is the only value the OpenAI compatible API accepts here. It exists
 because the field is a discriminator, a tag that tells a future parser which
 shape follows. Providers add new kinds of tools over time, so the format left
 room. Treat it as boilerplate you always write.
 
-**`function.name`.** The identifier the model will send back when it wants
+`function.name` is the identifier the model will send back when it wants
 this tool. It must match the key you use to look up the real Python function.
 Stick to letters, digits, and underscores. This string is also read by the
 model as a hint, so `add` beats `f1` and `read_file` beats `rf`.
 
-**`function.description`.** One or two sentences of plain English explaining
+`function.description` is one or two sentences of plain English explaining
 what the tool does. Section 5 is entirely about this field, because it does
 more work than any other part of the schema.
 
-**`function.parameters`.** A JSON Schema object describing the arguments. It
+`function.parameters` is a JSON Schema object describing the arguments. It
 is a schema in its own right, which is why it has its own `type` inside it.
 
-**`parameters.type`.** Always the string `object` for a tool. Arguments arrive
+`parameters.type` is always the string `object` for a tool. Arguments arrive
 as a JSON object with named keys, because Python keyword arguments and JSON
 object keys line up neatly. There is no positional argument form.
 
-**`parameters.properties`.** A dictionary where each key is an argument name
+`parameters.properties` is a dictionary where each key is an argument name
 and each value is a small schema for that argument. The names here become the
 keyword arguments passed to your Python function, so `a` and `b` in the schema
 must match `def add(a, b)` in the code. If they drift apart you get a
 `TypeError` at call time, which `tools.run` catches and turns into an error
 string.
 
-**The `type` inside each property.** This is where you say what kind of value
+The `type` inside each property is where you say what kind of value
 is allowed. The useful ones are below.
 
 | JSON Schema type | Python value you receive | Use it for |
@@ -223,12 +223,12 @@ raise on a float. Choosing `integer` makes the constraint part of the contract
 the model reads, which means the model is far less likely to send a decimal in
 the first place.
 
-**The `description` inside each property.** Per argument documentation. The
+The `description` inside each property is per argument documentation. The
 model reads it when deciding what value to put there. "The first number" is
 thin but adequate for a toy. For a real tool you would write something like
 "Absolute path to the file to read, relative paths are rejected."
 
-**`parameters.required`.** A list of argument names that must be present. Any
+`parameters.required` is a list of argument names that must be present. Any
 property not listed here is optional, and the model may leave it out. Your
 Python function then needs a default value for it, otherwise you get a
 `TypeError`. A good habit is to keep `required` and your function signature in
@@ -773,15 +773,15 @@ def complete(messages, tools=None):
     return message.get("content") or "", calls
 ```
 
-**Change one, the signature and the return value.** In lesson 02, `complete`
-returned a string. Now it returns a tuple of text and a list of tool calls,
-because there are now two kinds of answer and the caller has to be able to tell
-them apart. When the model answers in words the list is empty. When the model
-asks for a tool, the text is usually empty and the list has one or more
+The first change is to the signature and the return value. In lesson 02,
+`complete` returned a string. Now it returns a tuple of text and a list of tool
+calls, because there are now two kinds of answer and the caller has to be able
+to tell them apart. When the model answers in words the list is empty. When the
+model asks for a tool, the text is usually empty and the list has one or more
 entries. Both being non empty is legal and does happen with some models, which
 is why we return both rather than one or the other.
 
-**Change two, the payload.** The `tools` key is added only when tools were
+The second change is to the payload. The `tools` key is added only when tools were
 passed. Sending `"tools": []` or `"tools": null` upsets some providers, so the
 `if tools` guard keeps the request clean and keeps this function usable for
 plain chat.
@@ -1060,23 +1060,23 @@ contains something that looks like JSON, the model tried and put it in the
 wrong place. If the printed text is a normal sentence, the model did not try
 at all. Either way, here are three fixes in the order worth trying.
 
-**Fix one, use a bigger model.** This is the most reliable change and often the
-only one needed. Tool calling ability scales sharply with model size and with
-how recently the model was trained. If you are running a 1 billion or 3 billion
-parameter model locally, move to something in the 7 billion to 14 billion range
-with tool support advertised in its model card. Look for phrases like function
-calling or tool use in the description before you download several gigabytes.
-Change one environment variable and rerun.
+The first fix is to use a bigger model. It is the most reliable change and
+often the only one needed. Tool calling ability scales sharply with model size
+and with how recently the model was trained. If you are running a 1 billion or
+3 billion parameter model locally, move to something in the 7 billion to 14
+billion range with tool support advertised in its model card. Look for phrases
+like function calling or tool use in the description before you download
+several gigabytes. Change one environment variable and rerun.
 
 ```bash
 export AGENTPATH_MODEL=qwen2.5:14b
 python check.py
 ```
 
-**Fix two, make the description clearer and more specific.** Section 5 said the
-description is the only thing the model sees, and this is where that stops
-being theory. A borderline model needs a stronger nudge. Edit `tools.py` and
-try a description that states outright when the tool should be used.
+The second fix is to make the description clearer and more specific. Section 5
+said the description is the only thing the model sees, and this is where that
+stops being theory. A borderline model needs a stronger nudge. Edit `tools.py`
+and try a description that states outright when the tool should be used.
 
 ```python
 "description": (
@@ -1091,7 +1091,7 @@ Rerun the check after the edit. If it now passes, you have learned something
 durable about how much of agent behaviour is prompt engineering hiding inside
 a schema.
 
-**Fix three, move to a hosted model on a free tier.** Several providers offer
+The third fix is to move to a hosted model on a free tier. Several providers offer
 an OpenAI compatible endpoint with a free tier that is more than enough for
 this course, since every lesson sends a handful of tiny requests. Because
 `llm.py` reads its endpoint from an environment variable, switching costs you

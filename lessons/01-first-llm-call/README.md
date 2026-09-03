@@ -65,31 +65,31 @@ Content-Length: 101
 
 Now every piece of that, one at a time.
 
-**`POST /v1/chat/completions HTTP/1.1`** is the request line. It says we are sending data, to the path `/v1/chat/completions`, using HTTP version 1.1. The `/v1` part is a version prefix the provider chose so they can change the API later without breaking old programs.
+`POST /v1/chat/completions HTTP/1.1` is the request line. It says we are sending data, to the path `/v1/chat/completions`, using HTTP version 1.1. The `/v1` part is a version prefix the provider chose so they can change the API later without breaking old programs.
 
-**`Host`** names the server. Combined with the path, this is the full URL `https://api.openai.com/v1/chat/completions`.
+`Host` names the server. Combined with the path, this is the full URL `https://api.openai.com/v1/chat/completions`.
 
-**`Content-Type: application/json`** tells the server how to read the body. Without it the server does not know whether those bytes are JSON, a web form, or a file upload, and it will usually reject the request. A **header** is one of these `Name: value` lines that carries information about the request rather than the request's actual content.
+`Content-Type: application/json` tells the server how to read the body. Without it the server does not know whether those bytes are JSON, a web form, or a file upload, and it will usually reject the request. A **header** is one of these `Name: value` lines that carries information about the request rather than the request's actual content.
 
-**`Authorization: Bearer sk-proj-...`** is how the server knows who you are. The word `Bearer` is a scheme name from the HTTP standard and it means "whoever bears this token gets access". The long string after it is your **API key**, which is a secret password the provider gave you. Anyone who has it can spend your money, which is why it lives in an environment variable and never inside your source code. Section 4 goes into that properly.
+`Authorization: Bearer sk-proj-...` is how the server knows who you are. The word `Bearer` is a scheme name from the HTTP standard and it means "whoever bears this token gets access". The long string after it is your **API key**, which is a secret password the provider gave you. Anyone who has it can spend your money, which is why it lives in an environment variable and never inside your source code. Section 4 goes into that properly.
 
-**`Content-Length`** is how many bytes the body is. Your HTTP library fills this in for you and you will never set it by hand.
+`Content-Length` is how many bytes the body is. Your HTTP library fills this in for you and you will never set it by hand.
 
 Then a blank line, and then the body. The body has two keys here.
 
-**`model`** names which model should answer. One endpoint serves many models, so the server has no way to guess. A provider may host `gpt-4o-mini`, `gpt-4o`, and a dozen others behind the exact same URL, and they differ enormously in cost and quality. This key is how you choose.
+`model` names which model should answer. One endpoint serves many models, so the server has no way to guess. A provider may host `gpt-4o-mini`, `gpt-4o`, and a dozen others behind the exact same URL, and they differ enormously in cost and quality. This key is how you choose.
 
-**`messages`** is a list, and it is the important one. It is the entire conversation so far, in order, oldest first. The model reads all of it and writes the next message.
+`messages` is a list, and it is the important one. It is the entire conversation so far, in order, oldest first. The model reads all of it and writes the next message.
 
 Each entry in `messages` is an object with two required keys.
 
-**`role`** says who wrote that message. There are three roles in this lesson, and a fourth, `tool`, arrives in lesson 02. `user` is you, the human or the program acting on the human's behalf. `assistant` is the model. `system` is a special instruction block that sets behaviour and rules, and it goes first when it is present. We do not send a system message in this lesson because we want the minimum
+`role` says who wrote that message. There are three roles in this lesson, and a fourth, `tool`, arrives in lesson 02. `user` is you, the human or the program acting on the human's behalf. `assistant` is the model. `system` is a special instruction block that sets behaviour and rules, and it goes first when it is present. We do not send a system message in this lesson because we want the minimum
 possible request. Lesson 02 explains the role and leaves adding one to you as
 its first exercise.
 
 The role matters more than it looks. The model was trained on conversations in this format, so it has learned that text marked `user` is a request to respond to and text marked `assistant` is its own previous speech. If you put everything under one role, quality drops noticeably.
 
-**`content`** is the text of that message. In later lessons content can also be a list of parts so you can send images, but a plain string is the common case and it is what we use here.
+`content` is the text of that message. In later lessons content can also be a list of parts so you can send images, but a plain string is the common case and it is what we use here.
 
 That is the whole request. Two keys, one of which is a list of two-key objects. There is nothing else hiding in there.
 
@@ -126,29 +126,29 @@ Here is the full JSON the server sends back.
 
 Field by field.
 
-**`id`** is a unique identifier for this one call. You do not need it to get your answer, but it is the thing you quote to a provider's support team when something goes wrong, and it is what you log if you want to trace a bad answer back later.
+`id` is a unique identifier for this one call. You do not need it to get your answer, but it is the thing you quote to a provider's support team when something goes wrong, and it is what you log if you want to trace a bad answer back later.
 
-**`object`** names the shape of this JSON. It says `chat.completion` for a normal reply. It says `chat.completion.chunk` for the streaming pieces we will meet in lesson 05. It exists so a program can tell which shape it received without guessing.
+`object` names the shape of this JSON. It says `chat.completion` for a normal reply. It says `chat.completion.chunk` for the streaming pieces we will meet in lesson 05. It exists so a program can tell which shape it received without guessing.
 
-**`created`** is the time the reply was made, as a Unix timestamp, meaning the number of seconds since the first of January 1970. The value `1756684800` is a moment in September 2025.
+`created` is the time the reply was made, as a Unix timestamp, meaning the number of seconds since the first of January 1970. The value `1756684800` is a moment in September 2025.
 
-**`model`** is the exact model that answered. Notice it is more specific than what we asked for. We sent `gpt-4o-mini` and got back `gpt-4o-mini-2024-07-18`. Provider aliases point at a dated snapshot, and this field tells you which snapshot you actually got. When answers change quality overnight without you changing any code, this field is where you look.
+`model` is the exact model that answered. Notice it is more specific than what we asked for. We sent `gpt-4o-mini` and got back `gpt-4o-mini-2024-07-18`. Provider aliases point at a dated snapshot, and this field tells you which snapshot you actually got. When answers change quality overnight without you changing any code, this field is where you look.
 
-**`choices`** is a list, and the fact that it is a list surprises everyone the first time. Why would one question have several answers. Because the API lets you ask for several independent completions of the same prompt by sending an extra key called `n`. If you send `"n": 3` you get three entries back, and some workflows use that to generate options and pick the best.
+`choices` is a list, and the fact that it is a list surprises everyone the first time. Why would one question have several answers. Because the API lets you ask for several independent completions of the same prompt by sending an extra key called `n`. If you send `"n": 3` you get three entries back, and some workflows use that to generate options and pick the best.
 
 We never send `n`, so the default of one applies, so the list always has exactly one entry, so our code reads `choices[0]`. It is worth knowing why that index is there rather than treating it as noise you have to type.
 
-**`index`** is that choice's position in the list. With one choice it is always `0`.
+`index` is that choice's position in the list. With one choice it is always `0`.
 
-**`message`** is the actual reply, and look closely at its shape. It has `role` and `content`, exactly the same two keys as the messages we sent. This symmetry is not an accident and it is the reason the whole conversation pattern works. The reply you get back can be appended, unchanged, to the `messages` list you send next time. Lesson 02 is built entirely on this fact.
+`message` is the actual reply, and look closely at its shape. It has `role` and `content`, exactly the same two keys as the messages we sent. This symmetry is not an accident and it is the reason the whole conversation pattern works. The reply you get back can be appended, unchanged, to the `messages` list you send next time. Lesson 02 is built entirely on this fact.
 
 Here `role` is `assistant`, because the model wrote it, and `content` is the text we want.
 
-**`refusal`** is `null` on a normal answer and holds an explanation string when the model declines to answer. `null` is the JSON word for nothing, and Python turns it into `None`.
+`refusal` is `null` on a normal answer and holds an explanation string when the model declines to answer. `null` is the JSON word for nothing, and Python turns it into `None`.
 
-**`logprobs`** is `null` unless you asked for probability data about each token chosen. We never do in this course.
+`logprobs` is `null` unless you asked for probability data about each token chosen. We never do in this course.
 
-**`finish_reason`** tells you why the model stopped writing, and it is far more important than it looks. The common values are these.
+`finish_reason` tells you why the model stopped writing, and it is far more important than it looks. The common values are these.
 
 - `stop` means the model finished its thought naturally. This is the good case.
 - `length` means it hit the maximum number of tokens allowed and got cut off mid sentence. If you ever get a truncated answer, this field is how you prove it was truncation rather than the model being terse.
@@ -157,9 +157,9 @@ Here `role` is `assistant`, because the model wrote it, and `content` is the tex
 
 Our function in this lesson ignores `finish_reason`, which is fine for one hello, and stops being fine the moment we build the agent loop. Remember it is there.
 
-**`usage`** counts the work done. A **token** is the unit models read and write, roughly three quarters of an English word, so "hello" is one token and "unbelievable" might be three. `prompt_tokens` counts what you sent, `completion_tokens` counts what came back, and `total_tokens` is the sum. You are billed per token, and models have a hard limit on how many tokens fit in one request, so this field is both your bill and your budget. Lessons 14 and 15 are about managing it.
+`usage` counts the work done. A **token** is the unit models read and write, roughly three quarters of an English word, so "hello" is one token and "unbelievable" might be three. `prompt_tokens` counts what you sent, `completion_tokens` counts what came back, and `total_tokens` is the sum. You are billed per token, and models have a hard limit on how many tokens fit in one request, so this field is both your bill and your budget. Lessons 14 and 15 are about managing it.
 
-**`system_fingerprint`** identifies the backend configuration that served you. It changes when the provider updates their serving stack. Most people never look at it.
+`system_fingerprint` identifies the backend configuration that served you. It changes when the provider updates their serving stack. Most people never look at it.
 
 Now compare the two documents. You sent a list of messages. You got back one message, in the same shape, plus bookkeeping. That is the entire protocol.
 

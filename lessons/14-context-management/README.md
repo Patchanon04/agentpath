@@ -89,12 +89,12 @@ And the same failure from the native Anthropic endpoint, which
 
 Two things about those bodies are worth noticing before we go further.
 
-**The number in the message is the provider's number, not yours.** It is
+The number in the message is the provider's number, not yours. It is
 9317 because that provider's tokeniser said 9317. Nothing you can compute
 locally will reproduce it exactly. Section 6 is entirely about the consequences
 of that.
 
-**The status is 400, not 413 or 429.** It is a malformed request as far as the
+The status is 400, not 413 or 429. It is a malformed request as far as the
 API is concerned, in exactly the same category as sending a field it does not
 recognise. That matters for lesson 17, because a `400` is not worth retrying.
 Sending the identical oversized conversation again gets the identical
@@ -415,7 +415,7 @@ message is handled separately, so it is not in either.
 
 Three details in those fifteen lines deserve a sentence each.
 
-**`or not blocks` is not a formality.** It is what happens when the first
+`or not blocks` is not a formality. It is what happens when the first
 message you are handed is not a user message. That is a real case rather than a
 hypothetical one, because a resumed session might begin anywhere, and lesson 13
 lets you resume. Without that clause, `blocks[-1]` on an empty list raises
@@ -423,14 +423,14 @@ lets you resume. Without that clause, `blocks[-1]` on an empty list raises
 this function must never crash on a conversation it did not expect, because the
 alternative is that resuming a session becomes a coin toss.
 
-**The boundary is the user message and nothing else.** Not the assistant
+The boundary is the user message and nothing else. Not the assistant
 message, not the tool result, not a turn counter. The reason is that the user
 message is the only role that never has a partner. An assistant message can
 have a result pointing back at it. A tool message always points back at an
 assistant message. A user message points at nothing and nothing points at it,
 so it is the only safe place to cut.
 
-**A block can be arbitrarily large.** Ask one question that sends the agent
+A block can be arbitrarily large. Ask one question that sends the agent
 through fifteen tool calls and that is one block. This is not a flaw and it is
 not something to fix by splitting large blocks. A fifteen call investigation is
 one unit of meaning, and half of it is not much use anyway. Section 5 deals
@@ -577,14 +577,14 @@ they are large and they are sent. That is the whole thing.
 It is wrong, and it is wrong on purpose, and there is no version of it that is
 right.
 
-**Every provider counts differently.** A token is whatever a particular
+Every provider counts differently. A token is whatever a particular
 tokeniser says it is. OpenAI has used different tokenisers across model
 generations, so the same string is a different number of tokens on two models
 from the same company. Anthropic's tokeniser is different again and is not
 published. Open weight models ship their own. There is no universal count of
 tokens in a string, only counts relative to a tokeniser.
 
-**A tokeniser built for one company does not count another company's tokens.**
+A tokeniser built for one company does not count another company's tokens.
 This is the mistake worth naming explicitly, because it is the one that looks
 like diligence. You install `tiktoken`, which is a real tokeniser written by
 OpenAI, you run it over your messages, and you get a precise number. It is
@@ -593,7 +593,7 @@ local Qwen, and you are computing an exact answer to a question nobody asked.
 The precision makes it worse, because a rough number invites you to leave
 headroom and an exact one invites you to trust it.
 
-**Four characters per token is only true for English prose.** Code tokenises
+Four characters per token is only true for English prose. Code tokenises
 worse, because identifiers, punctuation and indentation fragment. JSON
 tokenises worse again. Thai, Japanese and Chinese are dramatically worse,
 frequently approaching one token per character, so an estimate that is roughly
@@ -601,7 +601,7 @@ right for an English conversation can be off by a factor of three for a Thai
 one. Since the tool results in this agent are mostly source code and JSON, the
 estimate here leans towards undercounting.
 
-**And it does not count everything that is sent.** This is the biggest gap and
+And it does not count everything that is sent. This is the biggest gap and
 it is not in the function at all. `estimate_tokens` measures messages. The
 request also carries the seven tool schemas, which serialise to 2595 characters
 in this lesson, roughly six hundred and fifty tokens, on every single request.
@@ -670,28 +670,28 @@ discarded when the request is done.
 The alternative is to trim in place, which is one line shorter and destroys
 things you need.
 
-**The session file would lose messages.** `remember` calls `on_message`, which
+The session file would lose messages. `remember` calls `on_message`, which
 in lesson 13 is `session.append`. If trimming mutated `messages`, the session
 file would still contain the dropped lines, because they were written when they
 happened, but the in memory conversation and the file would drift apart, and
 resuming would reload messages the running agent had already decided to forget.
 Two sources of truth about the same conversation is a bug generator.
 
-**Debugging would become impossible.** Lesson 13 argued that the highest value
+Debugging would become impossible. Lesson 13 argued that the highest value
 of a session file is not resuming, it is that when an agent does something
 inexplicable you can open the file and read exactly what it saw. That argument
 only holds if the file is complete. An agent that drops a file read at turn 7
 and then contradicts that file at turn 9 is behaving perfectly reasonably, and
 you can only work that out if turn 7 is still on disk.
 
-**Trimming is a property of a request, not of a conversation.** This is the
+Trimming is a property of a request, not of a conversation. This is the
 cleanest way to hold it. The budget belongs to the model you are talking to
 right now. Switch from an eight thousand token local model to a two hundred
 thousand token hosted one halfway through a session and the same history should
 suddenly fit. It can, because the history was never damaged. Only the copies
 were smaller.
 
-**And the trim is recomputed every turn.** `to_send` is a function, not a value
+And the trim is recomputed every turn. `to_send` is a function, not a value
 computed once before the loop. Each turn it looks at the current `messages` and
 decides again. Blocks that were dropped on turn 7 come back on turn 8 if the
 budget allows, which it will if the newest block was small. The trim has no
@@ -717,13 +717,13 @@ thousand tokens of exploration become four hundred tokens saying which files
 were read, what was in them, what was tried and what failed. Every real harness
 does some version of this, and the reason is real.
 
-**What it buys.** Dropping loses information permanently. If the agent read a
+What summarising buys is real. Dropping loses information permanently. If the agent read a
 config file on turn 2 and needs a value from it on turn 20, dropping means it
 reads the file again, which costs a turn and the same tokens. Summarising keeps
 a compressed trace of everything, so the agent still knows the file exists and
 roughly what was in it. On long tasks that difference is large.
 
-**What it costs, and this is why it is not in this lesson.**
+The cost is why it is not in this lesson.
 
 It costs an extra model call, with the whole span you are summarising as input.
 That call is not free in money, and it is not free in time either. It happens
@@ -753,7 +753,7 @@ part of the agent's own notes rather than like file contents. Lesson 12's
 argument about the difficulty of separating instructions from data applies with
 extra force to anything that rewrites the conversation.
 
-**So the default is dropping whole exchanges.** It is deterministic. It costs
+So the default is dropping whole exchanges. It is deterministic. It costs
 nothing. It is about eighty lines with no model call in them. It is trivially
 testable, which is what section 9 exercises. And the information it loses is
 lost in an obvious way, which the agent can recover from by reading a file
@@ -789,7 +789,7 @@ OK a full conversation of about 63 tokens is left alone
 Five lines. The first three are about the pieces, the fifth is a sanity check
 that a large budget is a no op, and the fourth is the reason the module exists.
 
-**One. Blocks hold pairs together.**
+The first check proves that blocks hold pairs together.
 
 ```python
     blocks = split_into_blocks(CONVERSATION[1:])
@@ -803,13 +803,13 @@ The slice drops the system message, which `fit_to_budget` handles separately.
 Two blocks, and the first one contains the tool call and its result adjacent,
 which is the property everything else rests on.
 
-**Two and three. The exemptions from section 5.** A budget of one still returns
+Checks two and three are the exemptions from section 5. A budget of one still returns
 the system message first. A budget of 20 still ends with `second answer`, which
 proves that the newest exchange is what survives rather than the oldest. Twenty
 is chosen because it is exactly the system message plus the newest block, so it
 is the tightest budget at which a real choice is made.
 
-**Four. The sweep.**
+The fourth is the sweep.
 
 ```python
     for budget in range(1, 60):
@@ -858,7 +858,7 @@ budget, however small, something must remain for the model to answer. That is
 what catches the deletion of `kept and`, which on this fixture would empty the
 conversation for every budget from 1 to 19.
 
-**Five. A large budget changes nothing.**
+The fifth proves that a large budget changes nothing.
 
 ```python
     if fit_to_budget(CONVERSATION, budget=100000) != CONVERSATION:
@@ -884,14 +884,14 @@ returns will show you, in one glance, which half of a pair went missing.
 You can now keep a conversation inside a window without breaking it. Two things
 are still missing, and they are the same thing said twice.
 
-**You are trimming against a guess.** `budget` is a number you chose. The
+You are trimming against a guess. `budget` is a number you chose. The
 estimate that decides when to act is a division by four. Nothing in the program
 has ever compared either of them against reality. You could be trimming at
 sixty percent of the window and throwing away context you did not need to lose,
 or at ninety five percent and still getting rejected, and you have no way to
 tell which because no true number has ever entered the program.
 
-**You have no idea what any of this costs.** Not one token count has been
+You have no idea what any of this costs. Not one token count has been
 printed by anything in fourteen lessons. You cannot say whether the task you
 just ran cost a tenth of a cent or forty cents. You cannot say which part of it
 was expensive. And without that, every optimisation is superstition. You will

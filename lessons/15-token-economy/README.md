@@ -106,13 +106,13 @@ That is the shape of the problem, and it is the subject of the next section.
 
 ## 2. Why the same conversation costs more every turn
 
-**What this is.** A language model is stateless. It has no memory of your
+The fact underneath all of this is that a language model is stateless. It has no memory of your
 previous request. Lesson 02 established this and it has been quietly setting the
 economics of everything since. The only reason turn four knows what happened on
 turn one is that your program sent turn one again, in full, inside the turn four
 request.
 
-**Why it matters here.** It means the price of turn N is not the price of turn
+It matters here because the price of turn N is not the price of turn
 N's new material. It is the price of turns one through N minus one, plus the new
 material, every single time. You are not paying for a conversation. You are
 paying for the sum of every prefix of a conversation.
@@ -138,7 +138,7 @@ Twice over, on a four turn conversation where nothing interesting happened.
 OK usage adds up across calls, 4 calls, 68 prompt tokens, 24 completion tokens
 ```
 
-**Why this grows the way it does.** Each turn adds a roughly constant amount of
+It grows this way because each turn adds a roughly constant amount of
 new text, and each turn resends everything before it, so the cost of turn N is
 proportional to N and the total across the run is proportional to N squared. It
 is quadratic in the number of turns, not linear. That distinction is the whole
@@ -171,7 +171,7 @@ thousand four hundred. The unique material was ten thousand four hundred. You
 paid roughly five and a half times over for it, and the ratio gets worse with
 every turn you add.
 
-**Why we are not just going to make the conversation shorter.** That was lesson
+Making the conversation shorter is not the answer on its own. That was lesson
 14 and it is necessary, but it attacks the wrong term. Trimming reduces the size
 of each request. The multiplier that turns each request into a bill is the number
 of times a given block of text is resent, and trimming does nothing about that
@@ -182,16 +182,16 @@ multiplier directly, which is why it is the longest section in this file.
 
 ## 3. Where the real numbers come from
 
-**What this is.** Every provider tells you, in the response, what that request
+This is the provider's own number. Every provider tells you, in the response, what that request
 actually cost. Not an estimate. The number their own billing uses, produced by
 their own tokeniser on the exact bytes you sent.
 
-**Why we use it.** It is the only number in the system that is not a guess. Every
+We use it because it is the only number in the system that is not a guess. Every
 other count in this program, including the one lesson 14 makes decisions with,
 is your program's opinion about somebody else's tokeniser. The reported usage is
 the tokeniser's own answer.
 
-**Why not compute it ourselves.** Section 4 is entirely about that question and
+Computing it ourselves is the other option. Section 4 is entirely about that question and
 the answer is worse than you expect.
 
 ### Pulling it out of an OpenAI style stream
@@ -216,17 +216,17 @@ Compare that with the same four lines in lesson 14, which were one line.
 
 Three changes, and two of them are load bearing.
 
-**The chunk is parsed into a variable now.** Lesson 14 parsed and subscripted in
+The chunk is parsed into a variable now. Lesson 14 parsed and subscripted in
 one expression, which is fine when every chunk has the same shape.
 
-**`if chunk.get("usage")` runs before anything touches `choices`.** Usage arrives
+`if chunk.get("usage")` runs before anything touches `choices`. Usage arrives
 last, after the content is finished, and the value is `null` on every chunk
 before that one. The `.get` with a truthiness test handles both the missing key
 and the null in one condition, and because the variable is initialised to `{}` at
 the top of the method, a provider that never sends usage at all leaves an empty
 dictionary rather than raising.
 
-**`if not chunk.get("choices"): continue` is the line that would have crashed.**
+`if not chunk.get("choices"): continue` is the line that would have crashed.
 On a real OpenAI compatible endpoint the final usage chunk carries an empty
 `choices` list. Lesson 14's one liner would have done `[][0]` on it and died with
 an `IndexError` in the middle of a working stream. The guard is not defensive
@@ -267,7 +267,7 @@ it would count the calls correctly and the tokens as zero, silently.
 The mock server sends OpenAI style field names on both endpoints, so `check.py`
 passes. That is a real limitation and you should know it is there.
 
-**Where the fix belongs, and why.** In the provider, not in `Usage`. The provider
+The fix belongs in the provider, not in `Usage`. The provider
 is already the one place in this program that knows the two dialects apart. It
 translates the message format in `_to_wire`, it translates the tool schemas from
 `parameters` to `input_schema`, and translating the usage field names is exactly
@@ -292,21 +292,21 @@ it, and everything above stays vendor neutral.
 
 Six lines, and three of them are decisions.
 
-**`if not reported: return` means a request that reported nothing does not count
-as a call.** This is arguable and it is worth saying which way it is arguable. It
+`if not reported: return` means a request that reported nothing does not count
+as a call. This is arguable and it is worth saying which way it is arguable. It
 keeps `calls` honest as a count of requests you have real numbers for, so
 `summary()` never implies you measured something you did not. The cost is that a
 provider which silently stops reporting usage looks like a provider that stopped
 being called, and you would go looking in the wrong place. If you would rather
 know, increment `calls` before the guard and add a `unreported` counter.
 
-**`.get(name, 0)` rather than `reported[name]`.** Providers add fields and
+`.get(name, 0)` rather than `reported[name]`. Providers add fields and
 occasionally omit them, and an accounting layer that raises a `KeyError` in the
 middle of a working agent run has traded a wrong number for a dead process. A
 missing field costs you accuracy in one column. A crash costs you the run.
 
-**`per_call.append(reported)` keeps the whole dictionary, not the two numbers we
-understood.** This is the most useful line in the file and it is easy to skip.
+`per_call.append(reported)` keeps the whole dictionary, not the two numbers we
+understood. This is the most useful line in the file and it is easy to skip.
 The reported usage frequently contains fields `cost` knows nothing about, such as
 `cache_read_input_tokens`, `cache_creation_input_tokens`, and on some providers a
 separate count for reasoning tokens. Summing only what you currently understand
@@ -344,12 +344,12 @@ change shape to gain any of the five.
 
 ## 4. Why a local tokeniser is the wrong tool for deciding
 
-**What a tokeniser is.** A model does not read characters. It reads tokens, which
+A tokeniser is the thing that turns text into the units a model actually reads. A model does not read characters. It reads tokens, which
 are chunks of bytes chosen by a compression algorithm that was fitted to a
 training corpus. The mapping from text to tokens is a table, and the table is
 part of the model, not part of the language.
 
-**Why this matters more than it sounds like it should.** Different companies fit
+This matters more than it sounds like it should. Different companies fit
 different tables. The same sentence is not the same number of tokens to two
 different vendors, and it is not off by a rounding error. It is off by enough to
 change your decisions.
@@ -393,14 +393,14 @@ percent under the middle answer and 33 percent under the high one.
 
 Two conclusions follow and they are different from each other.
 
-**A tokeniser built for one company does not count another company's tokens.**
+A tokeniser built for one company does not count another company's tokens.
 There is no shared standard here and no reason there would be. If three
 generations of one vendor's own encodings disagree by 37 percent on a grep
 result, the idea that any of them tells you what a different vendor will charge
 is not slightly optimistic, it is unfounded. And for several vendors you cannot
 even install the tokeniser to be wrong with, because it is not published.
 
-**The error is largest on exactly the content agents produce.** Notice which row
+The error is largest on exactly the content agents produce. Notice which row
 is worst. The prose system prompt is within a few percent across all four
 counters, because ordinary English is what these tables were fitted on. The
 mangled, punctuation dense, path and colon and line number shaped output of a
@@ -408,7 +408,7 @@ grep is where they diverge, and grep output is most of what an agent's
 conversation is made of. The estimate is most wrong precisely where you have the
 most of it.
 
-**Why this is fatal for a harness rather than merely annoying.** `providers.py`
+This is fatal for a harness rather than merely annoying. `providers.py`
 in this folder talks to two different services behind one interface. That was the
 whole point of lesson 06 and it remains right. But `fit_to_budget` sits above
 that interface with one counter, and the same conversation gets the same estimate
@@ -417,7 +417,7 @@ two vendors is guaranteed to be wrong for at least one of them, and you have no
 way to know which. You are making a trimming decision, which throws away work the
 agent did, on a number that was computed for somebody else.
 
-**So what is the estimate for.** It is a trigger, not a measurement, and lesson
+So the estimate is a trigger, not a measurement, and lesson
 14's docstring already says so in as many words.
 
 ```python
@@ -579,11 +579,11 @@ schemas reordered           307 of 8214 chars reusable,   3.7%
 
 Three lines, and each one is a different lesson.
 
-**99.8 percent.** With the stable content genuinely stable, the only thing that
+The 99.8 percent row is the good case. With the stable content genuinely stable, the only thing that
 differs between two consecutive requests is the newest user message. Everything
 before it is reusable. This is what you are trying to have.
 
-**31.3 percent.** One session identifier and one timestamp, forty four characters
+The 31.3 percent row is one session identifier and one timestamp, forty four characters
 of them, at the top of a system prompt. The tool schemas in front of them still
 match, which is the only reason this is 31 percent rather than nothing, and every
 byte after them is lost. The system prompt is lost. The entire twelve message
@@ -591,7 +591,7 @@ history is lost. Six turns of conversation that were identical in both requests
 are reprocessed at full price because of forty four characters that nobody was
 even reading.
 
-**3.7 percent.** The tool schemas in a different order. Same seven tools, same
+The 3.7 percent row is the tool schemas in a different order. Same seven tools, same
 descriptions, same JSON schemas, nothing removed and nothing added. The list is
 in a different order, so the second schema's first byte differs, and everything
 from there to the end of the request is a cache miss. That is 96 percent of the
@@ -599,22 +599,22 @@ request reprocessed because a list got shuffled.
 
 ### The four things that do this to you
 
-**A timestamp.** Somebody adds `The current time is {datetime.now()}` to
+The first is a timestamp. Somebody adds `The current time is {datetime.now()}` to
 `build_system_prompt`, for a good reason, because models are bad at knowing the
 date. It is now the most expensive line in your program.
 
-**A session identifier.** Same shape. `Session {session_id}` near the top of the
+The second is a session identifier. Same shape. `Session {session_id}` near the top of the
 system prompt so that logs correlate. Every session gets a different one, so
 every session begins from a cold cache no matter how similar the work is, and
 within a session anything that regenerates the identifier per request destroys
 the cache on every single call.
 
-**A user name, or anything else per user.** `You are helping {user}` at the top
+The third is a user name, or anything else per user. `You are helping {user}` at the top
 of a system prompt is the same failure with a slower fuse. It does not hurt while
 you are testing with one account. It quietly gives you a separate cold cache per
 user in production, which is the point at which it costs the most.
 
-**Tool definitions in a nondeterministic order.** This one is the nastiest,
+The fourth is tool definitions in a nondeterministic order. This one is the nastiest,
 because you did not write the bug and it may not be reproducible on your machine.
 Build your tool list from a `set`, or from a plugin loader that walks a directory,
 or from a dictionary you mutate at import time, and the order is stable within one
@@ -672,8 +672,8 @@ Add that loop to your harness once and you will never wonder about this again.
 
 ### Two consequences that surprise people
 
-**Caching and trimming are in tension, and lesson 14 was the one that started
-it.** `fit_to_budget` drops the oldest exchange. The oldest exchange is at the
+Caching and trimming are in tension, and lesson 14 was the one that started
+it. `fit_to_budget` drops the oldest exchange. The oldest exchange is at the
 front of the messages, which means it is inside the cached prefix, which means
 the request after a trim shares almost nothing with the request before it. Every
 trim costs you a full cache miss on the next call.
@@ -686,7 +686,7 @@ every turn forever, and that is close to the worst case available to you. Trim
 down to well below the budget when you trim at all, so the next several turns can
 run cached.
 
-**There is a floor, and short prompts do not cache.** Providers only cache
+There is a floor, and short prompts do not cache. Providers only cache
 prefixes above a minimum length, on the order of a thousand tokens. Below that
 the bookkeeping is not worth it, and the request quietly does not cache with no
 indication that it did not. If you are testing caching with a tiny system prompt
@@ -757,18 +757,18 @@ def truncate(text, limit=MAX_OUTPUT):
 
 Three things about this are worth stating plainly.
 
-**The bound is per result, not per conversation.** `truncate` guarantees that no
+The bound is per result, not per conversation. `truncate` guarantees that no
 single tool result exceeds four thousand characters. It says nothing about the
 sum of them, which is what lesson 14 exists to handle and section 1 of this
 chapter is complaining about.
 
-**Truncating before the result enters the conversation is the whole point.**
+Truncating before the result enters the conversation is the whole point.
 Trimming later, in `fit_to_budget`, happens after you have already paid to send
 the oversized result at least once, and possibly several times. `truncate` is
 free and it is upstream of the cost. Trimming is not free, because it costs you a
 cache miss, and it is downstream.
 
-**Saying that it truncated matters as much as the truncating.** The suffix tells
+Saying that it truncated matters as much as the truncating. The suffix tells
 the model that there is more, and how much more, so it can ask for a different
 slice. A truncation the model cannot see is one it will confidently reason past.
 
@@ -851,12 +851,12 @@ prompt bill, for text that never changes.
 
 Two things follow, and they point in opposite directions.
 
-**Cutting schemas is worth doing when the task genuinely cannot use them.** A
+Cutting schemas is worth doing when the task genuinely cannot use them. A
 read only question does not need `write_file`, `edit_file` or `run_shell`, which
 is 1295 characters, half the total. Passing a filtered list to `run` is a one line
 change because `schemas` is already computed from `tools.SCHEMAS` in one place.
 
-**Do not do it dynamically, per turn.** Read section 5 again. The tool
+Do not do it dynamically, per turn. Read section 5 again. The tool
 definitions are the very first thing in the assembled prefix, so changing the set
 of tools between requests is the 3.7 percent line. A harness that helpfully drops
 `write_file` on turn four because the task looks read only has just thrown away
@@ -899,13 +899,13 @@ And if it does it again after being warned, the loop stops.
                         "repeated anyway. Continuing would only cost money."
 ```
 
-**Why this is a cost control rather than a correctness feature.** `max_turns=10`
+This is a cost control rather than a correctness feature. `max_turns=10`
 already bounds the run. What it does not do is notice that nothing is changing.
 An agent stuck on the same failing `run_shell` will burn all ten turns, and by
 section 2's arithmetic the last of those turns is the most expensive one in the
 run. Detecting the loop at turn three saves the seven most expensive requests.
 
-**Why the model is told rather than the call being silently skipped.** Same
+The model is told rather than the call being silently skipped. Same
 argument lesson 12 made about refusals. A model that does not know what happened
 cannot choose differently, so it tries again. Telling it plainly gives it a
 chance to change course, and the check is only fatal on the second offence, after
@@ -948,13 +948,13 @@ OK tokens can be turned into money, about 0.000564 at example prices
 Check it by hand. 68 prompt tokens at 3.0 per million is 204. 24 completion
 tokens at 15.0 per million is 360. That is 564, divided by a million, 0.000564.
 
-**Why prompt and completion are priced separately.** Because they are, everywhere.
+Prompt and completion are priced separately. Because they are, everywhere.
 Output tokens cost several times what input tokens cost, typically around five
 times, and that ratio changes what you should optimise. It is the reason an agent
 that reads a lot and writes a little has a bill dominated by the input column,
 which is why sections 5 and 6 are almost entirely about input.
 
-**Why prices are an argument and not a table in the code.** This is the decision
+Prices are an argument and not a table in the code. This is the decision
 worth arguing about, because a table would be more convenient and every reader's
 first instinct is to add one.
 
@@ -980,7 +980,7 @@ obviously placeholders. The `0.0` defaults here are the second kind, deliberatel
 because a run you forgot to price comes out as zero rather than as a number you
 might believe.
 
-**The honest limit.** `cost` knows about two columns and there are more than two.
+There is an honest limit. `cost` knows about two columns and there are more than two.
 Cached reads are cheaper than fresh input, cache writes are more expensive, and
 some providers bill reasoning tokens separately. As written, a run that got 90
 percent cache hits is priced as though it got none, so `cost` overstates. The data
@@ -1020,7 +1020,7 @@ OK putting the changing part first destroys that prefix, which is the mistake to
 Two of those five are the facts the whole chapter rests on, and the docstring at
 the top of `check.py` says which.
 
-**One. The growth is demonstrated, not asserted.**
+The first check demonstrates the growth rather than asserting it.
 
 ```python
     if prompts != sorted(prompts) or prompts[0] == prompts[-1]:
@@ -1039,7 +1039,7 @@ Note what is not asserted. Nothing here says the numbers should be 2, 12, 22 and
 different ones, so the check asserts the shape rather than the values. The values
 are printed, because the point of the line is for you to read them.
 
-**Two. Four calls were counted.**
+The second counts four calls.
 
 ```python
     if usage.calls != 4:
@@ -1051,7 +1051,7 @@ that catches the `if not reported: return` guard from section 3 quietly eating
 everything, which is exactly what would happen against a provider whose usage
 field names do not match.
 
-**Three. The money is a real number.**
+The third makes the money a real number.
 
 ```python
     price = usage.cost(prompt_price_per_million=3.0, completion_price_per_million=15.0)
@@ -1062,7 +1062,7 @@ field names do not match.
 Greater than zero rather than equal to a specific figure, for the same reason as
 above. The exact value depends on what the provider counted.
 
-**Four and five. The ordering rule, as two sides of one fact.**
+The fourth and fifth are the ordering rule, as two sides of one fact.
 
 ```python
     stable = [{"role": "system", "content": "long instructions " * 20}]

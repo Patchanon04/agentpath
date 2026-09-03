@@ -522,7 +522,7 @@ for chunk in delta.get("tool_calls", []):
 
 Read it as three separate ideas.
 
-**A buffer that exists before the data does.** `partial` is a dictionary
+The buffer exists before the data does. `partial` is a dictionary
 declared next to `text_parts` at the top of the function. `setdefault` either
 returns the existing entry for this index or creates a fresh one with three
 empty strings and returns that. It means the announcement event and the
@@ -530,14 +530,14 @@ fragment events run through identical code with no "is this the first one"
 branch. Empty string is the right zero value here, because empty string is
 what you get when you have concatenated nothing.
 
-**Fields that overwrite, and a field that appends.** `id` and `name` are
+Two fields overwrite and one field appends. `id` and `name` are
 assigned with `=`, arguments are appended with `+=`. That asymmetry is the
 whole design. The identity of a call arrives once and completely. Its
 arguments arrive many times and partially. The `if chunk.get("id")` guard
 exists because later events omit `id` entirely, and blindly assigning would
 overwrite a good identifier with `None`.
 
-**No parsing anywhere in the loop.** Not one `json.loads` touches
+Nothing is parsed anywhere in the loop. Not one `json.loads` touches
 `slot["arguments"]` while the stream is running, because as you just proved,
 there is nothing valid to parse.
 
@@ -745,7 +745,7 @@ It stops the crash. It is the worst available behaviour, and it is worth
 naming all three of its failure modes because each one is nastier than the
 last.
 
-**The tool runs with no arguments.** `tools.run("add", {})` becomes `add()`,
+The tool runs with no arguments. `tools.run("add", {})` becomes `add()`,
 which raises `TypeError: add() missing 2 required positional arguments`. Here
 that is caught and turned into a harmless error string, because `add` is a
 toy. Now put a real tool in its place. `delete_files()` with no arguments,
@@ -756,7 +756,7 @@ truncated argument list turns a specific instruction into a general one, and
 general instructions to destructive tools are how disasters read in the
 incident report.
 
-**The model never learns it made a mistake.** This one is subtler and, in
+The model never learns it made a mistake. This one is subtler and, in
 practice, worse. The model asked for `add` with two arguments. Something
 downstream quietly rewrote the request to `add` with zero arguments. Whatever
 comes back, the model sees a result to a question it did not ask. It cannot
@@ -766,7 +766,7 @@ consequences of its own actions and adapts. Swallowing an error severs
 exactly that feedback, and you are left with a model that appears to be
 behaving stupidly for no reason.
 
-**The broken call repeats forever.** Remember that the conversation is
+The broken call repeats forever. Remember that the conversation is
 replayed in full on every turn. The malformed call goes into `messages` as
 part of the assistant turn, and it stays there for the rest of the run. On
 the next turn the model reads a history in which it apparently asked for

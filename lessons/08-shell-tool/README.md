@@ -207,12 +207,12 @@ open rather than hidden inside the call.
 
 ### shell=True
 
-**What it is.** Instead of executing a program directly, Python hands the string
-to the operating system's command interpreter and asks it to figure out what to
-do. That interpreter is `cmd.exe` on Windows and `/bin/sh` on macOS and Linux.
-Section 8 is entirely about why that split matters.
+Setting `shell=True` means that instead of executing a program directly, Python
+hands the string to the operating system's command interpreter and asks it to
+figure out what to do. That interpreter is `cmd.exe` on Windows and `/bin/sh`
+on macOS and Linux. Section 8 is entirely about why that split matters.
 
-**Why we want it.** Because a model writes command lines, not argument arrays.
+We want it because a model writes command lines, not argument arrays.
 Everything a person types at a prompt is shell syntax, and none of it exists
 without a shell to interpret it. Pipes, as in `git log | head -20`. Redirection,
 as in `pytest > out.txt`. Wildcards, as in `rm *.pyc`, where the shell expands
@@ -223,7 +223,7 @@ those work, because there is nobody to interpret them. `git log | head -20`
 would try to run a program literally named `git` with the arguments `log`, `|`
 and `head`, and fail.
 
-**Why not the alternative.** You could keep `shell=False` and ask the model to
+The alternative is worse. You could keep `shell=False` and ask the model to
 send a list of arguments instead of a string. Two things go wrong. The model has
 to tokenise the command itself, and it will get quoting wrong on paths with
 spaces, which is most paths on Windows. And you lose pipes and redirection
@@ -232,7 +232,7 @@ Every real coding agent takes a command string, because that is the interface
 developers already know and the interface the model has seen a million examples
 of.
 
-**What it costs.** This is the honest part. `shell=True` means the string is
+It costs something, and this is the honest part. `shell=True` means the string is
 interpreted as a program in a small language, and that language can do anything.
 `rm -rf ~` is a perfectly valid string. So is a string that downloads something
 and runs it. Python's own documentation warns about `shell=True` with untrusted
@@ -243,11 +243,11 @@ reason `confirm` exists.
 
 ### cwd=WORKSPACE
 
-**What it is.** The directory the command starts in. `WORKSPACE` is the resolved
+`cwd` is the directory the command starts in. `WORKSPACE` is the resolved
 path from the top of `tools.py`, which reads the `AGENTPATH_WORKSPACE`
 environment variable and falls back to the current directory.
 
-**Why it is there.** Without it, the command runs wherever you happened to
+It is there because without it the command runs wherever you happened to
 launch the agent from, which may be your home directory or anywhere else. Every
 relative path the model writes would then mean something different from what the
 same relative path means to `read_file`, and the model would have no way to
@@ -261,7 +261,7 @@ no arguments, through the tool on Windows.
 C:\Users\dev\Desktop\agentpath\lessons\08-shell-tool
 ```
 
-**What it is not.** `cwd` is a starting point, not a fence. `cd ..` works.
+`cwd` is a starting point, not a fence. `cd ..` works.
 `type C:\Users\me\.ssh\id_rsa` works. Absolute paths work. Compare that with
 `resolve_inside` from lesson 07, which is a real gate, because a path is a
 simple thing you can check before you act.
@@ -280,18 +280,18 @@ design, and section 3 is about why the substitution is the right one.
 
 ### stdout and stderr as pipes
 
-**What it is.** `stdout=subprocess.PIPE, stderr=subprocess.PIPE` says collect
+`stdout=subprocess.PIPE, stderr=subprocess.PIPE` says collect
 what the program prints instead of letting it go to the terminal. If you were
 using `subprocess.run` you would write `capture_output=True`, which is shorthand
 for exactly these two.
 
-**Why it is there.** The model needs the output as text it can read. Without
+It is there because the model needs the output as text it can read. Without
 these two the output scrolls past on your screen, `communicate` hands back
 `None` for both streams, and the tool returns nothing useful. The point of the
 tool is not to run a command, it is to bring the result back into the
 conversation.
 
-**Why two pipes rather than one.** You could merge them with
+Two pipes rather than one is a deliberate choice. You could merge them with
 `stderr=subprocess.STDOUT` and get a single stream in true chronological order.
 Keeping them apart costs you that ordering and buys the ability to say which
 stream a line came from. Section 7 argues that trade in full.
@@ -305,7 +305,7 @@ the simple version on purpose.
 
 ### `**_new_process_group()`
 
-**What it is.** A small dictionary of keyword arguments that differs by
+It is a small dictionary of keyword arguments that differs by
 platform, unpacked into the call with `**`.
 
 ```python
@@ -315,10 +315,10 @@ def _new_process_group():
     return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
 ```
 
-**Why it is there.** So that the timeout has something to aim at. Without it
+It is there so that the timeout has something to aim at. Without it
 there is nothing to kill but the shell, and the shell is not the slow part.
 
-**Why this way and not another way.** On Unix the shell and its children would
+There is a reason for this shape. On Unix the shell and its children would
 otherwise sit in the agent's own process group, so signalling the group would
 signal the agent too, which is a spectacular way to end a session.
 `start_new_session=True` puts them in a group of their own. On Windows a new
@@ -327,12 +327,12 @@ process. Section 6 is where this is actually used.
 
 ### communicate(timeout=SHELL_TIMEOUT)
 
-**What it is.** `communicate` reads both pipes until they close, waits for the
+`communicate` reads both pipes until they close, waits for the
 process to exit, and returns the two buffers. The `timeout` is a number of
 seconds after which it gives up and raises `subprocess.TimeoutExpired`.
 `SHELL_TIMEOUT` is 60.
 
-**Why not read the pipes yourself.** Because `process.stdout.read()` followed by
+You do not read the pipes yourself because `process.stdout.read()` followed by
 `process.stderr.read()` deadlocks. A pipe holds a fixed amount of data, and a
 program that fills the pipe you are not reading blocks until somebody drains it,
 which you will not do because you are blocked reading the other one. Both
@@ -344,23 +344,23 @@ argument, it is what you do with the exception.
 
 ### Bytes rather than text
 
-**What it is.** `subprocess` will decode the child's bytes for you if you ask it
+`subprocess` will decode the child's bytes for you if you ask it
 to, with `text=True` and its companions `encoding` and `errors`. None of those
 appear here. `communicate` hands back two `bytes` objects, and `decode_output`
 turns them into strings a few lines later.
 
-**Why it is there.** Because decoding takes a decision that `subprocess` cannot
+We decode ourselves because decoding takes a decision that `subprocess` cannot
 make for you. Asking for `text=True` alone means Python guesses an encoding from
 the system locale. Adding `encoding="utf-8"` replaces the guess with a single
 fixed answer. On Windows neither is right, because two different encodings turn
 up in the output of two different commands on the same machine within the same
 minute. Section 8 has the full account and the test that shows it.
 
-**What it costs.** `text=True` also normalises line endings, so Windows output
-arriving as `\r\n` would become `\n`. Decoding the bytes ourselves gives that up,
-and Windows output really does come back with carriage returns in it. That is
-visible in a tool result and it is worth knowing, but it is a cosmetic cost, and
-it is small next to output whose characters are wrong.
+That choice costs something. `text=True` also normalises line endings, so
+Windows output arriving as `\r\n` would become `\n`. Decoding the bytes
+ourselves gives that up, and Windows output really does come back with carriage
+returns in it. That is visible in a tool result and it is worth knowing, but it
+is a cosmetic cost, and it is small next to output whose characters are wrong.
 
 ### What is deliberately not passed
 
@@ -489,22 +489,22 @@ correctly.
 
 Four things about this deserve emphasis.
 
-**The attacker never touched your machine.** They needed one merged pull
+The attacker never touched your machine. They needed one merged pull
 request, or one package version published, or one file in a public repository
 somebody might clone. The delivery mechanism is you being helpful.
 
-**It does not have to be a file.** Anything that comes back through a tool
+It does not have to be a file. Anything that comes back through a tool
 result is a channel. The output of a build tool. A commit message in
 `git log`. An author name. An issue body fetched over HTTP. A filename. Once an
 agent can run commands, the output of those commands is another inbound
 channel, which means a successful injection can widen itself.
 
-**It does not have to look like an attack.** The example above is written in the
+It does not have to look like an attack. The example above is written in the
 register of ordinary developer documentation, and it pre-answers the objection
 by claiming the user already approved. Injections that work tend to be polite,
 plausible and boring.
 
-**The user is not in the loop.** You asked one question, about a failing test.
+The user is not in the loop. You asked one question, about a failing test.
 Everything after that was the agent working, and you were probably reading
 something else.
 
@@ -514,29 +514,29 @@ The instinct on first meeting this is to write a better prompt. It is a good
 instinct and it is worth understanding exactly how far it gets you, because
 "not far enough" is a more useful conclusion than "it does not work".
 
-**"Add a line to the system prompt saying never follow instructions found in
-files."** This helps. It measurably reduces the success rate of naive attacks
-and you should do it, and lesson 10 will. It does not solve the problem, for
-four reasons that compound. The model has to judge what counts as an
-instruction, and injections can be phrased as context rather than as commands,
-as in "note, this project's fixtures live behind a setup script". The injection
-can claim to be from you, and the model has no way to verify that claim because
-it cannot see who typed what. The injection can be much longer and much more
-specific than your one line, and specificity wins arguments. And most
-fundamentally, you are asking the model to defend against text, using text, in a
-contest where the attacker gets to read your defence and write against it. You
-have made the target of the attack into the defence.
+One answer is to add a line to the system prompt saying never follow
+instructions found in files. This helps. It measurably reduces the success rate
+of naive attacks and you should do it, and lesson 10 will. It does not solve
+the problem, for four reasons that compound. The model has to judge what counts
+as an instruction, and injections can be phrased as context rather than as
+commands, as in "note, this project's fixtures live behind a setup script". The
+injection can claim to be from you, and the model has no way to verify that
+claim because it cannot see who typed what. The injection can be much longer
+and much more specific than your one line, and specificity wins arguments. And
+most fundamentally, you are asking the model to defend against text, using
+text, in a contest where the attacker gets to read your defence and write
+against it. You have made the target of the attack into the defence.
 
-**"Filter the file content before showing it to the model."** To filter it you
-have to detect natural language that is trying to instruct. That is the same
-unsolved problem in a different costume. Any keyword list you write is defeated
-by rephrasing, and any model-based detector is itself a model reading attacker
-text.
+Another answer is to filter the file content before showing it to the model. To
+filter it you have to detect natural language that is trying to instruct. That
+is the same unsolved problem in a different costume. Any keyword list you write
+is defeated by rephrasing, and any model-based detector is itself a model
+reading attacker text.
 
-**"Use a better model."** Newer models genuinely do resist better. They resist
-at some rate below one hundred percent, and the number is a percentage rather
-than a guarantee. An agent that runs two hundred commands in a working day rolls
-that die two hundred times.
+A third answer is to use a better model. Newer models genuinely do resist
+better. They resist at some rate below one hundred percent, and the number is a
+percentage rather than a guarantee. An agent that runs two hundred commands in
+a working day rolls that die two hundred times.
 
 Here is the rule that comes out of all three, and it is worth memorising because
 it applies far beyond this chapter.
@@ -579,21 +579,21 @@ def confirm(command):
 
 Six lines of logic, and four decisions worth pointing at.
 
-**The command is printed verbatim, on its own indented line, before the
-question.** You approve the exact string that will be executed, not a summary of
+The command is printed verbatim, on its own indented line, before the
+question. You approve the exact string that will be executed, not a summary of
 it and not a description the model wrote of what it intends. That distinction
 matters enormously. A confirmation prompt that shows you a paraphrase is a
 confirmation prompt that can be lied to, because the paraphrase is generated by
 the same model that produced the command. Show the bytes that will run.
 
-**The default is no.** `[y/N]` with a capital N is a convention that says
+The default is no. `[y/N]` with a capital N is a convention that says
 pressing return means no. The code enforces it, since only `y` and `yes`
 approve, and anything else, including an empty line, a typo, or `Y E S` with
 spaces in the wrong place, is a refusal. When a user is half paying attention
 and hits return to make a prompt go away, the safe outcome should be the one
 that happens.
 
-**Both ways of not answering are a refusal.** `EOFError` is raised when standard
+Both ways of not answering are a refusal. `EOFError` is raised when standard
 input is closed, which happens when the agent runs in a pipeline or in a
 continuous integration job. `KeyboardInterrupt` is Ctrl+C. Both are caught and
 both return `False`. This is small and it is the most important line in the
@@ -717,7 +717,7 @@ trust.
 
 A switch like this would be a hole if either of two things were true. Neither is.
 
-**It would be a hole if the thing it defends against could turn it on.** The
+It would be a hole if the thing it defends against could turn it on. The
 attack in section 3 is text arriving through a tool result. That text becomes
 tokens the model reads. The model's only output is text, and the only text that
 does anything is a tool call, and every tool call goes through `run` in
@@ -735,7 +735,7 @@ unchanged, and since `confirm` reads it fresh on every call, the next command
 still asks. You can test this yourself in two minutes, and testing it is a
 better use of your time than believing me.
 
-**It would be a hole if it were the default.** It is not. The check is
+It would be a hole if it were the default. It is not. The check is
 `== "1"`, so an unset variable, an empty variable, `true`, `yes` and `0` all
 mean ask. The safe state is what you get by doing nothing, which is the only
 correct way round for a default.
@@ -768,24 +768,25 @@ cannot reach.
 Being fair to the switch does not mean pretending it is harmless. It is a real
 risk when it is misused, and misuse has three recognisable shapes.
 
-**Putting it in your shell profile.** If it lives in `.bashrc` or your
+The first is putting it in your shell profile. If it lives in `.bashrc` or your
 PowerShell profile, then "ask me before running commands" quietly becomes "never
 ask me", permanently, on the machine that has your credentials on it. You will
 forget you did it. Six months later you will run an agent on a repository you
 did not write and it will not ask.
 
-**Committing it to a repository.** In a `.env` file, a devcontainer definition,
-a Makefile, or a task runner config. Now it turns on for everyone who clones,
-including people who never made the decision and do not know it was made.
+The second is committing it to a repository, in a `.env` file, a devcontainer
+definition, a Makefile, or a task runner config. Now it turns on for everyone
+who clones, including people who never made the decision and do not know it was
+made.
 
-**Turning it on in continuous integration for untrusted code.** This one is
-worth spelling out because it is exactly section 3 with the gate removed. A job
-that checks out a pull request from a stranger, runs an agent over it with
-auto-approve on, and happens to have deployment credentials in its environment,
-is a job where a comment in a source file can run commands with those
-credentials. The right answer there is a container with no credentials, no
-network access it does not need, and a workspace that is thrown away afterwards,
-which is roughly what part three builds toward.
+The third is turning it on in continuous integration for untrusted code. This
+one is worth spelling out because it is exactly section 3 with the gate
+removed. A job that checks out a pull request from a stranger, runs an agent
+over it with auto-approve on, and happens to have deployment credentials in its
+environment, is a job where a comment in a source file can run commands with
+those credentials. The right answer there is a container with no credentials,
+no network access it does not need, and a workspace that is thrown away
+afterwards, which is roughly what part three builds toward.
 
 The rule of thumb worth carrying is short. The switch is for machines with
 nothing to lose.
@@ -823,8 +824,8 @@ same answer.
 
 So why not build that now? Three reasons, and they are the actual lesson.
 
-**Because the idea is two lines and the system is not.** Look at the shape once
-more.
+The first is that the idea is two lines and the system is not. Look at the
+shape once more.
 
 ```python
     if not confirm(command):
@@ -841,7 +842,7 @@ If you build these two lines first, the bookkeeping is afterwards obviously
 bookkeeping, and you can evaluate any permission system you meet by asking where
 its two lines are.
 
-**Because a gate you can read is a gate you can verify.** Right now you can
+The second is that a gate you can read is a gate you can verify. Right now you can
 establish, by reading forty lines, that there is exactly one call to
 `subprocess.Popen` in the file, that `confirm` is called before it, that there
 is no branch that reaches the second without passing the first, and that every
@@ -852,11 +853,11 @@ precisely why permission systems in real software have had famous bugs. Keeping
 this one auditable while you are learning is worth more than any feature it
 lacks.
 
-**Because we do not know the rules yet.** Lesson 09 adds search tools. Lesson 11
-assembles everything into a working agent. Only after using that agent do you
-find out which commands you approve constantly and which ones deserve a second
-look. A rule engine written today would encode guesses about that, and then the
-guesses would be load bearing.
+The third is that we do not know the rules yet. Lesson 09 adds search tools.
+Lesson 11 assembles everything into a working agent. Only after using that
+agent do you find out which commands you approve constantly and which ones
+deserve a second look. A rule engine written today would encode guesses about
+that, and then the guesses would be load bearing.
 
 That third reason may look like it contradicts lesson 06, which argued for
 putting the hardest capability into an interface from the start even when only
@@ -893,12 +894,12 @@ SHELL_TIMEOUT = 60
         return f"{note}\n{partial}" if partial.strip() else note
 ```
 
-**What it is.** After 60 seconds, `communicate` gives up waiting and raises
+After 60 seconds, `communicate` gives up waiting and raises
 `subprocess.TimeoutExpired`. The tool catches that, kills the command and
 everything it started, collects whatever output had already arrived, and returns
 a sentence.
 
-**Why it is there.** Because commands that never finish are ordinary, not
+It is there because commands that never finish are ordinary, not
 exotic. Here is a list of things a model reasonably tries that never return.
 
 - `npm run dev`, `flask run`, `python -m http.server`, or any development
@@ -924,7 +925,7 @@ And remember from section 2 that `stdin` is not redirected, so the child
 inherits the agent's standard input. A command that asks a question is competing
 with your agent for the same terminal, which is a special kind of confusing.
 
-**What happens without a timeout.** `communicate` blocks. Your agent loop in
+Without a timeout, `communicate` blocks. Your agent loop in
 `agent.py` is an ordinary synchronous `for` loop, so it never reaches the next
 iteration. Nothing prints. No exception is raised. Your terminal sits there
 looking like it is thinking. The only way out is Ctrl+C, which kills the agent
@@ -955,13 +956,13 @@ catch `TimeoutExpired`, the exception would travel up and land there, and the
 agent would survive anyway. That is true, and pretending otherwise would be
 dishonest. So why the specific catch?
 
-**Because the handler is where the killing happens.** This is the reason that
+The handler is where the killing happens. This is the reason that
 did not exist in an earlier version of this file, and the next subsection is the
 story of how it got here. Nothing above the handler stops the command. If the
 exception simply escaped, the runaway process would still be running and the
 blanket handler would report a timeout that had not stopped anything.
 
-**Because a predicted condition should be handled where it happens.** A blanket
+A predicted condition should be handled where it happens. A blanket
 `except Exception` is a safety net for the things you did not think of. A
 timeout is a thing you thought of. In fact it is a thing you configured, on the
 line above. Handling a known outcome by dropping it into the net for unknown
@@ -971,7 +972,7 @@ three when the dispatcher is replaced by a registry with different error
 handling. A tool that is correct on its own stays correct wherever it is
 plugged in.
 
-**Because the message is the product.** Compare what the model receives. Through
+The message is the product. Compare what the model receives. Through
 the blanket handler it gets this.
 
 ```text
@@ -990,7 +991,7 @@ is a plain sentence written for its actual reader. That reader is a model
 deciding what to do next, and every token in the first version is paid for on
 every subsequent request for the rest of the session.
 
-**And the general principle underneath both.** Inside an agent, an error you
+A general principle sits underneath them. Inside an agent, an error you
 return is information and an error you raise is a stop. A model that reads
 "the command timed out after 60 seconds and was killed" can do something useful
 with it. It can
@@ -1058,20 +1059,20 @@ def _kill_tree(process):
             pass
 ```
 
-**Why two platform branches.** Because there is no portable way to say kill that
+There are two platform branches because there is no portable way to say kill that
 whole family. On Unix `os.killpg` signals every process in the group, which is
 why the group had to be created in advance. On Windows the equivalent is the
 built in `taskkill`, where `/T` means the process and its descendants and `/F`
 means do not ask nicely. Python has no wrapper for it, so you shell out to the
 tool Windows ships.
 
-**Why the fallback swallows everything.** Because a kill can fail for reasons
+The fallback swallows everything because a kill can fail for reasons
 that are nobody's fault, most often that the process finished on its own in the
 moment between the timeout firing and the signal arriving. Failing loudly there
 would turn a harmless race into a crashed tool. Killing only the shell beats
 killing nothing, and returning a timeout message beats returning a traceback.
 
-**Why we read the pipes a second time.** After the tree is dead the pipes close,
+Reading the pipes a second time matters. After the tree is dead the pipes close,
 so a short second `communicate` collects whatever the command managed to print
 before it was stopped. That is often the most useful part of a timeout, because
 a test suite that hangs usually prints the tests that passed first. The five
@@ -1313,7 +1314,7 @@ and piping with `|`, which is why so many commands are portable by accident.
 
 Two extra complications make this messier than the table suggests.
 
-**PowerShell is not what runs.** Even if you started the agent from a PowerShell
+PowerShell is not what runs. Even if you started the agent from a PowerShell
 window, `shell=True` gives you `cmd.exe`. So PowerShell syntax such as
 `Get-ChildItem` or `$env:PATH` fails, and you get an error that does not
 obviously explain why. You can prove which shell you are in from inside the
@@ -1328,8 +1329,8 @@ That is `cmd.exe` behaviour. In PowerShell, `cd` with no argument moves you to
 your home directory. In `/bin/sh` it does the same, silently. Only `cmd.exe`
 prints the current directory.
 
-**Some Unix commands work on Windows anyway, which is worse than if they never
-did.** Git for Windows ships a full set of Unix utilities, and if its `usr/bin`
+Some Unix commands work on Windows anyway, which is worse than if they never
+did. Git for Windows ships a full set of Unix utilities, and if its `usr/bin`
 is on your PATH then `cmd.exe` will happily find `ls.exe`. Running `ls -la`
 through this tool on the Windows machine used to write this chapter produced
 real Unix output.
@@ -1373,7 +1374,7 @@ there is no PATH lookup to get wrong. The quotes around it handle the space in
 `C:\Program Files\...`, which is where Python often lives on Windows. Two small
 habits, and the check runs identically on every platform.
 
-**What this means for your agent.** The model does not know which operating
+What this means for your agent is that the model does not know which operating
 system it is on unless you tell it. Trained mostly on Unix, it will guess Unix,
 so on Windows expect `ls` and `cat` and `rm -rf` and expect some of them to
 fail. Lesson 10 puts the operating system and the workspace path into the system
@@ -1425,12 +1426,12 @@ anything you build into a command string, on every platform.
 
 ### Two encodings on one machine
 
-**What the problem is.** Every byte a command prints has to be turned into
+The problem is that every byte a command prints has to be turned into
 characters before anything can read it, and the rule for doing that is called an
 encoding. Nothing in the bytes says which encoding was used. Somebody has to
 decide, and if they decide wrong the text is wrong.
 
-**Where the naive version lands.** Ask `subprocess` to decode for you with
+The naive version lands somewhere bad. Ask `subprocess` to decode for you with
 `text=True` and nothing else, and Python decodes using the system's preferred
 encoding. Here is what that does to a directory holding two ordinary files, one
 named `café.txt` and one named `résumé.txt`, on the Windows machine this chapter
@@ -1453,7 +1454,7 @@ Read the last line twice. The decode failed inside a reader thread that
 discarded, and the call returned `None` for stdout as if the command had said
 nothing. Not a crash you can catch. Not an error you can report. Silence.
 
-**Where the previous version of this file landed.** It said
+The previous version of this file landed somewhere else. It said
 `encoding="utf-8", errors="replace"`, and this chapter used to defend that
 choice at length. The argument was that it replaces a guess with a decision, and
 that any byte that does not fit becomes the Unicode replacement character rather
@@ -1487,7 +1488,7 @@ résumé.txt
 That is the shape of the failure. Nothing raised, nothing was logged, and the
 tool handed the model two file names it cannot open.
 
-**What it does now.** One function decides the order to try, and one function
+It now works in two parts. One function decides the order to try, and one function
 tries them.
 
 ```python
@@ -1527,8 +1528,8 @@ this machine the list comes out as follows.
 On macOS and Linux the list is just `['utf-8']`, and the loop makes one attempt
 and stops. None of this costs anything off Windows.
 
-**Why utf-8 goes first, and why the order is the whole trick.** Because UTF-8
-fails loudly on the wrong input and a single byte encoding never fails at all.
+utf-8 goes first because UTF-8 fails loudly on the wrong input and a single
+byte encoding never fails at all. That order is the whole trick.
 
 UTF-8 has structure. A byte such as `0x82` cannot begin a character, so decoding
 cp437 bytes as UTF-8 raises `UnicodeDecodeError`, which is precisely the signal
@@ -1543,7 +1544,7 @@ preference for UTF-8. It is the only order in which the loop can work at all.
 Any list of encodings tried in sequence has to run from the strictest to the
 loosest, and the loosest one has to be last.
 
-**Why there is still a replacement fallback.** Because bytes can be neither. A
+There is still a replacement fallback because bytes can be neither. A
 command that prints part of a binary file, or two programs in a pipeline writing
 different encodings into one stream, produces something no candidate will
 accept. The last line decodes as UTF-8 with `errors="replace"` so that
@@ -1571,12 +1572,12 @@ is produced fresh by whichever program you happened to run, and that program
 made its own choice a moment ago. One case has a defensible default and the
 other does not.
 
-**What this still cannot do.** The whole buffer is decoded as one thing. A
-command that emits UTF-8 for half its output and cp437 for the other half, which
-a pipeline of two different tools can genuinely do, will decode as whichever
-candidate happens to accept the whole buffer, and the other half will be wrong.
-Fixing that properly means decoding line by line and guessing per line, which is
-more machinery than the problem deserves.
+What this still cannot do is handle a mixed buffer. The whole buffer is decoded
+as one thing. A command that emits UTF-8 for half its output and cp437 for the
+other half, which a pipeline of two different tools can genuinely do, will
+decode as whichever candidate happens to accept the whole buffer, and the other
+half will be wrong. Fixing that properly means decoding line by line and
+guessing per line, which is more machinery than the problem deserves.
 
 ### The characters the shell destroys before you see them
 
@@ -1596,14 +1597,14 @@ went to write the file name it substituted a question mark for each character it
 could not express, and question marks are what came down the pipe. There is
 nothing to undo. Decoding cannot recover what was never encoded.
 
-**So the fix has to happen earlier.** Before the shell writes anything, the
+So the fix has to happen earlier. Before the shell writes anything, the
 console it is writing to has to be one that can hold those characters, which
 means codepage 65001, which is UTF-8. Two things do that. `as_utf8_console`
 prepends `chcp 65001 >nul & ` to the command, and `_use_utf8_console` sets this
 process's own console to UTF-8, once, before any shell is started.
 
-**Why both, when the prefix looks sufficient.** This is the interesting part and
-it cost an afternoon, so it is worth telling properly.
+We do both, even though the prefix looks sufficient. This is the interesting
+part and it cost an afternoon, so it is worth telling properly.
 
 The prefix alone appeared to work. Run the test and the Thai name comes back
 correctly. Run it again the next day and it comes back correctly. Then somebody
@@ -1639,7 +1640,7 @@ parent: 'รายงาน.txt'
 parent: 'รายงาน.txt'
 ```
 
-**Why setting it in our own process fixes it.** Because our process exists before
+Setting it in our own process fixes it because our process exists before
 any shell does. There is no ordering problem left to lose.
 
 ```python
@@ -1669,12 +1670,12 @@ console attached, where these calls fail and there is nothing to be done about
 it. In that case the `chcp` prefix is the fallback, and it still helps every
 program the shell launches even though it comes too late for the shell itself.
 
-**Why the prefix is kept at all.** Because the two cover different things. The
+The prefix is kept because the two cover different things. The
 parent side call fixes the console. The prefix fixes the shell's own idea of its
 codepage in the cases where the console call did not happen, and it also travels
 with the command into any nested shell the command starts.
 
-**What this changes for the person at the keyboard.** `SetConsoleOutputCP`
+This changes something for the person at the keyboard. `SetConsoleOutputCP`
 changes the codepage of the terminal you are sitting in, and it stays changed
 after the agent exits. That is worth saying out loud rather than burying. It is
 a display setting. It does not touch a file, it does not change how anything is
@@ -1683,7 +1684,7 @@ alternative is output that is quietly wrong, which is a worse thing to hand
 somebody than a terminal that can now display more characters than it could
 before.
 
-**The honest limits.**
+Now the honest limits.
 
 The shell reads its command line before any `chcp` on that line takes effect. So
 in the case where the console cannot be set in the parent, non ASCII characters
@@ -2010,13 +2011,13 @@ two lines at the centre of it.
 Three, in increasing order of usefulness. All optional, all teaching something
 the reading cannot.
 
-**One. Break the check on purpose.** In `run_shell`, move the `confirm` call to
+First, break the check on purpose. In `run_shell`, move the `confirm` call to
 after `subprocess.Popen`, so the command runs and then the answer is consulted. Run
 `check.py`. Watch which assertion still passes and which one fails. Then put it
 back. Five minutes, and you will never again write a security test that reads
 only the return value.
 
-**Two. Add a deny list.** Before `confirm` is called, refuse any command matching
+Second, add a deny list. Before `confirm` is called, refuse any command matching
 a few patterns you consider obviously destructive, such as `rm -rf /` and
 `git push --force`. Get it working. Then spend ten minutes trying to write a
 command your list misses that does the same damage. Extra spaces. A different
@@ -2026,7 +2027,7 @@ quickly, and the point of the exercise is the feeling of finding them. Deny list
 are comfort, not security, and knowing that in your hands rather than in theory
 changes how you evaluate every tool that offers you one.
 
-**Three. Make it remember.** Add a third answer to `confirm`, `a` for always,
+Third, make it remember. Add a third answer to `confirm`, `a` for always,
 that records the command and skips the question the next time an identical
 command arrives. Then sit with the follow-up questions. Is byte-for-byte identical
 the right key, when `pytest tests/test_a.py` and `pytest tests/test_b.py` are the

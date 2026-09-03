@@ -98,16 +98,17 @@ your hands do.
 
 There are two moves, and only two.
 
-**You find a file by its name.** You know it is called something like
-`settings`, or you know it is a test, or you know it ends in `.tsx`. In an
-editor this is the fuzzy file finder, the box that opens when you press
-control p. On the command line it is `find` or `ls`. You are searching over
-file names, not file contents.
+The first is finding a file by its name. You know it is called something
+like `settings`, or you know it is a test, or you know it ends in `.tsx`.
+In an editor this is the fuzzy file finder, the box that opens when you
+press control p. On the command line it is `find` or `ls`. You are
+searching over file names, not file contents.
 
-**You find text inside files.** You know a string that appears in the code. A
-function name, an error message a user reported, a configuration key, a magic
-number. You do not know which file it lives in and you do not care yet. In an
-editor this is search across files. On the command line it is `grep`.
+The second is finding text inside files. You know a string that appears in
+the code. A function name, an error message a user reported, a configuration
+key, a magic number. You do not know which file it lives in and you do not
+care yet. In an editor this is search across files. On the command line it is
+`grep`.
 
 That is the whole toolkit. Watch a senior engineer land in a codebase they have
 never seen and they will use those two moves, alternating, narrowing as they
@@ -160,22 +161,24 @@ augmentation of the prompt, then generation. Hence the name.
 The interesting part is how you decide what is relevant. The standard answer
 has three steps.
 
-**Chunking.** You cut every document into pieces small enough to fit in a
-prompt. Perhaps five hundred words each, often with a little overlap between
-neighbours so that a sentence spanning a boundary is not lost.
+The first step is chunking. You cut every document into pieces small enough
+to fit in a prompt. Perhaps five hundred words each, often with a little
+overlap between neighbours so that a sentence spanning a boundary is not
+lost.
 
-**Embedding.** You send each chunk to a model whose job is not to write text
-but to turn text into a list of numbers, typically several hundred or a couple
-of thousand of them. That list is called a vector or an embedding. The useful
-property is that pieces of text with similar meanings get vectors that are
-close together in that space, even when they share no words at all. "The cat
-sat on the mat" and "a feline was resting on the rug" land near each other.
-You store all those vectors in a database built to answer one question fast,
-which is "which stored vectors are nearest to this one".
+The second step is embedding. You send each chunk to a model whose job is not
+to write text but to turn text into a list of numbers, typically several
+hundred or a couple of thousand of them. That list is called a vector or an
+embedding. The useful property is that pieces of text with similar meanings
+get vectors that are close together in that space, even when they share no
+words at all. "The cat sat on the mat" and "a feline was resting on the rug"
+land near each other. You store all those vectors in a database built to
+answer one question fast, which is "which stored vectors are nearest to this
+one".
 
-**Query time.** When a question arrives, you embed the question the same way,
-ask the database for the ten nearest chunks, and paste those ten chunks into
-the prompt.
+The third step is the query itself. When a question arrives, you embed the
+question the same way, ask the database for the ten nearest chunks, and paste
+those ten chunks into the prompt.
 
 It is a genuinely good technique. It solved a real problem. The reason it is
 famous is that it works.
@@ -184,20 +187,20 @@ famous is that it works.
 
 Now apply each of those three steps to a Python file and watch what breaks.
 
-**Chunking destroys the structure that makes code meaningful.** A five hundred
-word window through source code does not respect anything. It cuts a function
-in half. It separates a decorator from the function it decorates, a `try` from
-its `except`, a class from the methods that give it meaning. Worse, it strips
-the context that tells you what you are looking at. A chunk containing a method
+Chunking destroys the structure that makes code meaningful. A five hundred word
+window through source code does not respect anything. It cuts a function in
+half. It separates a decorator from the function it decorates, a `try` from its
+`except`, a class from the methods that give it meaning. Worse, it strips the
+context that tells you what you are looking at. A chunk containing a method
 called `run` may not contain the class name, the imports, or the file path, and
 without those the chunk is nearly meaningless. Prose degrades gently when you
 cut it in the wrong place. Code does not. A function body without its signature
 is not a slightly worse version of the function, it is a fragment that could
 belong to anything.
 
-**Function names are already excellent search keys.** This is the point that
-does the most work. The whole reason embeddings are impressive is that they
-find text that means the same thing while using different words. That is a
+Function names are already excellent search keys. This is the point that does
+the most work. The whole reason embeddings are impressive is that they find
+text that means the same thing while using different words. That is a
 superpower when your corpus is prose written by many people who chose different
 vocabulary for the same idea. It is close to worthless when the thing you are
 looking for has exactly one spelling that appears everywhere it is used. If you
@@ -207,18 +210,18 @@ to solve, because programming languages do not have synonyms. A name either
 matches or it is a different name, and the compiler enforces that far more
 strictly than any embedding model could approximate.
 
-**The index goes stale the instant a file changes.** This one is fatal in a way
-people underestimate. Your agent's entire purpose is to edit code. The moment
-it writes a file, every chunk from that file is wrong, and so is every vector
-built from those chunks. You now need a rebuild. Rebuild the whole index and a
-medium repository costs you minutes and a pile of embedding API calls on every
-edit. Rebuild incrementally and you have to track which chunks came from which
-file version, which is a cache invalidation problem, which is the thing
-everybody quotes as one of the two hard problems in computer science. Compare
-that to `grep`, which has no index, cannot go stale, and sees the file the agent
-wrote one millisecond ago because it reads the file.
+The index goes stale the instant a file changes. This one is fatal in a way
+people underestimate. Your agent's entire purpose is to edit code. The moment it
+writes a file, every chunk from that file is wrong, and so is every vector built
+from those chunks. You now need a rebuild. Rebuild the whole index and a medium
+repository costs you minutes and a pile of embedding API calls on every edit.
+Rebuild incrementally and you have to track which chunks came from which file
+version, which is a cache invalidation problem, which is the thing everybody
+quotes as one of the two hard problems in computer science. Compare that to
+`grep`, which has no index, cannot go stale, and sees the file the agent wrote
+one millisecond ago because it reads the file.
 
-**One similarity search cannot refine, and the agent can.** A vector query is a
+One similarity search cannot refine, and the agent can. A vector query is a
 single shot. You embed the question, you get your ten nearest chunks, and that
 is the answer you have to work with. There is no second attempt informed by the
 first, because there is nothing in the result that tells you how to ask better.
@@ -265,19 +268,19 @@ generalise the way people on either side of this debate tend to claim.
 
 Vector search wins, clearly and by a lot, when three things are true at once.
 
-**The corpus is large and unstructured prose.** Support tickets, research
+The corpus is large and unstructured prose. Support tickets, research
 papers, policy documents, internal wiki pages, transcripts, years of email.
 Text with no naming discipline, written by many people over a long period.
 
-**The question is about meaning rather than words.** "What is our policy on
+The question is about meaning rather than words. "What is our policy on
 refunding annual plans" needs to match a document that says "yearly
 subscriptions may be reimbursed within thirty days" and never uses the word
 refund or the word policy. Keyword search fails that outright. This is the
 synonym problem, and embeddings genuinely solve it.
 
-**The corpus changes slowly.** A knowledge base rebuilt nightly is fine.
-Staleness costs you a day, not a millisecond, and nobody is editing the corpus
-in the middle of the query.
+The corpus changes slowly. A knowledge base rebuilt nightly is fine. Staleness
+costs you a day, not a millisecond, and nobody is editing the corpus in the
+middle of the query.
 
 Those are real and common situations. If your agent's job is answering
 questions over ten thousand support tickets, build the vector index and do not
@@ -1330,12 +1333,12 @@ on Windows, macOS and Linux with no installation step at all.
 
 Now the fair half.
 
-**Using `ripgrep` in your own project is a reasonable choice.** Once you
-control the environment, once there is a Dockerfile or a documented setup or
-just your own laptop, the calculation changes completely. `rg` is between one
-and two orders of magnitude faster on a large repository. Reading `.gitignore`
-is exactly the right behaviour and it is a much better rule than a hardcoded
-set of directory names. Its binary detection is correct where a
+Using `ripgrep` in your own project is a reasonable choice. Once you control
+the environment, once there is a Dockerfile or a documented setup or just your
+own laptop, the calculation changes completely. `rg` is between one and two
+orders of magnitude faster on a large repository. Reading `.gitignore` is
+exactly the right behaviour and it is a much better rule than a hardcoded set
+of directory names. Its binary detection is correct where a
 `UnicodeDecodeError` check is a rough approximation. On a monorepo, the
 difference is not a nicety, it is the difference between a tool the agent can
 call freely and one it has to think twice about.
@@ -1520,7 +1523,7 @@ change code in a folder, and part two ends.
 
 ### Exercises before you move on
 
-**One.** Make the cut off from section 7 visible. Right now both tools stop at
+First, make the cut off from section 7 visible. Right now both tools stop at
 `MAX_RESULTS` and say nothing about it, so a search that found four thousand
 matches and a search that found exactly two hundred produce output the model
 cannot tell apart. It reads two hundred lines, concludes it has seen everything,
@@ -1528,11 +1531,11 @@ and narrows in the wrong direction. Change both tools to append a line such as
 `[stopped at 200 results, narrow the pattern or the glob]`, which means the
 worker has to count past the cap rather than return on it, and has to carry that
 fact back to the parent in the JSON, then write a check that creates three
-hundred matching lines and asserts the note is there.
-This is the most valuable of the three because it is a real defect and the
-symptom is a confidently wrong answer rather than an error.
+hundred matching lines and asserts the note is there. This is the most valuable
+of the three because it is a real defect and the symptom is a confidently wrong
+answer rather than an error.
 
-**Two.** Make `SKIP_DIRECTORIES` stop being a guess. Section 6 admitted that the
+Second, make `SKIP_DIRECTORIES` stop being a guess. Section 6 admitted that the
 set is hard coded, so `vendor`, `target`, `.next` and `dist` are walked in full
 on the projects that have them. Read the workspace's `.gitignore` at import time
 and add every directory name it lists to the set, falling back to the current
@@ -1541,7 +1544,7 @@ constant when there is no such file. The hard part is deciding how much of the
 has negation and anchoring and per directory files, and stopping early on purpose
 is a real engineering decision rather than laziness.
 
-**Three.** Build the `ripgrep` fallback from section 8. Detect `rg` with
+Third, build the `ripgrep` fallback from section 8. Detect `rg` with
 `shutil.which` at import time, shell out to it when it is present, and use the
 existing walk when it is not. The interesting part is making both paths produce
 identical output format, because the model must not be able to tell which one

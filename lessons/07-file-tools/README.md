@@ -290,7 +290,7 @@ def edit_file(path, old, new):
 Every copy is correct. The code works. And it is still the wrong answer, for
 two reasons that are worth separating.
 
-**A rule spread across four places is a rule one of them will forget.** Not
+A rule spread across four places is a rule one of them will forget. Not
 today. Today you have four functions and you wrote all four in the same hour
 with the same idea in your head. The forgetting happens in six weeks when you
 add `append_file`, or `copy_file`, or `delete_file`, and you write it by
@@ -304,7 +304,7 @@ The failure mode of duplicated security is never that all the copies are wrong.
 It is that one of them is, and the other three keep working perfectly and make
 the whole thing look fine.
 
-**A security rule you cannot review in one sitting is not a security rule.**
+A security rule you cannot review in one sitting is not a security rule.
 This is the sharper half of the argument. Ask what it takes to answer the
 question "can this agent read files outside its workspace?" With one gate, you
 read twenty lines and you are done, and you can be confident because you can
@@ -458,22 +458,22 @@ def resolve_inside_wrong(path):
 
 Count the ways past it.
 
-**Backslashes.** On Windows the model may well send `..\..\etc\hosts`. The
+Backslashes are one way. On Windows the model may well send `..\..\etc\hosts`. The
 substring `..` is present in that one, so this particular check happens to
 catch it, but any check written in terms of `/` separators will not. Path
 separators are a platform detail and a string check has to get every platform
 right by hand.
 
-**A leading component that is not `..`.** The string `notes/../../../etc/passwd`
-does not start with a slash and looks like it begins with a harmless directory.
-It escapes three levels. Any check that only inspects the beginning of the
-string misses it.
+A leading component that is not `..` is another. The string
+`notes/../../../etc/passwd` does not start with a slash and looks like it
+begins with a harmless directory. It escapes three levels. Any check that only
+inspects the beginning of the string misses it.
 
-**Drive letters and UNC paths.** `C:/Windows/win.ini` does not start with `/`
-and contains no `..`, so the check above lets it straight through. So does
-`\\server\share\file`.
+Drive letters and UNC paths get through too. `C:/Windows/win.ini` does not
+start with `/` and contains no `..`, so the check above lets it straight
+through. So does `\\server\share\file`.
 
-**Symbolic links.** This is the one that string checks cannot fix at all, even
+Symbolic links are the one that string checks cannot fix at all, even
 in principle. Suppose the workspace contains a symlink named `data` that points
 at `/etc`. The path `data/passwd` contains no `..`, no drive letter, no leading
 slash, and no suspicious characters of any kind. It is a completely ordinary
@@ -485,13 +485,14 @@ filesystem. `.resolve()` follows symlinks, so the resolved path is
 And one more, which is the classic bug in this family and the reason the code
 uses `is_relative_to` rather than a string comparison even after resolving.
 
-**The prefix that is not a parent.** Suppose you resolved properly but then
-compared with `str(candidate).startswith(str(WORKSPACE))`. With a workspace of
-`/home/me/work`, the path `/home/me/workspace_evil/notes.txt` passes that test,
-because the workspace string really is a prefix of it. It is not inside the
-workspace. It is a sibling directory whose name happens to start the same way.
-`is_relative_to` compares path components rather than characters, so `work` and
-`workspace_evil` are simply different components and the test fails correctly.
+The prefix that is not a parent is the last one. Suppose you resolved properly
+but then compared with `str(candidate).startswith(str(WORKSPACE))`. With a
+workspace of `/home/me/work`, the path `/home/me/workspace_evil/notes.txt`
+passes that test, because the workspace string really is a prefix of it. It is
+not inside the workspace. It is a sibling directory whose name happens to start
+the same way. `is_relative_to` compares path components rather than characters,
+so `work` and `workspace_evil` are simply different components and the test
+fails correctly.
 
 Put those together and the rule is short. Turn the request into a real,
 absolute, symlink free path first, then ask one question about where that path
@@ -668,16 +669,16 @@ four suffixes, so certificate and key files are caught wherever they sit.
 
 Now the honest part.
 
-**It only inspects the final component.** `candidate.name` is the file name, so
+It only inspects the final component. `candidate.name` is the file name, so
 a file at `credentials/database.txt` is not caught by the `credentials` entry,
 because that entry matches a file named `credentials`, not a directory.
 
-**It is a deny list, and deny lists are always incomplete.** A file called
+It is a deny list, and deny lists are always incomplete. A file called
 `api_keys.txt` sails through. So does `config.local.json` with a token in it.
 There is no possible list that covers everything a secret can be named,
 because naming is up to whoever created the file.
 
-**It does not stop the file being seen.** `list_files` does not filter names,
+It does not stop the file being seen. `list_files` does not filter names,
 so the agent can tell you `.env` exists. Here is that, exactly as it happens.
 
 ```text
@@ -820,23 +821,24 @@ not match the file at all, usually because of whitespace.
 Several other designs are available, and each of them is worse for a reason
 worth understanding.
 
-**Replace the first occurrence only.** Use `text.replace(old, new, 1)` and move
-on. This is worse than replacing all of them, which is a strange thing to say
-until you see why. Replacing everything at least produces a visible mess. A
-first occurrence rule silently edits whichever place happens to come earliest in
-the file, which is a position the model was not reasoning about at all. You get
-an edit in the wrong function, reported as success, with no signal anywhere. It
-turns an ambiguity into a coin flip and hides the coin.
+The first alternative replaces the first occurrence only. Use
+`text.replace(old, new, 1)` and move on. This is worse than replacing all of
+them, which is a strange thing to say until you see why. Replacing everything
+at least produces a visible mess. A first occurrence rule silently edits
+whichever place happens to come earliest in the file, which is a position the
+model was not reasoning about at all. You get an edit in the wrong function,
+reported as success, with no signal anywhere. It turns an ambiguity into a coin
+flip and hides the coin.
 
-**Take a line number as well.** Have the model send `line=42` and edit there.
-Now the tool is exact, and the model is required to track line numbers across a
-conversation while the file changes underneath it. Every previous edit shifts
-the numbers below it. Models are poor at this arithmetic, and worse, the
+The second takes a line number as well. Have the model send `line=42` and edit
+there. Now the tool is exact, and the model is required to track line numbers
+across a conversation while the file changes underneath it. Every previous edit
+shifts the numbers below it. Models are poor at this arithmetic, and worse, the
 resulting error mode is an off by one that lands in the wrong place and
 succeeds. Matching on text has the enormous advantage that the model's
 identifier for a location is checkable against the file. A line number is not.
 
-**Ask the user which occurrence.** Prompt a human every time a match is
+The third asks the user which occurrence. Prompt a human every time a match is
 ambiguous. This is not wrong, and lesson 08 introduces confirmation for shell
 commands where it is exactly right. It is the wrong tool for this problem
 because ambiguity here is not a question about intent. It is a question about
@@ -845,11 +847,11 @@ a person to answer something the model can resolve by trying again is a bad
 trade, and an agent that asks constantly gets approved reflexively, which
 destroys the value of asking at all.
 
-**Let the model send a diff or patch.** This is what some real tools do and it
-is a legitimate design. It costs you a patch parser, an offset resolver, and a
-fuzz matching policy, and it gives models a format they produce less reliably
-than plain text. It is a reasonable trade at scale and a bad one for a tool you
-want to fit in twenty lines and understand completely.
+The fourth lets the model send a diff or patch. That is what some real tools do
+and it is a legitimate design. It costs you a patch parser, an offset resolver,
+and a fuzz matching policy, and it gives models a format they produce less
+reliably than plain text. It is a reasonable trade at scale and a bad one for a
+tool you want to fit in twenty lines and understand completely.
 
 ### An error the model can read beats an edit it cannot see
 
@@ -1262,7 +1264,7 @@ Four `OK` lines, which is the whole claim of the lesson.
 
 ### Reading it line by line
 
-**The first `OK`** comes before any model is involved at all.
+The first `OK` comes before any model is involved at all.
 
 ```python
     if "return a - b" not in tools.read_file("calc.py"):
@@ -1275,7 +1277,7 @@ interesting test in the file and it belongs first, because if it fails then
 every later failure is a consequence and you would waste time debugging the
 wrong layer.
 
-**The tool trace in the middle** is `agent.py` printing, and it is unchanged
+The tool trace in the middle is `agent.py` printing, and it is unchanged
 code from lesson 06 producing it. Read the shape of it. There is a blank line,
 then `[calling read_file with ...]`, then the result, then the same pair for
 `edit_file`, then a sentence of model text. That is two full turns of the agent
@@ -1298,7 +1300,7 @@ which is exactly why section 8 exists.
 `decide` function turns any tool result into that sentence, which is how the
 loop reaches a turn with no tool calls and exits.
 
-**The second `OK`** is the one that matters most, and note what it checks.
+The second `OK` is the one that matters most, and note what it checks.
 
 ```python
     run(provider, READ_AND_EDIT)
@@ -1312,7 +1314,7 @@ reporting `Edited calc.py` is a claim and the file contents are the fact.
 Testing the claim would pass even if `edit_file` returned its success message
 without writing anything.
 
-**The third `OK`** goes around the model entirely.
+The third `OK` goes around the model entirely.
 
 ```python
     escape = tools.run("read_file", {"path": "../../secrets.txt"})
@@ -1325,7 +1327,7 @@ because the property under test is a property of the gate, and involving the
 model would make the test depend on the model choosing to try the bad path. You
 test a control by attacking it yourself.
 
-**The fourth `OK`** has two conditions and both are load bearing.
+The fourth `OK` has two conditions and both are load bearing.
 
 ```python
     secret = tools.run("read_file", {"path": ".env"})
@@ -1403,7 +1405,7 @@ even more seriously than this one did.
 
 Four, in increasing order of difficulty.
 
-**One.** Try to get out. Start a Python session, set `AGENTPATH_WORKSPACE` to a
+First, try to get out. Start a Python session, set `AGENTPATH_WORKSPACE` to a
 temporary directory, import `tools`, and spend ten minutes calling
 `tools.run("read_file", {"path": ...})` with the nastiest paths you can invent.
 Backslashes, mixed separators, a very long chain of `..`, a UNC path, a path
@@ -1412,20 +1414,20 @@ behaves in a way you did not expect. Then create a symlink inside the workspace
 pointing outside it and confirm the refusal, since that is the case that
 resolving first exists to catch.
 
-**Two.** Break `edit_file` on purpose. Change it to a plain
+Second, break `edit_file` on purpose. Change it to a plain
 `text.replace(old, new)` with no counting, then run it against a file with three
 identical lines and watch it report `Edited` while corrupting two places you did
 not mean. Now imagine that inside a fifty step agent run. This takes two
 minutes and it is the fastest way to make section 6 permanent.
 
-**Three.** Make the workspace an argument instead of a module level constant.
+Third, make the workspace an argument instead of a module level constant.
 Give the tools a small class that holds a root and has `read_file`,
 `write_file`, `edit_file` and `list_files` as methods, and build `FUNCTIONS`
 from an instance of it. `check.py` no longer needs its import ordering trick.
 Then decide for yourself which version you prefer, and be able to say why. There
 is a real argument on both sides and the exercise is having it.
 
-**Four.** Add a fifth tool, `append_file`, that adds text to the end of a file.
+Fourth, add a fifth tool, `append_file`, that adds text to the end of a file.
 Write it, then look at what you wrote. Did you call `resolve_inside`? Did you
 truncate anything it returns? Did you write a description that tells the model
 when to use it rather than `write_file`? Now go back to section 3 and reread the

@@ -696,7 +696,7 @@ works and a tool that is dangerous.
 A passage with no source is nearly useless, for two separate reasons that fail
 in two different directions.
 
-**The agent cannot go and read more.** Retrieval returns a fragment by
+The agent cannot go and read more. Retrieval returns a fragment by
 construction. That fragment frequently answers half the question, or answers it
 with a qualification that lives in the next paragraph. With a source, the model
 has somewhere to go, and it already has the tools to go there. Look at the
@@ -718,7 +718,7 @@ the argument of the next, with no transformation in between. Return a nicely
 formatted digest with no paths in it and the chain breaks at the first link, and
 the agent has to either accept the fragment or start over.
 
-**A person cannot check it.** This is the more serious one.
+A person cannot check it. This is the more serious one.
 
 The whole reason retrieval exists is that a model's own recall is not
 trustworthy for facts about your particular documents. So you fetch the
@@ -812,7 +812,7 @@ between you and a working system.
 
 Be fair in both directions, so here is the bill.
 
-**An index, and the index goes stale.** You must embed every chunk in advance
+The first cost is an index, and the index goes stale. You must embed every chunk in advance
 and store the vectors somewhere. The moment a document changes, its vectors are
 wrong, and nothing tells you. There is no error and no warning. A stale index
 returns confidently outdated passages, and the failure surfaces days later as a
@@ -821,7 +821,7 @@ everything on a schedule and accepting a staleness window, or tracking which
 chunks came from which version of which file and rebuilding incrementally, which
 is a cache invalidation problem. Compare the fifth of a second in section 3.
 
-**A model to run.** Something has to turn text into vectors, at index time and
+The second is a model to run. Something has to turn text into vectors, at index time and
 again on every single query. Call an API and you have a second provider, a
 second key, a second rate limit, a second thing that can be down, and a per
 query cost and latency on the critical path of every search. Run it locally and
@@ -830,7 +830,7 @@ that your smallest deployment target may not meet. Either way, a dependency the
 version in this folder does not have. `retrieval.py` imports `math`, `os`, `re`
 and `pathlib`.
 
-**A pipeline to maintain.** This is the cost people discover last. The
+The third is a pipeline to maintain. This is the cost people discover last. The
 embedding model has a version, and re-embedding with a new version means
 re-embedding everything, because vectors from two versions are not comparable.
 The chunking strategy has parameters that someone has to own. The vector store
@@ -1093,16 +1093,16 @@ whether it works.
 
 Take them one at a time.
 
-**The first** asks `how long to ask for a refund`, which shares almost no
+The first asks `how long to ask for a refund`, which shares almost no
 phrasing with any document, and requires the answer to start with `refunds.md`.
 That is the whole feature, proved end to end through `tools.run`, which is the
 same dispatch path the agent loop uses.
 
-**The second** checks that the first line of the answer contains a colon, which
+The second checks that the first line of the answer contains a colon, which
 is the `file:line` source from section 6. It is a small assertion guarding a
 property that is easy to lose in a refactor and expensive to lose in production.
 
-**The third** asks about `quantum entanglement` and requires the words `nothing
+The third asks about `quantum entanglement` and requires the words `nothing
 in the documents` in the reply. It proves the zero score filter is doing its job.
 Without it the tool would return the five highest scoring passages out of eight
 regardless of the fact that all five scored zero, and the model would receive
@@ -1147,7 +1147,7 @@ There is a real skill in this and it generalises past retrieval. When a system
 has a known limitation that people will trip over, write a test that asserts the
 limitation. It converts folklore into something the build enforces.
 
-**The fifth** is the chapter's argument, executed.
+The fifth is the chapter's argument, executed.
 
 ```python
     exact = tools.run("grep_files", {"pattern": "issue_refund", "glob": "*.py"})
@@ -1165,7 +1165,7 @@ scoring, no rarity weights and no chunking decision. That is question three of
 section 2 answering itself in the same check file as question four, so the
 comparison is not rhetorical.
 
-**The sixth and seventh** are section 7's last two subsections, executed. Two
+The sixth and seventh are section 7's last two subsections, executed. Two
 passages that contain the same words, one scattered across three sentences
 and one saying the phrase, and `rerank` puts the phrase first. Then the refund
 answer from the first assertion, scored with `recall_at_k` against the one
@@ -1224,20 +1224,20 @@ line tool with `chat`, `run` and `resume`.
 
 ### Exercises before you move on
 
-**One.** Add the length correction from section 5. Divide each score by the
+First, add the length correction from section 5. Divide each score by the
 square root of the number of words in the passage, or by the length relative to
 the average passage length, and rerun the check. The interesting part is not the
 formula, it is watching which results change. Then find a query where the
 correction makes the answer worse and decide what that tells you.
 
-**Two.** Handle the document with no paragraphs. Find or make a file that is one
+Second, handle the document with no paragraphs. Find or make a file that is one
 enormous block, confirm that `passages_in` returns a single passage covering the
 whole thing, and add a fallback that splits an over-long block on sentence
 boundaries rather than on a character count. Keep the line numbers correct, which
 is the part that takes the time and is the reason the source in section 6 is
 worth protecting.
 
-**Three.** Build the hybrid from section 7, without embeddings. Run
+Third, build the hybrid from section 7, without embeddings. Run
 `search_notes` and `grep_files` on the same question, merge the two ranked lists,
 and return the combination with a note saying which tool found each passage. Then
 ask the harder question, which is how you rank a keyword hit against a scored
@@ -1245,7 +1245,7 @@ passage when the two numbers mean completely different things. There is no clean
 answer and the standard approach is reciprocal rank fusion, which is worth
 looking up once you have felt why the obvious approaches do not work.
 
-**Four.** Run the four questions of section 2 against something real that you
+Fourth, run the four questions of section 2 against something real that you
 own. Write down the corpus, the answer to each question, and where you stopped.
 If you stopped at question one, put the documents in the prompt this afternoon
 and see whether it works. That exercise has saved more engineering time than any

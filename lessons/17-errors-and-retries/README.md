@@ -59,33 +59,34 @@ in the code.
 There is no `try` anywhere near that line and there never has been. So here is
 the list of things that end your run with a traceback.
 
-**A rate limit.** You are on a free tier, or you share a key with three
-colleagues, or you asked the agent to read fifteen files and it made fifteen
-requests in ninety seconds. The provider answers `429`, `httpx` raises, the
+A rate limit is the first one. You are on a free tier, or you share a key with
+three colleagues, or you asked the agent to read fifteen files and it made
+fifteen requests in ninety seconds. The provider answers `429`, `httpx` raises, the
 exception travels out of `run` and out of `main`, and the conversation is gone.
 The request that failed would have succeeded twenty seconds later.
 
-**A server error.** `500`, `502`, `503`, `529`. A gateway restarting, a model
-being rescheduled, a capacity spike that has nothing to do with you. Same
-outcome. The provider was briefly unhealthy and your program treated that as
-fatal.
+A server error is the second, arriving as `500`, `502`, `503` or `529`. A
+gateway restarting, a model being rescheduled, a capacity spike that has
+nothing to do with you. Same outcome. The provider was briefly unhealthy and
+your program treated that as fatal.
 
-**A dropped connection.** Your laptop switches from wifi to a hotspot mid
-stream. A corporate proxy closes an idle socket. `httpx` raises a
+A dropped connection is the third. Your laptop switches from wifi to a hotspot
+mid stream. A corporate proxy closes an idle socket. `httpx` raises a
 `ReadError` and everything the agent had learned in that session evaporates.
 
-**A model that gets stuck.** No exception at all. The agent calls `grep_files`
-with the same pattern, gets the same empty result, calls it again with a comma
-moved, gets the same empty result, and does that until `max_turns` runs out. You
-paid for ten turns of nothing and the only signal you got was a `RuntimeError`
-at the end saying it stopped after max turns, which is exactly the same thing
-you would see if it had been making excellent progress and needed an eleventh.
+A model that gets stuck is the fourth, and it raises no exception at all. The
+agent calls `grep_files` with the same pattern, gets the same empty result,
+calls it again with a comma moved, gets the same empty result, and does that
+until `max_turns` runs out. You paid for ten turns of nothing and the only
+signal you got was a `RuntimeError` at the end saying it stopped after max
+turns, which is exactly the same thing you would see if it had been making
+excellent progress and needed an eleventh.
 
-**A person who changes their mind.** You asked it to refactor the wrong module.
-You realise this four seconds in, while it is streaming a plan you no longer
-want. You press Ctrl+C. What happens now depends entirely on where the
-interpreter was standing when the signal arrived, and none of the possibilities
-are good.
+The fifth is a person who changes their mind. You asked it to refactor the
+wrong module. You realise this four seconds in, while it is streaming a plan
+you no longer want. You press Ctrl+C. What happens now depends entirely on
+where the interpreter was standing when the signal arrived, and none of the
+possibilities are good.
 
 Those five failures split into three problems with three different answers.
 Failures that fix themselves need retrying, which is sections 2 to 5. A person
@@ -133,17 +134,16 @@ def with_retries(call, attempts=4, sleep=time.sleep):
     raise last_error
 ```
 
-**What it is.** A function that runs another function up to four times, waiting
-between attempts, and gives up in a way that preserves the original error.
+`with_retries` runs another function up to four times, waiting between
+attempts, and gives up in a way that preserves the original error.
 
-**Why we are doing it.** Because the majority of failures a real agent meets are
-not bugs. They are weather. The provider was busy for a second. The socket
-died. Nothing about your program was wrong and nothing about it needs to change.
+We do it because the majority of failures a real agent meets are not bugs.
+They are weather. The provider was busy for a second. The socket died. Nothing
+about your program was wrong and nothing about it needs to change.
 
-**Why this way and not another way.** The tempting version is a bare
-`except Exception` with a sleep in it, and that version is a disaster, because
-it turns every permanent failure into a slow permanent failure. The split
-matters more than the mechanism.
+The tempting alternative is a bare `except Exception` with a sleep in it, and
+that version is a disaster, because it turns every permanent failure into a
+slow permanent failure. The split matters more than the mechanism.
 
 ### The split, stated plainly
 
@@ -214,7 +214,7 @@ not complete. `ConnectError`, `ConnectTimeout`, `ReadTimeout`, `ReadError`,
 `WriteError`, `PoolTimeout`, `RemoteProtocolError`. What they have in common is
 the thing that makes them safe.
 
-**Nothing arrived, so nothing happened.** There is no HTTP status because there
+Nothing arrived, so nothing happened. There is no HTTP status because there
 is no HTTP response. The request either never reached the server or its answer
 never reached you. In both cases the model did not produce anything you have,
 and no state on your side changed. Sending it again is not repeating an action,
@@ -272,20 +272,19 @@ def delay_for(attempt: int, response=None, base=1.0, cap=30.0) -> float:
 Read the order of the function. The header is checked first, and if it is
 present and parses, the function returns. The formula below it never runs.
 
-**What `Retry-After` is.** A response header, defined in the HTTP specification
-and sent by essentially every provider that rate limits you. It carries a number
+`Retry-After` is a response header, defined in the HTTP specification and sent
+by essentially every provider that rate limits you. It carries a number
 of seconds. `Retry-After: 2` means come back in two seconds.
 
-**Why we are doing it.** Because it is the only number in this entire chapter
-that is not a guess. Our formula is a heuristic invented by us with no knowledge
+We listen to it because it is the only number in this entire chapter that is
+not a guess. Our formula is a heuristic invented by us with no knowledge
 of the service. The header is the service telling us, from inside, when it will
 be ready. When one party to a conversation knows the answer and the other is
 estimating, listening is not politeness, it is correctness.
 
-**Why this way and not another way.** The obvious alternative is to treat the
-header as advice and take the smaller of the two numbers, on the theory that
-coming back early might work and cannot hurt. Both halves of that theory are
-wrong.
+The obvious alternative is to treat the header as advice and take the smaller
+of the two numbers, on the theory that coming back early might work and cannot
+hurt. Both halves of that theory are wrong.
 
 Coming back early does not work, because the server told you it will not be
 ready and it meant it. The early request gets another `429`, so you have spent
@@ -360,13 +359,13 @@ date and a much better answer than a traceback.
 That multiplier looks like noise for the sake of noise. It is the most important
 line in the file and it is worth understanding exactly what it prevents.
 
-**What jitter is.** Randomising each client's wait so that clients which failed
-together do not return together. `random.random()` gives a float in `[0.0, 1.0)`,
+Jitter is randomising each client's wait so that clients which failed together
+do not return together. `random.random()` gives a float in `[0.0, 1.0)`,
 so `0.5 + random.random() / 2` gives a multiplier in `[0.5, 1.0)`, and the actual
 wait is somewhere between half the computed delay and all of it.
 
-**Why we are doing it.** Because without it, a moment of trouble becomes a
-sustained outage, and the clients are the ones sustaining it.
+We do it because without it a moment of trouble becomes a sustained outage,
+and the clients are the ones sustaining it.
 
 ### The failure it prevents, step by step
 
@@ -409,11 +408,11 @@ The herd is still a herd. It is no longer a wall.
 
 Two details of this particular multiplier are worth noting.
 
-**It only ever shortens the wait.** The range is `[0.5, 1.0)` of the computed
+It only ever shortens the wait. The range is `[0.5, 1.0)` of the computed
 delay, not `[0.5, 1.5)`. Nobody waits longer than the backoff schedule says, so
 adding jitter never makes the worst case slower than the table in section 3.
 
-**It never reaches zero.** The floor of 0.5 means an unlucky client cannot
+It never reaches zero. The floor of 0.5 means an unlucky client cannot
 retry instantly. A multiplier of plain `random.random()` would sometimes produce
 a delay of a few milliseconds, which is a client that has effectively ignored the
 backoff it just calculated.
@@ -447,12 +446,12 @@ changes nothing outside the conversation. Running a tool that sent an email
 is not, which is why nothing in this module wraps a tool call.
 ```
 
-**Asking the model again is safe.** A model call reads a conversation and
+Asking the model again is safe. A model call reads a conversation and
 returns text and tool call requests. It touches nothing outside the process. If
 you send it twice you get two answers and you use one. The cost is money and
 latency, and both are bounded and small.
 
-**Running a tool again is not safe.** A tool exists precisely to change
+Running a tool again is not safe. A tool exists precisely to change
 something outside the process. `write_file` writes to your disk. `run_shell`
 starts a subprocess. On a real harness the tool list grows to include things that
 send email, open pull requests, call your deployment API and charge cards.
@@ -505,13 +504,13 @@ def charge(amount, idempotency_key):
 
 Two things about that are load bearing.
 
-**The key is generated by the caller, before the first attempt, and reused on
-every retry.** A key generated inside the retry loop would be different each
+The key is generated by the caller, before the first attempt, and reused on
+every retry. A key generated inside the retry loop would be different each
 time, which makes every attempt look like a new operation and defeats the entire
 mechanism. The key identifies the intention to charge, not the individual HTTP
 request.
 
-**The repeat returns the earlier result rather than an error.** That is what
+The repeat returns the earlier result rather than an error. That is what
 makes the retry transparent. The caller who lost a response to a timeout asks
 again, gets the answer it missed, and never learns whether the second call did
 the work or replayed it. Returning an error would be safe but useless, because
@@ -649,29 +648,30 @@ NEVER = Cancellation()
 
 Thirty one lines, most of which are a docstring.
 
-**What it is.** A single object holding one flag, passed to everything that might
-need to stop.
+`Cancellation` is a single object holding one flag, passed to everything that
+might need to stop.
 
-**Why we are doing it.** Because an interrupt that only prints a message is a
-lie, and it is a lie that shipped in tools people use daily. The screen says
-stopped. The subprocess is still running. The file is still being written. You
-believe the agent stopped, so you edit the file it is still editing.
+We need it because an interrupt that only prints a message is a lie, and it is
+a lie that shipped in tools people use daily. The screen says stopped. The
+subprocess is still running. The file is still being written. You believe the
+agent stopped, so you edit the file it is still editing.
 
 ### The press has to reach every layer
 
 When you press Ctrl+C, the agent could be in one of three places, and stopping
 means stopping in all three.
 
-**The in flight request.** The model is streaming and text is appearing on your
-screen. Stopping means the loop does not start another turn once this one ends.
+The first place is the in flight request. The model is streaming and text is
+appearing on your screen. Stopping means the loop does not start another turn
+once this one ends.
 
-**A subprocess.** `run_shell` started `pytest` and it is thirty seconds into a
-two minute run. Stopping means that process is not left running after the harness
-has told you it stopped.
+The second place is a subprocess. `run_shell` started `pytest` and it is
+thirty seconds into a two minute run. Stopping means that process is not left
+running after the harness has told you it stopped.
 
-**A pending question.** `ask_in_terminal` printed a permission prompt and is
-blocked inside `input`, waiting for you to type `y`. Stopping means the question
-goes away and the call it was guarding does not run.
+The third place is a pending question. `ask_in_terminal` printed a permission
+prompt and is blocked inside `input`, waiting for you to type `y`. Stopping
+means the question goes away and the call it was guarding does not run.
 
 The failure that ships is when one layer hears the interrupt and the others do
 not. The display layer is the easiest one to wire up and the one you notice
@@ -687,16 +687,16 @@ prompt has a third thing. The signal handler sets all of them.
 
 That design works on the day you write it. Here is why it stops working.
 
-**Every new stoppable thing is a new flag, and forgetting one is silent.** Add a
+Every new stoppable thing is a new flag, and forgetting one is silent. Add a
 tool that makes a long HTTP request. It needs to be cancellable. If you forget to
 add a flag for it and to set that flag in the handler, nothing breaks visibly. It
 simply is not cancellable, and you find out during an incident.
 
-**There is no single answer to whether we are stopping.** With one token you can
+There is no single answer to whether we are stopping. With one token you can
 ask. With four flags there are sixteen states, most of which are nonsense, and
 half of the possible bugs are two flags disagreeing.
 
-**The layers are not all on one thread.** `Cancellation` wraps
+The layers are not all on one thread. `Cancellation` wraps
 `threading.Event`, which is the standard library's thread safe one shot flag.
 `set` and `is_set` are safe from any thread, so a signal handler, the main loop
 and a worker all read the same value with no locking on your part. A plain
@@ -831,8 +831,8 @@ and lets the agent stop at the next safe point, which means the session file is
 written correctly, the usage total is printed, and the conversation is intact for
 `resume`.
 
-**Why the second press falls through to the normal behaviour.** Because
-cooperative cancellation depends on the program reaching a check, and a program
+The second press falls through to the normal behaviour because cooperative
+cancellation depends on the program reaching a check, and a program
 that is genuinely wedged will never reach one. A `read` on a socket that a
 firewall silently dropped can block for a very long time. A subprocess that is
 waiting for input nobody will type will block forever. In both cases the flag is
@@ -926,26 +926,26 @@ def loose_signature(name, arguments):
     return f"{name}({json.dumps(flattened, sort_keys=True)})"
 ```
 
-**What it is.** A string that identifies one exact call.
+A fingerprint is a string that identifies one exact call.
 
 ```text
 grep_files({"glob": "*.py", "pattern": "def handle_payment"})
 ```
 
-**Why the arguments are included.** Because the tool name alone is far too
-coarse. An agent working through a codebase might call `read_file` fifteen times
-in a row, and that is not being stuck, that is doing the job. Repeating
-`read_file` on the same path fifteen times is being stuck. The difference is
-entirely in the arguments.
+The arguments are included because the tool name alone is far too coarse. An
+agent working through a codebase might call `read_file` fifteen times in a
+row, and that is not being stuck, that is doing the job. Repeating `read_file`
+on the same path fifteen times is being stuck. The difference is entirely in
+the arguments.
 
-**Why `sort_keys=True`.** Because `{"a": 1, "b": 2}` and `{"b": 2, "a": 1}` are
+`sort_keys=True` is there because `{"a": 1, "b": 2}` and `{"b": 2, "a": 1}` are
 the same call, and streamed JSON does not guarantee key order. Without sorting,
 a model that emitted its keys in a different order on the second attempt would
 produce a different fingerprint and slip past the detector, and it would do so
 intermittently, which is the worst kind of bug to chase.
 
-**Why `recent[-REPEAT_LIMIT:]` rather than counting the whole list.** Because it
-must be three times in a row, not three times ever. Only the last three
+The detector reads `recent[-REPEAT_LIMIT:]` rather than counting the whole list
+because it must be three times in a row, not three times ever. Only the last three
 fingerprints are examined, so a call that appears at turn one, turn five and turn
 nine, with real work in between, is not a loop. A model that reads a file,
 changes it, runs the tests, and reads the same file again is behaving correctly,
@@ -978,7 +978,7 @@ The tool is not run. Its result is replaced with a sentence describing the
 situation, and that sentence goes into the conversation as an ordinary tool
 result.
 
-**Why it warns before stopping.** Because the model may simply not have realised.
+It warns before stopping because the model may simply not have realised.
 
 That sounds generous and it is actually mechanical. A model sees its own previous
 tool calls in the conversation, but noticing that three of them were byte for
@@ -1026,14 +1026,14 @@ ends. Not with an exception. With a normal return of a message and the full
 conversation, so the session file is complete, the usage total prints, and you
 can read exactly what happened and resume from it if you want to.
 
-**Why stop at all rather than warn forever.** Because the warning has already
-been given and ignored, and the evidence at that point is that the model is not
+It stops rather than warning forever because the warning has already been
+given and ignored, and the evidence at that point is that the model is not
 going to recover on its own. Every further turn resends a conversation that has
 grown by another tool call, so continuing costs more per turn than the turn
 before it, and produces the same nothing.
 
-**Why `warned` is a set of fingerprints rather than a single boolean.** Because
-an agent can get stuck twice on two different things in one run, and being warned
+`warned` is a set of fingerprints rather than a single boolean because an agent
+can get stuck twice on two different things in one run, and being warned
 about `grep_files` should not consume the one warning available for
 `read_file`. Keying the warning to the fingerprint gives each distinct loop its
 own chance to recover.
@@ -1094,18 +1094,18 @@ is what the mock server from lesson 06 grew a feature for.
 
 Two headers, and between them they express every scenario this chapter needs.
 
-**`X-Mock-Fail`** names the status code to return. Send `X-Mock-Fail: 500` and
+`X-Mock-Fail` names the status code to return. Send `X-Mock-Fail: 500` and
 this request comes back `500`. No header means a normal response, so every check
 written before this lesson is unaffected.
 
-**`X-Mock-Fail-Times`** says how many times. It is what turns a permanent failure
+`X-Mock-Fail-Times` says how many times. It is what turns a permanent failure
 into a temporary one, which is the interesting case, because permanent failure
 only proves you gave up and temporary failure proves you recovered. With
 `X-Mock-Fail-Times: 2`, the counter increments on each request, the first two
 requests fail, and from the third the `counts[key] > int(times)` test sends the
 request through to the real handler.
 
-**The `Retry-After` header on a `429`.** One line, and it is the entire reason
+The `Retry-After` header on a `429` is one line, and it is the entire reason
 section 3 is testable.
 
 ```python
@@ -1328,14 +1328,15 @@ from the command line, no way to run one task and exit, no `--yes` for scripts,
 no place where the budget from lesson 14 and the permissions from lesson 12 and
 the cancellation from this chapter all meet in the same object.
 
-**Lesson 18, the harness.** One new file, `main.py`, where every one of those
-parts finally meets. A command line built with `argparse`, taking the task as a
-positional argument and `--workspace`, `--session`, `--resume`, `--budget` and
-`--yes` as flags. A session name chosen three different ways, and `--resume`
-winning by supplying a name rather than by copying a file. A signal handler that
-sets the cancellation token, and the line right beside it that hands the same
-token to `tools.py`, which is what stops the shell tool's check from being dead
-code. Then a milestone check that runs the assembled program end to end.
+Lesson 18 builds the harness. One new file, `main.py`, is where every one of
+those parts finally meets. A command line built with `argparse`, taking the
+task as a positional argument and `--workspace`, `--session`, `--resume`,
+`--budget` and `--yes` as flags. A session name chosen three different ways,
+and `--resume` winning by supplying a name rather than by copying a file. A
+signal handler that sets the cancellation token, and the line right beside it
+that hands the same token to `tools.py`, which is what stops the shell tool's
+check from being dead code. Then a milestone check that runs the assembled
+program end to end.
 
 Be clear about what lesson 18 does not do, because two things stay as they are.
 `run` is still the printing function it has been since lesson 04, so the terminal

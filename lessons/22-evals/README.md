@@ -128,7 +128,7 @@ works. You are sitting right there. It either fixed the bug or it did not.
 That is true for the run you watched. It is the generalisation that fails, and
 it fails for two separate reasons that compound.
 
-**A change is not local, but your attention is.** A system prompt is one block
+A change is not local, but your attention is. A system prompt is one block
 of text at the front of every request, and the model attends to all of it on
 every turn. There is no such thing as editing the part of the prompt that
 affects only the task you are looking at. Add the sentence that stops premature
@@ -142,7 +142,7 @@ of it because the connection between a sentence about tests and a regression in
 build handling is not visible from the sentence. This is not carelessness. It
 is the normal condition of editing a prompt.
 
-**A single run is close to no evidence.** This one is harder to accept because
+A single run is close to no evidence. This one is harder to accept because
 it contradicts the mental model most of us bring from ordinary programming. A
 function with the same inputs gives the same output, so running it once tells
 you what it does. An agent does not work like that.
@@ -188,26 +188,26 @@ class Task:
 Four fields, one of them optional. Take them one at a time, because each is a
 decision.
 
-**`name` exists so the report can be read and diffed.** It is the identity of
+`name` exists so the report can be read and diffed. It is the identity of
 the task across runs, which is what lets you say that `fixes-the-off-by-one`
 passed yesterday and fails today. If tasks were identified by their position in
 a list, inserting a task at the top would rename all of them and yesterday's
 report would stop being comparable with today's.
 
-**`prompt` is the exact string a person would have typed.** Not a description of
+`prompt` is the exact string a person would have typed. Not a description of
 the task, and not a structured object describing what the agent should do. The
 instrument has to exercise the same entry point that real use exercises, or you
 are measuring something adjacent to the product. This is why the prompt lives
 in the task rather than being assembled by the runner from parts.
 
-**`check` is a function, not a string or a pattern.** It receives the final
+`check` is a function, not a string or a pattern. It receives the final
 answer and the workspace and returns a pair. Making it a function is what makes
 section 4 possible at all. A declarative check format, however rich, can only
 express the comparisons its designer thought of, and the most valuable check in
 your suite is usually the one that opens a file, imports a module, or runs a
 subprocess. A Python function can do all three today with no new syntax.
 
-**`workspace` is optional because most tasks do not need one.** A question that
+`workspace` is optional because most tasks do not need one. A question that
 is answered in prose has nothing on disk to inspect. A task that edits code
 needs a directory that is its own, and section 10 shows how the command line
 gives each task the directory named here, falling back to the one shared root
@@ -246,8 +246,9 @@ regressions and one that produces a green tick while the agent quietly does
 nothing.
 
 **A check that reads the answer text is checking what the model said. A check
-that reads the workspace is checking what the model did.** Those are different
-things, and only one of them is what you are paying for.
+that reads the workspace is checking what the model did.**
+
+Those are different things, and only one of them is what you are paying for.
 
 Consider the obvious check for a task that asks the agent to fix a bug.
 
@@ -401,7 +402,7 @@ less trustworthy instrument on every axis except expressiveness.
 
 Which leads to the rule, and it is a rule rather than a preference.
 
-**Anything checkable by a function should be a function.** If you find yourself
+Anything checkable by a function should be a function. If you find yourself
 writing criteria that say the answer must mention the file `billing.py`, stop
 and write `"billing.py" in answer`. If the criteria say the code must compile,
 run the compiler. Every criterion you can move from the judge into a function
@@ -436,24 +437,24 @@ def judge(provider, question, answer, criteria):
 
 Four things in that function are decisions rather than details.
 
-**The provider is a parameter.** The grader is not the agent's provider by
+The provider is a parameter. The grader is not the agent's provider by
 default and does not have to be the agent's model. It can be, and the laziest
 setup uses one model for both, but passing it in is what lets you grade with a
 different model from the one being tested. That matters more than it sounds,
 because a model asked to grade its own output is being asked whether it did a
 good job, and it is not a neutral party in that question.
 
-**There are no tools and no history.** The judge gets one message and answers
+There are no tools and no history. The judge gets one message and answers
 once. It is not an agent, it cannot go and look at the workspace, and giving it
 that ability would make grading as slow and as variable as the thing being
 graded.
 
-**The criteria are a string you write per task.** They belong to the task,
+The criteria are a string you write per task. They belong to the task,
 because a standard that fits every task is too vague to grade against. Good
 criteria read like a rubric line, for example that the explanation must name
 the specific function responsible and must not recommend a rewrite.
 
-**The verdict comes back with the reason attached.** `judge` returns the full
+The verdict comes back with the reason attached. `judge` returns the full
 text as the second element, and that is what ends up in the `detail` field of
 the `Result`. This is section 3's rule applied to the judge. A failing judged
 task tells you the grader's stated reason in the report, which is the only way
@@ -554,16 +555,16 @@ The verdict is taken from the first word. Not searched for anywhere in the
 reply, not extracted with a regular expression, not parsed out of JSON. The
 first word, uppercased, with a trailing full stop or comma removed.
 
-**Why the first word and not a search.** Because a search is ambiguous in
-exactly the cases that matter. Ask a model to grade something and it will
-sometimes write that the answer would fail a stricter standard but should pass
-here. Search that sentence for the word `FAIL` and you find it. Search for
-`PASS` and you find that too. The first word is unambiguous by construction,
-and the prompt asks for it explicitly, so the parsing rule and the instruction
-agree. When the two disagree you get a grader whose behaviour depends on the
-grammar of a sentence, which is not a grader.
+The rule reads the first word rather than searching, because a search is
+ambiguous in exactly the cases that matter. Ask a model to grade something
+and it will sometimes write that the answer would fail a stricter standard
+but should pass here. Search that sentence for the word `FAIL` and you find
+it. Search for `PASS` and you find that too. The first word is unambiguous
+by construction, and the prompt asks for it explicitly, so the parsing rule
+and the instruction agree. When the two disagree you get a grader whose
+behaviour depends on the grammar of a sentence, which is not a grader.
 
-**Why anything that is not clearly a pass is a failure.** This is the important
+Anything that is not clearly a pass is a failure. This is the important
 half and it is a safety property rather than a parsing convenience. Suppose the
 model replies with `Well, it depends`, which is a real thing graders do when
 the criteria are badly written. There are three possible policies.
@@ -670,13 +671,13 @@ looking.
 
 Two details in that code are deliberate and easy to get wrong.
 
-**The failure is described, not summarised.** The detail includes
+The failure is described, not summarised. The detail includes
 `type(error).__name__` and the message. `FileNotFoundError` and
 `AssertionError` mean completely different things about who is at fault, and a
 detail that says only that the check failed sends you back to reproducing
 locally, which is the loop section 3 was trying to break.
 
-**A failed run reports no cost.** On the first path, `usage` is still `None`
+A failed run reports no cost. On the first path, `usage` is still `None`
 when the exception is caught, so the `Result` carries an empty usage dictionary.
 That is honest in the sense that the runner never received a usage object, and
 misleading in the sense that a run which died on turn nine did in fact cost
@@ -736,22 +737,22 @@ position, and then the return statement walks `tasks`, the list you wrote, and
 pulls each result out by index. The output order is the order you wrote, always,
 whatever the threads did.
 
-**Why bother.** Because the entire purpose of this chapter is comparison, and
-two reports you cannot lay side by side are not a measurement. Run the suite
-before the change and after it, and if the rows are in completion order the two
-reports have different row orders for reasons that have nothing to do with the
-change, since completion order depends on how long each model call happened to
-take. `diff` on those two files is noise. `diff` on two reports in written order
-shows you exactly the lines that changed verdict, which is the one thing you
-wanted to see.
+It is worth the bother because the entire purpose of this chapter is
+comparison, and two reports you cannot lay side by side are not a
+measurement. Run the suite before the change and after it, and if the rows
+are in completion order the two reports have different row orders for
+reasons that have nothing to do with the change, since completion order
+depends on how long each model call happened to take. `diff` on those two
+files is noise. `diff` on two reports in written order shows you exactly the
+lines that changed verdict, which is the one thing you wanted to see.
 
 There is a second reason and it is human. A suite has a shape you remember. The
 easy tasks at the top, the three hard ones at the bottom. Reading a report where
 that shape is preserved lets you notice at a glance that the failures are all in
 the hard block, or worse, that one of the easy ones went red.
 
-**Why `collected.get` with a fallback.** Because a task that produced no
-`Result` must still occupy its row. The `isinstance(event, Result)` filter drops
+`collected.get` takes a fallback because a task that produced no `Result` must
+still occupy its row. The `isinstance(event, Result)` filter drops
 anything that is not a result, which in practice means a `FanoutError` from
 lesson 21 arriving because `run_one` itself failed rather than the agent inside
 it. Without the fallback, `collected[task.name]` raises `KeyError` on a suite
@@ -761,14 +762,14 @@ the report survives.
 
 ### Two honest limits
 
-**Task names may repeat without harm.** `collected` is keyed by position, so
+Task names may repeat without harm. `collected` is keyed by position, so
 two tasks called `edits-the-file` each keep their own verdict and the report
 shows both rows. An earlier version keyed by name, and the second result
 quietly overwrote the first. Keep names distinct anyway, for the reader of the
 report, and because section 3's argument about comparing reports across edits
 rests on the name meaning one thing.
 
-**Parallel eval runs are subject to lesson 21's warning about shared state.** If
+Parallel eval runs are subject to lesson 21's warning about shared state. If
 two tasks name the same `workspace` and both edit it, running them on separate
 workers means each is looking at a directory the other is changing. The runner
 does not copy workspaces and does not know it should. Give each task its own
@@ -834,16 +835,16 @@ anecdotes.
 
 Compare on three numbers and refuse to compare on fewer.
 
-**How many tasks passed.** Straight from the report. This is the only column
-that is about quality, and on its own it will talk you into the most expensive
-model available for jobs that did not need it.
+The first column is how many tasks passed, straight from the report. This is
+the only column that is about quality, and on its own it will talk you into
+the most expensive model available for jobs that did not need it.
 
-**What it cost.** `Result.usage` carries `prompt_tokens`, `completion_tokens`
-and `calls` per task, summed from what the provider actually reported rather
-than estimated locally. `Usage.cost` turns tokens into money and takes the
-prices as arguments, for the reason its own docstring gives, that a stale price
-table is worse than no price table since it looks authoritative while being
-wrong.
+The second is what it cost. `Result.usage` carries `prompt_tokens`,
+`completion_tokens` and `calls` per task, summed from what the provider
+actually reported rather than estimated locally. `Usage.cost` turns tokens
+into money and takes the prices as arguments, for the reason its own
+docstring gives, that a stale price table is worse than no price table since
+it looks authoritative while being wrong.
 
 ```python
 prompt_tokens = sum(r.usage.get("prompt_tokens", 0) for r in results)
@@ -856,8 +857,8 @@ costs more per task despite a lower price per token, because it takes eleven
 turns to do what the stronger model did in four, and every one of those turns
 resends the whole conversation. The per token price is not the price.
 
-**How long it took.** This one you have to add, and it is honest to say so.
-`Result` has no duration field. Time it around the call.
+The third is how long it took. This one you have to add, and it is honest to
+say so. `Result` has no duration field. Time it around the call.
 
 ```python
 started = time.monotonic()
@@ -891,24 +892,24 @@ real trade instead of about which model feels smarter.
 With that method in place, here is what people who run these comparisons
 repeatedly tend to find. Treat it as a prior to test, not a result to trust.
 
-**A small cheap model is very often right for classifying, summarising and
-routing.** Deciding which of six categories a message belongs to. Turning a
+A small cheap model is very often right for classifying, summarising and
+routing. Deciding which of six categories a message belongs to. Turning a
 long tool result into three lines. Choosing which subagent gets a job. These
 have short inputs, short outputs, an answer that is close to unambiguous, and
 frequently a check you can write mechanically. They are also the calls you make
 most often, which is exactly where the price per token stops being a rounding
 error.
 
-**The hardest reasoning and code editing is where a frontier model earns its
-price.** Reading a failing test and inferring which of four modules is
+The hardest reasoning and code editing is where a frontier model earns its
+price. Reading a failing test and inferring which of four modules is
 responsible. Making an edit that respects invariants nobody wrote down.
 Recovering when the first three attempts failed. These are the calls where a
 weaker model does not fail loudly. It produces a plausible edit that breaks
 something else, and you pay for that in your time, which is more expensive than
 any model.
 
-**Many real systems use both in one run, and this is the design worth reaching
-for.** You already built the machinery for it. Lesson 20's `build_child` is a
+Many real systems use both in one run, and this is the design worth reaching
+for. You already built the machinery for it. Lesson 20's `build_child` is a
 function that constructs a child agent, so nothing stops the child from having
 a different provider from the parent. A frontier model plans and edits, and
 cheap children summarise files, triage search results and classify errors. The
@@ -965,7 +966,7 @@ def command_eval(arguments) -> int:
 
 Five things in there are worth pulling out.
 
-**The task file is a Python file that defines `TASKS`.** It is loaded with
+The task file is a Python file that defines `TASKS`. It is loaded with
 `runpy.run_path`, which executes it, so a tasks file is code you are choosing to
 run and should be treated with the trust you give any other file in your
 repository. The alternative was a configuration format, and section 3 already
@@ -973,29 +974,29 @@ paid for the decision to make checks arbitrary Python. A file with no `TASKS`
 returns exit code 2 and says so on standard error, which distinguishes a broken
 invocation from a failing suite.
 
-**Each task gets a fresh agent.** `build` is called per task and returns a new
+Each task gets a fresh agent. `build` is called per task and returns a new
 `Agent`, with no conversation carried over. Tasks must be independent for the
 same reason unit tests must be, since a suite where task nine only passes if
 task eight ran first is measuring the order of your list.
 
-**Each task gets its own workspace when it names one.** `task.workspace or root`
+Each task gets its own workspace when it names one. `task.workspace or root`
 appears twice, once for the tools and once for the system prompt, so both the
 gate on file paths and the description of where the agent is agree about the
 directory. Tasks that do not care fall back to `--workspace`, which defaults to
 the current directory.
 
-**Permissions are forced to auto approve.** `Permissions(auto_approve=True)` is
-not read from a flag. An eval run that stops to ask a human whether it may run a
-shell command is not an eval, it is a demo, and in CI it is a job that hangs
-until the timeout kills it. This is the payoff for two earlier decisions.
-Lesson 12 made permission a decider you pass in rather than a prompt buried in
-the loop, and the comment it left behind in `tools.py` says that a tool which
-asks its own questions cannot be reused by anything that is not a terminal.
-Both of those are what make this one line possible. Note also what it means for you, which is
-that eval tasks run with the safety gate open, so run them against a workspace
-you are willing to lose.
+Permissions are forced to auto approve. `Permissions(auto_approve=True)` is
+not read from a flag. An eval run that stops to ask a human whether it may
+run a shell command is not an eval, it is a demo, and in CI it is a job that
+hangs until the timeout kills it. This is the payoff for two earlier
+decisions. Lesson 12 made permission a decider you pass in rather than a
+prompt buried in the loop, and the comment it left behind in `tools.py` says
+that a tool which asks its own questions cannot be reused by anything that
+is not a terminal. Both of those are what make this one line possible. Note
+also what it means for you, which is that eval tasks run with the safety
+gate open, so run them against a workspace you are willing to lose.
 
-**The return value is the whole point.** Zero when everything passed, one when
+The return value is the whole point. Zero when everything passed, one when
 anything failed, two when the file was wrong.
 
 That last line deserves its own paragraph, because it is the difference between

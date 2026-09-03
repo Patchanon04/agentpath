@@ -275,7 +275,7 @@ possible moment to learn a protocol.
 Now be fair about the other side, because the argument does not extend as far as
 people like to push it.
 
-**Use the SDK in your own project.** Once you have read this file, you know what
+Use the SDK in your own project. Once you have read this file, you know what
 the library is doing, and at that point the library is strictly better than this
 one. It handles the HTTP and SSE transports. It handles servers that send
 notifications about their tool list changing. It handles resources and prompts
@@ -350,15 +350,15 @@ Three lines went in and two came back. Read the shape of it.
 
 JSON-RPC has exactly four fields you care about and they are all visible above.
 
-**`method`** is the name of the thing you are asking for. `initialize`,
+`method` is the name of the thing you are asking for. `initialize`,
 `tools/list`, `tools/call`. The slash is just part of a name, not a path.
 
-**`params`** is the arguments to that method, always an object. For `initialize`
+`params` is the arguments to that method, always an object. For `initialize`
 it carries the protocol version you speak, the capabilities you have, and who
 you are. For `tools/list` it is empty. For `tools/call` it is the tool name and
 the tool's own arguments, nested one level down.
 
-**`id`** is how you match an answer to a question. You pick it, the server
+`id` is how you match an answer to a question. You pick it, the server
 echoes it back unchanged. Ours is a counter.
 
 ```python
@@ -366,7 +366,7 @@ echoes it back unchanged. Ours is a counter.
             identifier = self._next_id
 ```
 
-**`result`** is the answer, present when the call worked. When it did not work
+`result` is the answer, present when the call worked. When it did not work
 there is an `error` object instead, with a `code` and a `message`, and never
 both `result` and `error` in the same message.
 
@@ -688,7 +688,7 @@ them to run and with what arguments.
 
 Three things are true at once, and each one on its own would be enough.
 
-**You did not write these tools.** Every tool in part 2 came with an argument
+You did not write these tools. Every tool in part 2 came with an argument
 about what it should refuse. `read_file` refuses to leave the workspace, because
 `resolve_inside` compares the resolved path against `WORKSPACE`. `run_shell` has
 a timeout. `edit_file` refuses an ambiguous match rather than guessing which
@@ -697,7 +697,7 @@ argued about them for four chapters. You know none of that about a discovered
 tool. It might confine itself to a directory. It might not. There is no field in
 the protocol that tells you, and no field could, because a field is a claim.
 
-**The description is whatever the author decided to claim.** This is the sharp
+The description is whatever the author decided to claim. This is the sharp
 one. A tool description is not documentation checked by anything. It is a string
 in a JSON object, written by the server author, that goes straight into your
 model's context and is the entire basis on which the model decides to call the
@@ -708,7 +708,7 @@ is worse than the prompt injection in lesson 12, because there the attacker's
 text arrived in a file the agent read. Here it arrives in the tool list, before
 the task starts, in the place the model treats as its own capabilities.
 
-**The server is a program running on your machine.** Not a sandboxed function.
+The server is a program running on your machine. Not a sandboxed function.
 A subprocess, started by `subprocess.Popen`, with your file permissions, your
 network access, your environment variables and therefore your API keys. Adding
 an MCP server to your config is running somebody's code. It deserves the same
@@ -797,8 +797,8 @@ def schema_size():
 OK the schemas grew from 3101 to 3826 characters, 725 more on every request from one small server
 ```
 
-**3101 characters** is your eight hand written tools, everything part 2 and part
-3 built. **725 characters** is what one deliberately tiny server added. Three
+3101 characters is your eight hand written tools, everything part 2 and part
+3 built. 725 characters is what one deliberately tiny server added. Three
 tools, one sentence of description each, and the biggest input schema has two
 properties.
 
@@ -1006,7 +1006,7 @@ OK the schemas grew from 3101 to 3826 characters, 725 more on every request from
 
 Five lines, one per section of this chapter. Take them in order.
 
-**One. The handshake completed.** `client.server_name` is `agentpath-mock`,
+One. The handshake completed. `client.server_name` is `agentpath-mock`,
 which is a value that could only have come out of the `serverInfo` block in the
 `initialize` reply. It proves the request went down the pipe, the reply came
 back, and the id matched. If the `initialized` notification were missing this
@@ -1014,11 +1014,11 @@ line would still pass against our well behaved mock and would hang against a
 real server, which is exactly why section 5 exists as prose rather than as a
 check.
 
-**Two. Tools were discovered at run time.** Three names that appear nowhere in
+Two. Tools were discovered at run time. Three names that appear nowhere in
 this repository outside `mock_mcp_server.py`, arriving as data rather than as
 code. That is the sentence the whole lesson is about.
 
-**Three. A discovered tool ran and the answer came back.** Look closely at how
+Three. A discovered tool ran and the answer came back. Look closely at how
 that claim is made.
 
 ```python
@@ -1036,11 +1036,11 @@ that the ordinary dispatch path used by the agent loop reaches a function in
 another process without knowing that it did. Calling the client directly would
 have proved the client works and nothing about the integration.
 
-**Four. A failing tool became readable text.** `explode` runs, the server sets
+Four. A failing tool became readable text. `explode` runs, the server sets
 `isError`, and what comes back starts with `Error`. Not an exception, not a
 traceback, a string a model can read and respond to, exactly like lesson 07.
 
-**Five. The cost is a number you can see.** Section 8 in one line, and it fails
+Five. The cost is a number you can see. Section 8 in one line, and it fails
 if connecting a server does not change the schema size at all, which would mean
 `register_mcp` silently did nothing.
 
@@ -1087,7 +1087,7 @@ A bigger window does not fix this and neither does better trimming, because both
 are answers to the wrong question. The problem is that one conversation is being
 asked to hold a job that does not fit in one conversation.
 
-**That is lesson 20.** Subagents. An agent that can start another agent with its
+That is lesson 20, subagents. An agent that can start another agent with its
 own fresh context, hand it one narrow piece of work, and get back a short answer
 instead of a forty message transcript. The parent's conversation grows by one
 paragraph rather than by everything the child had to read to write it. That

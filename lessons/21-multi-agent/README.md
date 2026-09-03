@@ -124,19 +124,19 @@ they arrive, each one labelled with the job that produced it.
 
 Before any code, the decision that shapes all of it.
 
-**What the choice is.** Python offers at least two ways to have several things
-in flight at once. Threads, where the operating system schedules several stacks
-and switches between them, and `asyncio`, where one stack runs an event loop and
-functions marked `async` hand control back at every `await`. There is also
-multiprocessing, which is a third thing and is not a candidate here for a reason
-given below.
+The choice starts from the fact that Python offers at least two ways to have
+several things in flight at once. Threads, where the operating system
+schedules several stacks and switches between them, and `asyncio`, where one
+stack runs an event loop and functions marked `async` hand control back at
+every `await`. There is also multiprocessing, which is a third thing and is
+not a candidate here for a reason given below.
 
-**Why this project uses threads.** Look at what an agent run actually spends its
-time doing. It builds a request, sends it, and then waits. It waits for the
-first byte of the response. It waits for each chunk of the stream. Between turns
-it runs a tool, which is usually a file read or a subprocess, and then it waits
-again. Almost the entire wall clock life of an agent run is time spent blocked
-on a socket with nothing to compute.
+This project uses threads, and the reason is in what an agent run actually
+spends its time doing. It builds a request, sends it, and then waits. It waits
+for the first byte of the response. It waits for each chunk of the stream.
+Between turns it runs a tool, which is usually a file read or a subprocess,
+and then it waits again. Almost the entire wall clock life of an agent run is
+time spent blocked on a socket with nothing to compute.
 
 That is the exact case threads handle well. A blocked thread costs you a stack
 and a scheduler entry and nothing else. The global interpreter lock, which is
@@ -151,8 +151,8 @@ four interpreters, four copies of every import, and pickling every message
 across a pipe, in order to speed up four things that are all asleep on a socket,
 is buying an expensive solution to a problem you do not have.
 
-**Why not async, given that async exists for precisely this.** Because of what
-it would cost the reader rather than what it would cost the machine.
+We are not using async, given that async exists for precisely this, because of
+what it would cost the reader rather than what it would cost the machine.
 
 Every module in this project is synchronous. `providers.py` calls `httpx` and
 blocks. `tools.py` calls `subprocess.Popen` and waits in `communicate`. `agent.py` is an ordinary
@@ -173,7 +173,7 @@ the wrong currency. Threads let this chapter be about fan out, ordering,
 failure and shared state, which are the ideas that transfer, rather than about
 Python's concurrency syntax, which does not transfer anywhere.
 
-**The honest version of the claim.** Threads are not better than async. A
+The honest version of the claim is that threads are not better than async. A
 service running thousands of concurrent agents would use async, and would be
 right to. At that scale the per thread stack cost and the context switching stop
 being noise, and an event loop holding ten thousand idle sockets is
@@ -394,14 +394,14 @@ The obvious alternative is to ask the threads.
 That is wrong in both directions, and both are worth understanding because this
 is the classic mistake in producer and consumer code.
 
-**It can stop too early.** A thread finishes its last job, puts its last events
+It can stop too early. A thread finishes its last job, puts its last events
 onto `results`, and exits. Now `is_alive` is false for every thread while events
 are still sitting in the queue, unread. The loop exits, and the caller silently
 receives fewer events than the jobs produced. Silently is the important word.
 Nothing raises. You get an answer that is missing a paragraph and no indication
 that anything went wrong.
 
-**It cannot stop at the right moment either.** `results.get()` blocks. Mixing a
+It cannot stop at the right moment either. `results.get()` blocks. Mixing a
 blocking read with a liveness condition means you cannot check the condition
 while blocked, so you would need `get(timeout=...)` and a loop that wakes up
 repeatedly to ask a question whose answer is almost always the same. That is a
@@ -446,14 +446,14 @@ This section is not an aside. It is the reason `run_in_parallel` yields
 `(label, event)` instead of `event`, and it is the design problem that every
 real agent interface has had to solve.
 
-**What streaming is for.** Lesson 05 built it, and the argument was about a
-person watching. A model takes twenty seconds to produce an answer. Printing the
+Streaming is for the person watching, and lesson 05 built it on exactly that
+argument. A model takes twenty seconds to produce an answer. Printing the
 whole thing at the end means twenty seconds of blank screen, and a blank screen
 is indistinguishable from a hang. Printing each token as it arrives means the
 person sees progress immediately and can tell within two seconds whether the
 agent understood the question.
 
-**What concurrency does to that.** Streaming works because there is one writer
+Concurrency breaks that, because streaming works only while there is one writer
 to one screen. Four agents streaming at once are four writers to one screen, and
 they take turns at character granularity.
 
@@ -481,7 +481,7 @@ saying everything is fine.
 Two agents is already unreadable. Four is worse, and the failure is not
 graceful. It does not get harder to read, it stops being text.
 
-**Why every event carries a label.** Because the merge has to be undoable. Once
+Every event carries a label because the merge has to be undoable. Once
 four streams are concatenated into one character sequence, no amount of cleverness
 downstream separates them again. The information about which job said what has
 to survive the merge, and the only place to put it is on each event, at the
@@ -512,7 +512,7 @@ the same three job fan out with a small pause between events.
 
 Nine events, thoroughly shuffled, and every one of them attributable.
 
-**Why a real interface stops streaming anyway.** Labelling makes the output
+A real interface stops streaming anyway. Labelling makes the output
 recoverable. It does not make token by token text readable. Prefixing every
 token with a job name turns twenty five characters of prose into twenty five
 lines, which is worse than the interleaving it fixed.
@@ -547,10 +547,10 @@ produce exactly the nonsense above.
 
 Two sentences, and the second one is a limit that cannot be lifted.
 
-**Order within one job is preserved.** If job `auth` produces three events, the
+Order within one job is preserved. If job `auth` produces three events, the
 caller receives those three events in that order relative to each other. Always.
 
-**Order across jobs is undefined.** There is no guarantee about where `auth`'s
+Order across jobs is undefined. There is no guarantee about where `auth`'s
 events fall relative to `parser`'s, and there cannot be one, because running at
 the same time is precisely what it means for two orderings to be unrelated. A
 fan out that promised a fixed order across jobs would have to run the jobs one
@@ -641,8 +641,8 @@ you order.
 
 ## 6. One job failing must not take the batch
 
-**What happens when a job raises.** The worker catches it, converts it into a
-value, and puts that value on the results queue like any other event.
+When a job raises, the worker catches it, converts it into a value, and puts
+that value on the results queue like any other event.
 
 ```python
             try:
@@ -670,7 +670,7 @@ raising job would leave the main loop waiting forever for a count that can never
 be reached. A batch that hangs on one bad job is a worse outcome than the batch
 failing outright, because at least a failure tells you something.
 
-**Why the failure is an event and not an exception.** This is the decision worth
+The failure is an event and not an exception. This is the decision worth
 defending, because raising it looks more natural and is what most people write
 first.
 
@@ -729,7 +729,7 @@ traceback's type and message are both there for a caller that wants to log them,
 and `__repr__` prints both when a check fails, which is the difference between a
 useful failure message and `<FanoutError object at 0x7f...>`.
 
-**The check.** One healthy job and one that breaks half way through.
+The check is one healthy job and one that breaks half way through.
 
 ```python
     def explode():
@@ -792,21 +792,22 @@ the only claim in `check.py` that could not be made by reading the code.
 
 Three details in those seven lines are worth copying into your own tests.
 
-**`time.monotonic` and not `time.time`.** `time.time` is a wall clock. It can be
-adjusted by NTP, it jumps when the system clock is corrected, and it can move
-backwards, which produces a negative duration and a check that fails for reasons
-that have nothing to do with the code. `time.monotonic` only ever moves forward
-and exists for exactly this measurement. Lesson 18's second exercise made the
-same distinction from the other direction.
+The measurement uses `time.monotonic` and not `time.time`. `time.time` is a
+wall clock. It can be adjusted by NTP, it jumps when the system clock is
+corrected, and it can move backwards, which produces a negative duration and a
+check that fails for reasons that have nothing to do with the code.
+`time.monotonic` only ever moves forward and exists for exactly this
+measurement. Lesson 18's second exercise made the same distinction from the
+other direction.
 
-**`sleep` and not a computation.** `time.sleep` releases the interpreter lock,
-which makes it an honest stand in for waiting on a socket. Two threads doing
-three tenths of a second of arithmetic would not finish in three tenths, because
-the lock serialises bytecode. Using a busy loop here would produce a check that
-fails while the code is correct, and would be modelling the wrong thing, since an
-agent run waits far more than it computes.
+The jobs sleep rather than compute. `time.sleep` releases the interpreter
+lock, which makes it an honest stand in for waiting on a socket. Two threads
+doing three tenths of a second of arithmetic would not finish in three tenths,
+because the lock serialises bytecode. Using a busy loop here would produce a
+check that fails while the code is correct, and would be modelling the wrong
+thing, since an agent run waits far more than it computes.
 
-**The threshold is 0.55 and not 0.31.** The bound has to separate the two
+The threshold is 0.55 and not 0.31. The bound has to separate the two
 outcomes, which are three tenths and six tenths, and it should sit between them
 rather than hugging the good one. Thread startup, scheduler jitter and a loaded
 CI machine all add milliseconds that have nothing to do with correctness.
@@ -823,7 +824,7 @@ Everything so far has been about merging output. This section is about shared
 state, it is the reason parallel agents are harder than parallel HTTP requests,
 and it is the part that most writing on this subject leaves out.
 
-**The concrete failure.** Two agents are running at the same time. Both have
+The concrete failure is this. Two agents are running at the same time. Both have
 `edit_file`. Both decide to change `settings.py`.
 
 1. Worker one reads `settings.py`. It now holds the text in its context.
@@ -880,21 +881,21 @@ successful edits. The only way to find out is to read the file afterwards and
 notice something is missing, and if the missing thing is a line you added rather
 than a line you removed, you may not notice for a week.
 
-**Why editing different lines does not save you.** Because `edit_file` does not
-edit a line. It reads the whole file, replaces a string, and writes the whole
+Editing different lines does not save you, because `edit_file` does not edit a
+line. It reads the whole file, replaces a string, and writes the whole
 file back. The unit of the write is the file, so any two writes to the same file
 collide regardless of how far apart the changes are. The example above is the
 friendliest possible version of this, two independent one line changes, and it
 still lost one.
 
-**It is not theoretical, and it is not rare.** It needs two conditions. Two
+It is not theoretical, and it is not rare. It needs two conditions. Two
 agents running at the same time, and any overlap in the files they touch. Fan
 out over four modules in one package and they will all want to touch the shared
 config, the imports, the test helpers. The more useful your fan out is, the more
 the jobs are related, and the more related they are the more they overlap.
 
-**What real harnesses do about it.** Two families of answer, and both are real
-engineering rather than a flag.
+Real harnesses answer this in two families, and both are real engineering
+rather than a flag.
 
 The first is to serialise the writes. Reads run in parallel because concurrent
 reads cannot conflict, and every tool that mutates the world goes through a lock
@@ -916,7 +917,7 @@ The cost is real. Copying a workspace is not free, a build directory per agent
 multiplies disk and build time, and some jobs need to see each other's changes to
 be correct at all.
 
-**What this lesson does about it.** Nothing.
+This lesson does nothing about it.
 
 `fanout.py` has no lock, no version check and no isolation. `tools.py` is byte
 for byte what it was in lesson 20, which means `edit_file` will happily do what
@@ -945,34 +946,35 @@ how you tell the parent which copy to believe.
 Three shapes. The first is what this chapter built, the other two are the same
 machinery arranged differently.
 
-**Fan out and gather.** Split work into independent jobs, run them at once,
-merge the results. `run_in_parallel` is exactly this. Use it when the jobs do not
+Fan out and gather splits work into independent jobs, runs them at once and
+merges the results. `run_in_parallel` is exactly this. Use it when the jobs do not
 need each other, which you check by asking whether job three would change if job
 one had never run. Review four modules. Search four repositories. Summarise
 twenty documents. It is the only pattern here that gives you a speedup, because
 it is the only one where the work is genuinely independent.
 
-**Orchestrator that plans then delegates.** One agent reads the task and decides
-what the jobs are, then hands them out. The difference from fan out is that the
-job list is produced by a model rather than written by you, which makes it
-adaptive and makes it a place where things go wrong. A planner that emits eight
-jobs where three would do costs you eight agent runs, and a planner that emits
-jobs which secretly depend on each other reintroduces the race in section 8 with
-nobody having decided to. In this codebase the orchestrator is the parent from
-lesson 20, emitting several `run_subagent` calls in one turn, and the change is
-dispatching those calls through `run_in_parallel` rather than the sequential
-`for call in calls`.
+An orchestrator that plans then delegates has one agent read the task and
+decide what the jobs are, then hand them out. The difference from fan out is
+that the job list is produced by a model rather than written by you, which
+makes it adaptive and makes it a place where things go wrong. A planner that
+emits eight jobs where three would do costs you eight agent runs, and a
+planner that emits jobs which secretly depend on each other reintroduces the
+race in section 8 with nobody having decided to. In this codebase the
+orchestrator is the parent from lesson 20, emitting several `run_subagent`
+calls in one turn, and the change is dispatching those calls through
+`run_in_parallel` rather than the sequential `for call in calls`.
 
-**Reviewer that checks another agent's work.** One agent does the job, a second
-agent with a fresh context is given the result and asked what is wrong with it.
-This is not a speedup and does not use `fanout.py` at all. It is sequential by
-nature, since the reviewer needs the thing being reviewed. What it buys is that
-the reviewer has not spent forty turns convincing itself the approach was right,
-so it is far more likely to notice that the tests were never run. The cost is one
-more full agent run per job, and the risk is that a reviewer with no ability to
-check anything mechanically will produce plausible approval, which is why the
-reviewer should be given `run_shell` and asked for evidence rather than an
-opinion. Lesson 22 is what turns that from a hope into a measurement.
+A reviewer that checks another agent's work is the last pattern. One agent
+does the job, a second agent with a fresh context is given the result and
+asked what is wrong with it. This is not a speedup and does not use
+`fanout.py` at all. It is sequential by nature, since the reviewer needs the
+thing being reviewed. What it buys is that the reviewer has not spent forty
+turns convincing itself the approach was right, so it is far more likely to
+notice that the tests were never run. The cost is one more full agent run per
+job, and the risk is that a reviewer with no ability to check anything
+mechanically will produce plausible approval, which is why the reviewer should
+be given `run_shell` and asked for evidence rather than an opinion. Lesson 22
+is what turns that from a hope into a measurement.
 
 ## 10. Running check.py
 

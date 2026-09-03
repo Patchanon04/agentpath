@@ -176,15 +176,15 @@ before any code appears.
 
 There are exactly three channels through which your words reach the model.
 
-**The system prompt.** A message at the front of the conversation, sent before
+The first is the system prompt, a message at the front of the conversation, sent before
 anything the user said. It is where you put standing instructions and standing
 facts. It is written once by you, the developer, and it is present on every
 request for the life of the session.
 
-**The user message.** The task. Written by whoever is using your agent, fresh
+The second is the user message, the task. Written by whoever is using your agent, fresh
 each turn, and different every time.
 
-**The description of each tool.** A string attached to every function in your
+The third is the description of each tool, a string attached to every function in your
 schema list. It is sent on every request alongside the messages, and it is the
 only thing the model will ever know about what your function does.
 
@@ -240,10 +240,10 @@ before the model does anything.
 Open `prompt.py`. It is short, and it does two jobs that are easy to confuse,
 plus a third one this section comes back to.
 
-**Job one is behaviour.** How to work. What to prefer. What to do when things
+Job one is behaviour. How to work. What to prefer. What to do when things
 go wrong. This part is written by you once and never changes between runs.
 
-**Job two is facts.** Things that are true about this particular run, which the
+Job two is facts. Things that are true about this particular run, which the
 model has no way of discovering without spending a turn on it. Where it is
 standing. What operating system it is on. What version of Python is available.
 This part is computed fresh every time the program starts.
@@ -611,18 +611,18 @@ appended reminder about being careful, no restating of the rules.
 
 Three reasons, in increasing order of importance.
 
-**It is already covered.** Anything you would prepend to every user message
+The first reason is that it is already covered. Anything you would prepend to every user message
 belongs in the system prompt, where it is written once and stated once. Adding
 it here means the same instruction appears twice in the conversation, and when
 the same instruction appears twice a model must decide whether the second one
 is emphasis or a correction of the first. Neither reading helps.
 
-**It grows.** A reminder appended to every user message is sent again for every
+The second is that it grows. A reminder appended to every user message is sent again for every
 message in the history. Ten turns into a session that reminder is in the
 conversation ten times. It is being paid for ten times and it is diluting the
 conversation ten times.
 
-**It hides the task.** This is the real one. The model's job on each turn is to
+The third is that it hides the task. This is the real one. The model's job on each turn is to
 work out what the user wants. Padding the message with boilerplate buries the
 one sentence that actually matters, and models, like people, weight the
 beginning and end of a message more heavily than the middle. Wrapping the task
@@ -767,11 +767,11 @@ whole.
 
 Three things are packed into two sentences.
 
-**What it does.** Replace one exact piece of text.
+The first says what it does. It replaces one exact piece of text.
 
-**The constraint.** The old text must appear exactly once.
+The second states the constraint. The old text must appear exactly once.
 
-**How to satisfy the constraint.** Include enough surrounding lines to make it
+The third says how to satisfy the constraint. Include enough surrounding lines to make it
 unique.
 
 The third is the part that most tool descriptions leave out, and leaving it out
@@ -923,24 +923,24 @@ thorough.
 A short practical method, because this is a thing you will do repeatedly for
 the rest of your time building agents.
 
-**Watch the traces.** Every wrong tool call, every malformed argument, every
+Watch the traces. Every wrong tool call, every malformed argument, every
 retry is a defect in a description. Do not fix it by adding a system prompt
 rule. Read the description the model was working from and ask what a person
 would have got wrong given only those words.
 
-**Change one description at a time.** They are short enough that the effect of a
+Change one description at a time. They are short enough that the effect of a
 single change is visible, and changing two at once means you learn nothing about
 either.
 
-**Write the constraint before the model violates it.** This is the `edit_file`
+Write the constraint before the model violates it. This is the `edit_file`
 lesson generalised. If your function will reject certain inputs, the rule
 belongs in the description as well as in the error message.
 
-**Name the sibling tool when there is one.** Whenever two tools overlap, each
+Name the sibling tool when there is one. Whenever two tools overlap, each
 description should say when the other one is right. This is the `write_file`
 lesson, and it is the single highest value edit you can make to a tool list.
 
-**Delete anything the model cannot act on.** Implementation details cost tokens
+Delete anything the model cannot act on. Implementation details cost tokens
 on every request forever and change nothing about the call.
 
 ## 7. Why a longer system prompt is not a better one
@@ -1201,21 +1201,21 @@ Not "near the front". First. Index zero, before anything the user said.
 Three reasons, and they are unrelated to each other, which is a good sign that
 the ordering is not arbitrary.
 
-**The API defines it that way.** For OpenAI compatible endpoints the system
+The first is that the API defines it that way. For OpenAI compatible endpoints the system
 prompt is a message with `role` set to `system`, and it is expected at the start
 of the array. Providers are trained and tuned on conversations shaped that way.
 Putting a system message in the middle of a conversation is not an error you
 will see reported, it is just a request the model has seen far less often, and
 less familiar shapes get less reliable behaviour.
 
-**Instructions must precede the thing they govern.** This is the one that
+The second is that instructions must precede the thing they govern. This is the one that
 matters for behaviour. The rule about preferring `edit_file` needs to be in
 context before the model reads a request that might tempt it toward
 `write_file`. A model reads the conversation as a whole, but ordering still
 carries meaning, and an instruction that appears after the task reads like an
 afterthought or a correction rather than a standing rule.
 
-**It is stable, and stable content goes at the front.** The system prompt is
+The third is that it is stable, and stable content goes at the front. The system prompt is
 identical on every request in a session. Everything after it changes. Providers
 that offer prompt caching key on a shared prefix, so an unchanging block at
 position zero is exactly the shape that can be cached, and cached input is
@@ -1419,20 +1419,20 @@ readable interface, and a program that starts when you type its name.
 
 ### Exercises before you move on
 
-**One.** Delete the facts block. Run the agent against a real directory with
+First, delete the facts block. Run the agent against a real directory with
 only `BEHAVIOUR` in the system prompt and give it a task that requires finding a
 file. Count the turns. Put the facts back and count again. This is the whole
 argument of section 4 measured on your own machine, and the number is usually
 larger than people expect.
 
-**Two.** Break the `write_file` description down to just `Write a whole file.`
+Second, break the `write_file` description down to just `Write a whole file.`
 and ask the agent to change one line in an existing file. Watch which tool it
 picks. Restore the sentence about `edit_file` and ask again. Then do the same
 experiment with the sentence removed from the description but added to the
 system prompt instead, and compare. The point of the third run is to find out
 for yourself whether section 6's claim about adjacency holds for your model.
 
-**Three.** Add a fourth fact to `build_system_prompt` that lists the top level
+Third, add a fourth fact to `build_system_prompt` that lists the top level
 entries of the workspace, using the `list_files` function you already have. Then
 argue with yourself about whether it belongs there. It saves a turn on the first
 request, and it costs tokens on every request for the rest of the session, and

@@ -141,7 +141,7 @@ Named plainly, this is what those files are.
 Four parts, one line of argument. Read them in order and the shape of the course
 is a single claim being extended.
 
-**Part 1, lessons 00 to 06, said that a model is an HTTP endpoint.** Lesson 01
+Part 1, lessons 00 to 06, said that a model is an HTTP endpoint. Lesson 01
 sent one POST request with a list of messages in the body and got a list of
 messages back with one more on the end. There was no library in the way, so
 there was nowhere for magic to hide. Lesson 02 discovered that the model
@@ -152,8 +152,8 @@ emitting a name and a JSON argument object and waiting for you to hand back a
 string. Lesson 04 wrapped that in a `for` loop. That loop was the first agent,
 and it is the same loop you have today.
 
-**Part 2, lessons 07 to 11, gave it hands, and introduced the first real
-danger.** Reading and editing files, running shell commands, glob and grep. The
+Part 2, lessons 07 to 11, gave it hands, and introduced the first real
+danger. Reading and editing files, running shell commands, glob and grep. The
 capability arrived with the problem attached, because the moment an agent can
 write to your disk and run commands in your shell, the text it reads becomes a
 security boundary. Lesson 08 put a person in front of the shell tool on the
@@ -162,7 +162,7 @@ grep beats a vector index for code and made you feel why. Lesson 10 pointed out
 that a tool description is prompt engineering that most people never edit.
 Lesson 11 pointed the whole thing at a folder with a real bug and it fixed it.
 
-**Part 3, lessons 12 to 18, turned an agent into something survivable.** Not
+Part 3, lessons 12 to 18, turned an agent into something survivable. Not
 more capable, survivable. A permission gate that remembers your answer so it
 still gets read at the fortieth prompt. Sessions as plain JSONL, which turned
 out to be the best debugging tool in the project. Context management, including
@@ -172,7 +172,7 @@ the four questions you ask before reaching for it. Errors, retries, and an
 interrupt that stops the work rather than the screen. Lesson 18 ran all of it at
 once against a real directory and then checked the disk.
 
-**Part 4, lessons 19 to 23, connected it outward and let you measure it.**
+Part 4, lessons 19 to 23, connected it outward and let you measure it.
 Lesson 19 wrote an MCP client by hand so a tool became something you connect to
 rather than something you write, and then priced it honestly, because tool
 schemas are resent on every request and four servers can eat your context before
@@ -257,7 +257,7 @@ convenient examples. It is neither, and the reason is structural. The two
 categories differ in exactly one property, which is what the new thing needs to
 see.
 
-**A tool needs only its own arguments, and returns a value.** `read_file` gets a
+A tool needs only its own arguments, and returns a value. `read_file` gets a
 path. `grep_files` gets a pattern and a glob. `run_shell` gets a command. None
 of them needs to know that a conversation exists, how many turns have happened,
 what the budget is, or what the model said last. They take input and produce a
@@ -270,8 +270,8 @@ is a function that writes JSON down a pipe and reads JSON back. A subagent is a
 function that runs another agent. Both are arbitrary Python behind the same
 contract, and the contract was never about what the function does.
 
-**A subsystem needs to observe or intercept something the loop owns, at a moment
-only the loop controls.** Permissions must run in the gap between the model
+A subsystem needs to observe or intercept something the loop owns, at a moment
+only the loop controls. Permissions must run in the gap between the model
 asking for a call and the call happening, and nothing outside the loop can stand
 in that gap. Sessions must see each message at the instant it is created, which
 is why writing the file at the end is a different and worse program. Context
@@ -426,11 +426,11 @@ can read what your package is without executing your code, and that is why
 installers can now resolve dependencies without downloading and running
 arbitrary source.
 
-**`name`** is the identity. It is what somebody types after `pip install`, and
+`name` is the identity. It is what somebody types after `pip install`, and
 it must be unique across the whole of the Python Package Index. Section 5 is
 about that being harder than it sounds.
 
-**`version`** was `1.0.0` when part 4 shipped and reads `1.0.6` today after six
+`version` was `1.0.0` when part 4 shipped and reads `1.0.6` today after six
 patch releases, and the first three numbers follow the course rather than the
 calendar. The design document made one part equal one release, so part 1 shipped
 as `0.1.0`, part 2 as `0.2.0`, part 3 as `0.3.0`, and part 4, which is the part
@@ -449,11 +449,11 @@ instead, and the reason this project has not done that yet is that it is one
 more piece of build magic between the reader and the file, which is a trade the
 project's second principle usually loses.
 
-**`description`** is one line and it is the tagline. It becomes the sentence
+`description` is one line and it is the tagline. It becomes the sentence
 under the name in search results, so it is the only prose most people will ever
 read about the project.
 
-**`readme`** points at `README.md`, whose entire contents get copied into the
+`readme` points at `README.md`, whose entire contents get copied into the
 package metadata at build time and rendered as the project page. That is worth
 knowing because it means the README is shipped inside the wheel, not linked
 from it. Here is the top of the metadata from the wheel this chapter built.
@@ -491,7 +491,7 @@ Description-Content-Type: text/markdown
 
 Every one of those lines came from the project table.
 
-**`requires-python`** is a promise that gets enforced by the installer rather
+`requires-python` is a promise that gets enforced by the installer rather
 than discovered by the user. Without it, somebody on Python 3.8 installs the
 package successfully and then gets a `SyntaxError` or an `AttributeError` from
 the middle of your code, which reads like your package is broken. With it, `pip`
@@ -504,7 +504,7 @@ lets the dependency claim above be checked at all. The path confinement in
 by finding the newest thing you actually use is the right method. Setting it to
 whatever you happen to be running is how you exclude half your users for nothing.
 
-**`license`** matters more than it looks in a teaching project. MIT means
+`license` matters more than it looks in a teaching project. MIT means
 somebody can take this code into a commercial product without asking. A project
 with no license at all is not public domain, it is fully copyrighted with no
 permission granted, so an unlicensed tutorial is legally unusable by exactly the
@@ -1036,22 +1036,22 @@ Lesson 19 built a client that speaks stdio only. The client starts a server as a
 subprocess and talks JSON-RPC over its pipes, so every server you can use is a
 program on your own machine that you launched yourself.
 
-**What it buys.** Servers you did not start and do not host. A team can run one
+It buys servers you did not start and do not host. A team can run one
 server for its internal systems and every agent in the company connects to the
 same URL. It also removes the requirement that the server be installable on your
 machine at all, which matters the moment a server needs credentials or a database
 connection you do not have locally.
 
-**What it costs.** Everything that was free about a subprocess stops being free.
+The cost is that everything that was free about a subprocess stops being free.
 A pipe to a process you started needs no authentication, because the operating
 system already decided you may run it. An HTTP endpoint needs authentication,
 which means tokens, which means token storage and rotation. A subprocess dies
-when you do, so there is no session lifetime to manage. A remote server does not,
-so the transport has to handle reconnection and streamed server events. And the
-trust story changes shape entirely. A local server runs as you, with your files.
-A remote server is somebody else's code holding your requests, and every tool
-description it sends you goes straight into your model's context, which is a
-prompt injection surface owned by a third party.
+when you do, so there is no session lifetime to manage. A remote server does
+not, so the transport has to handle reconnection and streamed server events.
+And the trust story changes shape entirely. A local server runs as you, with
+your files. A remote server is somebody else's code holding your requests, and
+every tool description it sends you goes straight into your model's context,
+which is a prompt injection surface owned by a third party.
 
 ### Async
 
@@ -1065,12 +1065,12 @@ which is the case threads handle well, and async would put a second mental
 model in front of a reader who came here to learn about agents.
 ```
 
-**What it buys.** Thousands of concurrent agent runs in one process instead of
+It buys thousands of concurrent agent runs in one process instead of
 dozens. If you are building a service where many users share one machine, this is
 not a preference, it is the only design that works, because a thread costs
 megabytes of stack and an awaiting coroutine costs kilobytes.
 
-**What it costs.** It is contagious. `async def` at the bottom means `await` all
+The cost is that it is contagious. `async def` at the bottom means `await` all
 the way up, so the provider, the loop, every tool, the MCP client and the CLI
 all change. You cannot half do it, and a synchronous call left in the middle
 blocks the entire event loop and produces a performance bug that looks like a
@@ -1088,12 +1088,12 @@ walk itself, in which case use the grep from lesson 09. Only if all three answer
 no does vector search earn its place, and the chapter then built it as an
 ordinary tool to show it is not a special system.
 
-**What it buys.** Scale and quality that a hand written embedder in a hundred
-lines cannot reach. Real embeddings, an approximate nearest neighbour index that
+It buys scale and quality that a hand written embedder in a hundred lines
+cannot reach. Real embeddings, an approximate nearest neighbour index that
 stays fast at millions of documents, metadata filtering, incremental updates
 without a full rebuild, and persistence across processes.
 
-**What it costs.** A service to run and back up, or a hosted one to pay for. An
+The cost is a service to run and back up, or a hosted one to pay for. An
 embedding model, which means either another API bill on every document and every
 query or a local model and the memory it needs. An index that goes stale, which
 is the failure nobody plans for, because a stale index does not error, it just
@@ -1107,7 +1107,7 @@ Right now you have two instruments. `Usage` tells you what a whole run cost, and
 the session file tells you what happened in order. Both are excellent and both
 are per run, local, and after the fact.
 
-**What it buys.** The ability to answer questions about runs in aggregate, which
+It buys the ability to answer questions about runs in aggregate, which
 is a different kind of question from the ones a session file answers. Which tool
 fails most often. Which step is slow, and whether it is the model or the shell.
 What the ninety fifth percentile latency is. Whether the change you deployed on
@@ -1115,7 +1115,7 @@ Tuesday made things worse. With spans you get a nested timeline of one run
 instead of a flat list, and the nesting is what makes a subagent's work legible
 inside its parent's.
 
-**What it costs.** A collector to run and storage to pay for, both of which are
+The cost is a collector to run and storage to pay for, both of which are
 operational work that has nothing to do with agents. Instrumentation code
 threaded through the loop, the provider and the tools, which is exactly the kind
 of thing that turns into a branch in the loop if the seam is designed badly.
@@ -1134,13 +1134,13 @@ process. `run_shell` will happily run a command that reads a file outside the
 workspace, or opens a network connection, or installs a package, because
 `subprocess.Popen` inherits everything your process can do.
 
-**What it buys.** The ability to give an agent a task and go and do something
-else. Everything the permission system is for becomes structural rather than a
-question you have to keep answering correctly at the fortieth prompt, and lesson
-12's point about prompt injection changes character entirely, because a
+It buys the ability to give an agent a task and go and do something else.
+Everything the permission system is for becomes structural rather than a
+question you have to keep answering correctly at the fortieth prompt, and
+lesson 12's point about prompt injection changes character entirely, because a
 successful injection then reaches a container rather than your laptop.
 
-**What it costs.** The agent stops sharing your world, and that is the whole
+The cost is that the agent stops sharing your world, and that is the whole
 difficulty rather than a detail. Files have to be mounted in and results copied
 out. Your tools, credentials and language versions are not in there unless you
 put them there, so the container image becomes something you maintain. Startup
@@ -1157,8 +1157,8 @@ that are not here. None of them was left out because it is unimportant. They wer
 left out because a harness is a specific thing and these are not it, and a course
 that covers everything adjacent to its subject covers its subject badly.
 
-**Fine tuning.** Taking a base model and continuing training on your own examples
-so it behaves differently by default. It is a real technique with real uses,
+Fine tuning takes a base model and continues training on your own examples so
+it behaves differently by default. It is a real technique with real uses,
 mostly narrowing a model to a specific format or domain. It is absent because it
 changes what is behind the endpoint, and everything in this course is in front of
 it. Every design decision here holds no matter which model answers, which is what
@@ -1168,13 +1168,13 @@ solve turns out to be a prompt problem, a tool description problem, or a context
 problem, and lesson 22 exists so you can tell which one you have before spending
 money finding out.
 
-**Training.** Building a model. This is a different field with different
+Training is building a model. This is a different field with different
 prerequisites, different mathematics and different hardware, and it shares
 almost no engineering with the subject of this course. The design document says
 in its opening section that there is no maths here, and that is a promise about
 who the course is for rather than a statement about what is worth knowing.
 
-**Prompt optimisation at scale.** Automated search over prompt variants, where a
+Prompt optimisation at scale is automated search over prompt variants, where a
 program generates candidates, scores them against a dataset, and keeps the
 winners. Lesson 22 built the foundation this needs, which is the eval suite,
 because a search with no scoring function is not a search. What is missing is the
@@ -1185,7 +1185,7 @@ editing the prompt and rerunning it by hand for the twentieth time, you have
 earned the right to automate that loop, and you will know exactly what you want
 from it.
 
-**Running agents as a hosted service.** Multi tenancy, queues, per user
+Running agents as a hosted service means multi tenancy, queues, per user
 isolation, autoscaling, billing, an authenticated API in front of it, and the
 whole operational surface underneath. This is genuinely the next thing many
 readers will need. It is also a distributed systems subject rather than an agent

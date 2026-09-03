@@ -273,12 +273,12 @@ ollama serve
 Ollama exposes an OpenAI compatible endpoint, so the base url you will use is the
 local address shown in section 6.
 
-**What is good about it.** It is free forever, with no signup, no card and no
-rate limit. Your prompts never leave your machine, which matters if you plan to
+What is good about it is that it is free forever, with no signup, no card and
+no rate limit. Your prompts never leave your machine, which matters if you plan to
 point lesson 07's file tools at real work. It runs offline, so you can do the
 whole course on a plane.
 
-**What is bad about it.** It is slower, often much slower. On a laptop with no
+What is bad about it is the speed. It is slower, often much slower. On a laptop with no
 discrete GPU, an 8b model may produce a couple of words per second, which makes
 the multi step agent loops of lessons 04 and onward tedious to watch. It uses a
 lot of disk and memory, roughly 5 GB on disk for an 8 billion parameter model at
@@ -292,13 +292,13 @@ is about.
 Groq and OpenRouter both host open weight models and both offer a free tier.
 You sign up, create an API key, and point the course at their address.
 
-**What is good about it.** It is fast, often dramatically faster than local
-hardware, and it costs nothing. You get access to larger models than your laptop
+What is good about it is that it is fast, often dramatically faster than
+local hardware, and it costs nothing. You get access to larger models than your laptop
 can hold, which means tool calling in lesson 03 is far more likely to work on the
 first try. Setup is two minutes.
 
-**What is bad about it.** You need an account, which usually means handing over
-an email address and sometimes a phone number. Free tiers are rate limited, both
+What is bad about it is that you need an account, which usually means handing
+over an email address and sometimes a phone number. Free tiers are rate limited, both
 per minute and per day, so a runaway agent loop in lesson 04 can burn your daily
 quota in a couple of minutes and leave you locked out until tomorrow. Which
 models are free changes over time, so the exact model id you use may need
@@ -312,12 +312,12 @@ These are the commercial services. You add a payment method and pay per token,
 where a token is roughly three quarters of an English word, counted across both
 what you send and what comes back.
 
-**What is good about it.** These are the strongest models available and by far
-the most reliable at tool calling, which means the lessons behave the way the
+What is good about it is that these are the strongest models available and by
+far the most reliable at tool calling, which means the lessons behave the way the
 text says they will. There are no free tier surprises, latency is low, and
 uptime is somebody's job.
 
-**What is bad about it.** It costs money. For this course the amount is small,
+What is bad about it is that it costs money. For this course the amount is small,
 because the lessons send short prompts, but it is not zero and it is your money.
 Before you start, go into the provider's billing settings and set a hard monthly
 spend limit. Lesson 04 introduces a loop that calls the model repeatedly, and a

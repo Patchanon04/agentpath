@@ -307,21 +307,21 @@ to get stuck on something that is not the subject.
 
 Three arguments, and each one is shaped by a specific thought.
 
-**`task` is positional but optional.** `nargs="?"` means you may supply it or
+`task` is positional but optional. `nargs="?"` means you may supply it or
 not. Supply it and the agent starts immediately, which is what you want when you
 are scripting or repeating something. Leave it out and you get asked, which is
 what you want when you are still deciding what to ask for. Making it a flag
 instead, so that every run needed `--task "fix the bug"`, would put four extra
 characters of ceremony on the most common thing you ever type.
 
-**`--workspace` defaults to the current directory.** The overwhelmingly common
+`--workspace` defaults to the current directory. The overwhelmingly common
 case is that you have already `cd`ed into the project you are annoyed with, so
 the default should be that. But it is an explicit flag rather than only ever the
 current directory, because you frequently want to run the agent from somewhere
 else, and because a check like `check.py` needs to point it at a temporary
 directory rather than at the repository.
 
-**`--provider` is a closed choice.** `choices=["openai", "anthropic"]` makes
+`--provider` is a closed choice. `choices=["openai", "anthropic"]` makes
 argparse reject anything else with a usage message before your code runs. Ask
 for a provider that does not exist and you find out immediately.
 
@@ -390,7 +390,7 @@ The `# noqa: E402` is the honest way to break the style rule. E402 is the linter
 complaining that an import is not at the top of the file. It is right that this
 is unusual, and we are telling it that we know, on purpose, here.
 
-**Why read the workspace from an environment variable at all.** The obvious
+The workspace comes from an environment variable rather than an argument for a reason. The obvious
 alternative is to pass it as an argument, so that `read_file(workspace, path)`
 takes it explicitly and there is no import order to get wrong. That is a better
 design and part three does exactly that. It is not what part two does, because
@@ -401,7 +401,7 @@ buried the actual subject of lesson 07 under plumbing. A module level constant
 plus one documented ordering rule is the smaller cost while the program is small,
 and lesson 18 pays the larger cost once there is a reason to.
 
-**Why `resolve()` before storing it.** `Path(".").resolve()` turns a relative
+The `resolve()` call before storing matters too. `Path(".").resolve()` turns a relative
 path into an absolute one. Three separate things downstream need that.
 `resolve_inside` compares candidate paths against `WORKSPACE` with
 `is_relative_to`, which is meaningless if `WORKSPACE` is `.`. `run_shell` passes
@@ -621,17 +621,17 @@ largest 120
 Four tool calls. Read them in order, because each one is a different lesson
 arriving.
 
-**`grep_files` is lesson 09.** You did not tell it which file. You said "the
+`grep_files` is lesson 09. You did not tell it which file. You said "the
 average is wrong" and it searched for `def average` restricted to `*.py`. One
 hit, with a file name and a line number. Before lesson 09 the agent would have
 had to `list_files` its way down the tree, or ask you.
 
-**`read_file` is lesson 07.** It has a file name from the previous result and
+`read_file` is lesson 07. It has a file name from the previous result and
 hands it straight to the next tool with no transformation. That is the property
 lesson 09 argued for when it explained why `grep_files` returns paths rather
 than a summary. The output of one tool is the argument of the next.
 
-**`edit_file` is lesson 07 again, and the interesting one.** Look at what it
+`edit_file` is lesson 07 again, and the interesting one. Look at what it
 sent. Not the whole file. Not the whole function. One line of old text and one
 line of new text. That is `edit_file` doing the job it exists for. Had the agent
 used `write_file` it would have had to reproduce the docstring, `total`, and
@@ -644,7 +644,7 @@ replace the bare string `return 0`, which also appears in `average`, the tool
 would have refused with the ambiguity error from lesson 07 and told it to
 include more surrounding lines.
 
-**`run_shell` is lesson 08, and it is the whole point of the trace.** The agent
+`run_shell` is lesson 08, and it is the whole point of the trace. The agent
 did not announce that it had fixed the bug. It ran the program. And before the
 program ran, you were asked, and the exact command was printed on its own line
 for you to read. That is `confirm`, unchanged since lesson 08.
@@ -787,10 +787,10 @@ will contain spaces.
 
 Three claims, and they are deliberately three rather than one.
 
-**The bug is fixed on disk.** The file is reopened and read after `run` has
+The bug is fixed on disk. The file is reopened and read after `run` has
 returned. Nothing about the agent's own account of events is consulted.
 
-**The rest of the file survived.** `multiply` is still there. This assertion
+The rest of the file survived. `multiply` is still there. This assertion
 exists because the first one can pass while the agent has done something
 appalling, such as replacing the entire file with a two line `calc.py` that
 happens to contain `return a + b`. A check that only asserts the presence of the
@@ -798,7 +798,7 @@ fix will happily pass a program that destroyed everything around it, and
 destroying everything around it is the single most common way a file editing
 agent goes wrong.
 
-**The fixed code actually ran and printed the right number.** The tool results
+The fixed code actually ran and printed the right number. The tool results
 are pulled out of the returned conversation and one of them must be exactly `5`.
 `2 + 3` is `5` and `2 - 3` is `-1`, so this is only satisfiable by code that has
 already been fixed at the moment the subprocess imported it.
@@ -924,7 +924,7 @@ The reason it behaves this way is that `confirm` has no memory. Look at it. It
 takes a string, prints it, reads one character, returns a boolean, and forgets.
 There is nowhere for a decision to live.
 
-**Lesson 12, the permission system.** Three outcomes instead of two, which are
+Lesson 12 builds the permission system. Three outcomes instead of two, which are
 ask, allow and deny. Rules that match patterns rather than exact strings, so that
 `pytest tests/test_a.py` and `pytest tests/test_b.py` can be one decision.
 Decisions that last for the rest of the session. And the gate moved so it
@@ -944,7 +944,7 @@ things, reads the same files, and pays for all of it again. And when the agent
 does something baffling you have no way to look at what it actually saw, because
 the conversation that would explain it no longer exists.
 
-**Lesson 13, sessions.** The conversation written to a JSONL file as it happens,
+Lesson 13 adds sessions. The conversation written to a JSONL file as it happens,
 one message per line, and a way to resume from it. The format is deliberately
 boring, because the highest value of a session file turns out not to be resuming.
 It is that when an agent does something strange you can open the file in a text
@@ -965,7 +965,7 @@ four, turn five and turn six. On a long task with a small local model you will
 watch it work for two minutes and then receive an HTTP error about exceeding the
 context length, at which point the run is over and there is no way to continue it.
 
-**Lesson 14, context management.** Measuring the conversation, deciding what to
+Lesson 14 covers context management. Measuring the conversation, deciding what to
 drop, and summarising the middle of a long session. It also contains the trap
 that catches most people who write this themselves, which is that a tool call and
 its result are one indivisible unit. Drop a tool call and leave its result, or
@@ -983,7 +983,7 @@ attempt is superstition. You will believe a shorter system prompt helped when th
 real cost was a `grep_files` result that returned 180 lines and then rode along
 in every subsequent request for the rest of the session.
 
-**Lesson 15, token economy.** Where the money actually goes, measured rather than
+Lesson 15 is the token economy. Where the money actually goes, measured rather than
 guessed. Prompt caching and the ordering rule it depends on, which is that stable
 content goes first and changing content goes last. Put the current time or a
 session id near the front and you invalidate the cache on every single request,
@@ -1004,7 +1004,7 @@ Hitting `max_turns` is not necessarily a failure. It frequently means the agent
 was making progress and needed an eleventh turn. Crashing is a poor response to
 that, and so is silently continuing.
 
-**Lesson 17, errors and retries.** Which failures are worth retrying and which are
+Lesson 17 handles errors and retries. Which failures are worth retrying and which are
 not, exponential backoff with jitter, and honouring the `Retry-After` header when
 the server bothers to send one. It also covers two things that are easy to get
 badly wrong. Retrying a tool that has side effects means doing the side effect

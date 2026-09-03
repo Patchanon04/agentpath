@@ -467,13 +467,13 @@ DEFAULT_DESCRIPTION = (
 
 Four sentences, each doing a different job.
 
-**The first says what the tool does.** Hand over a job, get back only the final
+The first says what the tool does. Hand over a job, get back only the final
 answer. The word `only` is load bearing. It tells the model not to expect a
 transcript, so it does not write a task asking the child to show its work step
 by step, which would defeat the purpose by pulling the investigation back into
 the parent's context through the return value.
 
-**The second says when to reach for it.** Work that needs many steps of
+The second says when to reach for it. Work that needs many steps of
 searching or reading. This is the sentence that has to compete with the
 alternative, because the model is choosing between this tool and calling
 `grep_files` itself, and calling `grep_files` itself is what it has done in
@@ -483,12 +483,12 @@ exist. Lesson 09 made the same argument about search and lesson 16 made it about
 `search_notes`. The description is not documentation, it is the only instruction
 the model has about selection.
 
-**The third names the trade.** The conclusion and not the whole investigation.
+The third names the trade. The conclusion and not the whole investigation.
 That is the cost stated honestly, and stating it lets the model make a real
 choice rather than being pushed. If it needs the intermediate steps for what it
 is doing next, it should not delegate, and this sentence is what tells it so.
 
-**The fourth is the one that cannot be left out.** The other agent cannot see
+The fourth is the one that cannot be left out. The other agent cannot see
 this conversation.
 
 Sit with why that sentence has to be there. From the model's side, every tool it
@@ -558,7 +558,7 @@ The whole body of `run_subagent` sits inside a try.
 
 Two decisions here and both go against normal advice, so both need defending.
 
-**Why the exception handler is deliberately broad.** A bare `except Exception`
+The exception handler is deliberately broad. A bare `except Exception`
 is usually a code smell, and it is usually a code smell for a good reason, which
 is that it hides bugs you wanted to see. It is right here because of what is
 inside the try. A whole agent run is inside the try. That means an HTTP timeout
@@ -574,7 +574,7 @@ Which is the second half of the argument. The blast radius of catching too much
 here is one bad tool result, and the parent reads tool results for a living. The
 blast radius of catching too little is the entire parent run.
 
-**Why the error comes back as text rather than being raised.** This is the more
+The error comes back as text rather than being raised. This is the more
 interesting decision and it is the same one lesson 08 made for `run_shell`,
 which captures stderr and the exit code and hands both to the model instead of
 raising. The comment states the reasoning.
@@ -710,7 +710,7 @@ new was needed.
 
 Two practical habits work, and they are habits rather than mechanisms.
 
-**Have the child report what it changed.** This is a sentence in the task the
+Have the child report what it changed. This is a sentence in the task the
 parent writes, and it costs nothing.
 
 ```text
@@ -726,7 +726,7 @@ the change list in it costs one line instead of a subsystem. This is also a
 sentence you can put permanently in the child's system prompt through
 `build_child`, so every child does it without the parent having to remember.
 
-**Re read anything the parent is about to act on.** Not everything, and not on a
+Re read anything the parent is about to act on. Not everything, and not on a
 schedule. Specifically the thing it is about to change, immediately before
 changing it, after any delegation that could have touched it. One targeted
 `read_file` before one `edit_file` is a cost you can measure and it is small.
@@ -765,8 +765,8 @@ Delegating the same job is a fresh system prompt, a fresh schema list, three
 tool calls, plus the extra turn on the parent's side to issue the delegation and
 the extra turn to read the answer.
 
-**For a job of two or three steps, a subagent is more expensive and slower than
-doing it yourself.** Not marginally. The fixed cost of starting a conversation
+For a job of two or three steps, a subagent is more expensive and slower than
+doing it yourself. Not marginally. The fixed cost of starting a conversation
 dominates completely at that size, and you have added latency on top, because
 the parent sits blocked while the child does its round trips one after another.
 
@@ -847,12 +847,12 @@ it read before the child changed it.
 
 Take them one at a time.
 
-**One. A subagent is an ordinary tool as far as the parent is concerned.** The
+One. A subagent is an ordinary tool as far as the parent is concerned. The
 check reads the name out of the schema and appends the schema and the function
 to `tools.SCHEMAS` and `tools.FUNCTIONS`. If a subagent needed anything the
 registry does not offer, this is where it would show up, and it does not.
 
-**Two. The child did real work that reached the disk.** This is the habit lesson
+Two. The child did real work that reached the disk. This is the habit lesson
 18 argued for at length. The assertion is on the filesystem, not on any message.
 
 ```python
@@ -866,7 +866,7 @@ through the same dispatch a real run would use. Then the disk is checked. A
 child that said it wrote the file and did not would fail here, which is the
 whole reason to assert on the side effect rather than the prose.
 
-**Three and four are the pair from section 4.** Four messages in the child, two
+Three and four are the pair from section 4. Four messages in the child, two
 in the parent, with a string search proving no leak.
 
 **Five. A child that blew up left the parent standing.**
@@ -903,7 +903,7 @@ away what it said would leave the parent unable to tell a timeout worth retrying
 from a `max_turns` error worth splitting, which is the argument section 7 makes
 about why the exception class name and the message are in the string at all.
 
-**Six. The trap is real.** It prints its own `OK` line like the other five, and
+Six. The trap is real. It prints its own `OK` line like the other five, and
 the demonstration behind it has a guard.
 
 ```python
@@ -952,8 +952,8 @@ and that no two children share anything. That is exactly the precondition for
 running them at the same time, and it was bought in this chapter for a completely
 different reason.
 
-**Lesson 21, multi agent patterns.** An orchestrator and parallel workers over
-threads and a queue. It is also where you find out which parts of the harness
+Lesson 21 covers multi agent patterns, an orchestrator and parallel workers
+over threads and a queue. It is also where you find out which parts of the harness
 quietly assumed there would only ever be one agent, and `session.py` is first in
 the queue, because its own docstring says it supports a single writer and two
 workers appending to one file will interleave their lines and corrupt it. The

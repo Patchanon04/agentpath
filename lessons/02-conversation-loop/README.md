@@ -394,7 +394,7 @@ The program you just wrote has an unbounded list in it, and unbounded is a word 
 
 Two walls are coming.
 
-**The context window.** Every model can only read a fixed amount of text in one request, measured in tokens. A token is roughly three quarters of a word in English. Depending on the model, the limit might be eight thousand tokens or two hundred thousand, but there is always a limit. Cross it and you do not get a graceful degradation, you get an error.
+The first wall is the context window. Every model can only read a fixed amount of text in one request, measured in tokens. A token is roughly three quarters of a word in English. Depending on the model, the limit might be eight thousand tokens or two hundred thousand, but there is always a limit. Cross it and you do not get a graceful degradation, you get an error.
 
 ```text
 you> and what about the other thing we discussed?
@@ -415,9 +415,9 @@ httpx.HTTPStatusError: Client error '400 Bad Request' for url '.../chat/completi
 
 Your chat works fine, and works fine, and works fine, and then at some unpredictable turn it stops working forever, because every subsequent request is also too long. Once you are over the line you cannot even apologise to the user through the model.
 
-**The bill.** Long before you hit the wall you are paying for the same early messages over and over. A hundred turn conversation re-sends turn one a hundred times. In the response envelope above, watch `prompt_tokens` climb while `completion_tokens` stays roughly flat. That gap is your money.
+The second wall is the bill. Long before you reach the first one you are paying for the same early messages over and over. A hundred turn conversation re-sends turn one a hundred times. In the response envelope above, watch `prompt_tokens` climb while `completion_tokens` stays roughly flat. That gap is your money.
 
-**We are not fixing this yet, and that is on purpose.** Part 3 of this course deals with it properly, in the chapters on context management and token economy, where you will build trimming, summarising and pruning strategies and learn when each one is appropriate. Every one of those strategies involves deciding what to throw away, and you cannot make that decision well until you have a real agent whose transcripts you understand. Bolting a truncation rule onto lesson 02 would teach you a line of code and hide the actual problem.
+We are not fixing this yet, and that is on purpose. Part 3 of this course deals with it properly, in the chapters on context management and token economy, where you will build trimming, summarising and pruning strategies and learn when each one is appropriate. Every one of those strategies involves deciding what to throw away, and you cannot make that decision well until you have a real agent whose transcripts you understand. Bolting a truncation rule onto lesson 02 would teach you a line of code and hide the actual problem.
 
 For now, if a conversation gets long, restart the program. Feel the annoyance. It is the motivation for part 3.
 

@@ -116,14 +116,14 @@ add to the other.
 
 Worth stating plainly, because both get called one.
 
-**A better system prompt is not a harness.** Lesson 10 wrote a good one and
+A better system prompt is not a harness. Lesson 10 wrote a good one and
 lesson 12 then demonstrated that you cannot instruct your way out of prompt
 injection, because your instruction and the attacker's text are the same kind of
 thing in the same list competing for the same attention. A control that lives
 inside the conversation can be argued with by anything else in the conversation.
 Every piece in the table above lives outside it.
 
-**More tools is not a harness either.** This is the easier mistake to make
+More tools is not a harness either. This is the easier mistake to make
 because it feels like progress. Lesson 16 is the proof. It added a whole
 retrieval tool, vector index and all, and section 3 shows what that did to the
 loop, which was nothing at all.
@@ -483,18 +483,18 @@ done
 
 Read that table twice, because it says two different things.
 
-**Lessons 07, 08 and 09 are the same bytes as lesson 06.** Four file tools, a
+Lessons 07, 08 and 09 are the same bytes as lesson 06. Four file tools, a
 shell with a timeout, glob and grep, path confinement, a secret file refusal,
 output truncation, an ambiguous edit refusal and a subprocess timeout, and the
 loop did not change once.
 
-**Lesson 16 is the same bytes as lesson 15.** That is the one to sit with,
+Lesson 16 is the same bytes as lesson 15. That is the one to sit with,
 because retrieval is the feature most likely to be built as a special system
 with its own hooks in the middle of everything. Lesson 16 built a vector index,
 an embedder and a scorer, and delivered them as `search_notes` in `tools.py`,
 which meant the loop had nothing to say about it.
 
-**Every lesson that did change the loop added a subsystem.** Permissions in 12,
+Every lesson that did change the loop added a subsystem. Permissions in 12,
 sessions in 13, trimming in 14, counting and the doom loop guard in 15,
 cancellation in 17. Five subsystems, five changes to `agent.py`.
 
@@ -991,16 +991,16 @@ usage 5 calls, 1629 prompt tokens, 87 completion tokens
 
 Read it as five lessons arriving in order.
 
-**`grep_files` is lesson 09.** You did not name a file. You said the average was
+`grep_files` is lesson 09. You did not name a file. You said the average was
 wrong and it searched for `def average` restricted to `*.py`, and got one hit
 with a path and a line number.
 
-**`read_file` is lesson 07.** It took the path from the previous result and
+`read_file` is lesson 07. It took the path from the previous result and
 handed it to the next tool with no transformation, which is the property lesson
 09 argued for when it explained why search returns paths rather than a summary.
 
-**The two permission prompts are lesson 12, and they are the visible difference
-from part 2.** Notice which calls were gated and which were not. `grep_files`
+The two permission prompts are lesson 12, and they are the visible difference
+from part 2. Notice which calls were gated and which were not. `grep_files`
 and `read_file` went through without a question because they are in `SAFE_TOOLS`
 and cannot destroy anything. `edit_file` and `run_shell` both stopped and waited.
 In part 2 only `run_shell` was gated, and an injected instruction that said to
@@ -1018,11 +1018,11 @@ The `[a]lways` option is the answer to the fatigue problem from lesson 12. Say
 not ask. What gets remembered is the full signature including arguments, so
 allowing `python report.py` forever does not allow `rm -rf .` even once.
 
-**`run_shell` is lesson 08, and it is the point of the trace.** The agent did not
+`run_shell` is lesson 08, and it is the point of the trace. The agent did not
 announce a fix. It ran the program. `average 100.0` is the proof, and it was
 produced by executing code rather than by asserting anything.
 
-**The last two lines are lessons 13 and 15.** A file path you can open, and a
+The last two lines are lessons 13 and 15. A file path you can open, and a
 number you can compare against the next run. Neither existed at the end of part
 2.
 
@@ -1429,15 +1429,16 @@ functions, so anything that is not a Python function in that dictionary does not
 exist as far as the agent is concerned. The world is full of capability that
 this design cannot reach.
 
-**Lesson 19, the MCP client.** A protocol where tools live in a separate process
-and are described over a pipe, so a tool becomes something you connect to rather
-than something you write. You write the client yourself, synchronously, stdio
-only, because the point is understanding the protocol rather than importing
-somebody's SDK. And it comes with a cost that is not obvious until you have four
-servers connected at once, which is that tool schemas are sent on every single
-request. Connect enough servers and half your context is gone before the task
-starts, and the model also picks the wrong tool more often, because forty tools
-with overlapping descriptions is a harder choice than eight.
+Lesson 19 builds the MCP client, a protocol where tools live in a separate
+process and are described over a pipe, so a tool becomes something you connect
+to rather than something you write. You write the client yourself,
+synchronously, stdio only, because the point is understanding the protocol
+rather than importing somebody's SDK. And it comes with a cost that is not
+obvious until you have four servers connected at once, which is that tool
+schemas are sent on every single request. Connect enough servers and half your
+context is gone before the task starts, and the model also picks the wrong
+tool more often, because forty tools with overlapping descriptions is a harder
+choice than eight.
 
 ### It does everything itself, in one conversation
 
@@ -1459,7 +1460,7 @@ Trimming cannot fix this, and neither can a bigger window, because both are
 answers to the wrong question. The real problem is that one conversation is
 being asked to hold a task that does not fit in one conversation.
 
-**Lesson 20, subagents.** An agent that can start another agent with its own
+Lesson 20 is subagents, an agent that can start another agent with its own
 fresh context, hand it one narrow piece of work, and get back an answer instead
 of a transcript. The parent's conversation grows by one short result rather than
 by forty tool calls. That chapter also has the failure mode that comes free with
@@ -1468,11 +1469,11 @@ child edited a file, the parent is still reasoning from what it read before, and
 isolating the child's context, which is the thing that made it sharp, is exactly
 what makes this worse.
 
-**Lesson 21, multi agent patterns.** An orchestrator and parallel workers over
-threads and a queue, which is where you find out which parts of your harness were
-quietly assuming one agent. Ordering is the one that chapter takes apart, since
-three jobs writing to one stream interleave their output and each job still has
-to keep its own events in order.
+Lesson 21 covers multi agent patterns, an orchestrator and parallel workers
+over threads and a queue, which is where you find out which parts of your
+harness were quietly assuming one agent. Ordering is the one that chapter
+takes apart, since three jobs writing to one stream interleave their output
+and each job still has to keep its own events in order.
 
 The session file is the assumption that chapter does not take apart, and it is
 worth knowing that before you reach for `Session` inside a worker. `session.py`
@@ -1503,15 +1504,15 @@ expensive one everywhere out of superstition or switch to the cheap one and find
 out from a user. And it means that when the agent starts behaving worse after
 three weeks of small changes, you have no way to find which change did it.
 
-**Lesson 22, evals and choosing a model.** A task runner that executes a fixed
-set of tasks and checks the outcome, and an LLM as judge for the outcomes that
-cannot be checked mechanically. The mock server makes the machinery free to test.
-And the reason model selection lives in that chapter rather than its own is that
-the two questions are the same question. Saying one model is better than another
-without a test set is guessing, and once you have a test set, choosing a model
-becomes an experiment you run rather than an opinion you hold. It also covers
-tiering, since summarising a file or classifying an error does not need your most
-expensive model.
+Lesson 22 is evals and choosing a model. It has a task runner that executes a
+fixed set of tasks and checks the outcome, and an LLM as judge for the
+outcomes that cannot be checked mechanically. The mock server makes the
+machinery free to test. And the reason model selection lives in that chapter
+rather than its own is that the two questions are the same question. Saying
+one model is better than another without a test set is guessing, and once you
+have a test set, choosing a model becomes an experiment you run rather than an
+opinion you hold. It also covers tiering, since summarising a file or
+classifying an error does not need your most expensive model.
 
 ## 8. Exercises
 
@@ -1553,28 +1554,31 @@ by argparse rather than by silently getting the wrong mode.
 
 Four things to think about while you do it, and they are the actual exercise.
 
-**Where the check goes in the order.** Put `read_only` above the `SAFE_TOOLS`
-test and reading stops working, so the agent can do nothing at all. Put it below
-`auto_approve` and `--yes --mode read-only` silently allows writes, which is the
-worst possible combination because the person who typed both flags believed the
-stricter one won. Decide which flag wins and write a comment saying so.
+The first is where the check goes in the order. Put `read_only` above the
+`SAFE_TOOLS` test and reading stops working, so the agent can do nothing at
+all. Put it below `auto_approve` and `--yes --mode read-only` silently allows
+writes, which is the worst possible combination because the person who typed
+both flags believed the stricter one won. Decide which flag wins and write a
+comment saying so.
 
-**What the model is told.** The loop already sends back a sentence saying the
-user refused. That sentence is wrong here, because no user refused anything and
-the model will keep trying variations hoping for a different answer. A refusal
-that says the reason is a refusal a model can plan around, and it should probably
-say that this session is read only and that writing is not available at all.
+The second is what the model is told. The loop already sends back a sentence
+saying the user refused. That sentence is wrong here, because no user refused
+anything and the model will keep trying variations hoping for a different
+answer. A refusal that says the reason is a refusal a model can plan around,
+and it should probably say that this session is read only and that writing is
+not available at all.
 
-**Whether the model should know before it tries.** The other approach is to not
-send the write tool schemas at all in read only mode, so the model never sees
-that `edit_file` exists. That is a real design decision with a real trade off.
-It is cleaner and saves tokens, which is lesson 15's argument. It also means the
-model cannot tell you what it would have changed, which is often the thing you
-wanted from a read only run.
+The third is whether the model should know before it tries. The other approach
+is to not send the write tool schemas at all in read only mode, so the model
+never sees that `edit_file` exists. That is a real design decision with a real
+trade off. It is cleaner and saves tokens, which is lesson 15's argument. It
+also means the model cannot tell you what it would have changed, which is
+often the thing you wanted from a read only run.
 
-**How you would prove it.** Write the check before the code. It should look like
-claim five in section 6. Write a file, run the agent with a task that tries to
-change it, and compare the bytes afterwards. Do not assert on any message.
+The fourth is how you would prove it. Write the check before the code. It
+should look like claim five in section 6. Write a file, run the agent with a
+task that tries to change it, and compare the bytes afterwards. Do not assert
+on any message.
 
 ### Two. Make the session record how long each turn took
 
@@ -1592,7 +1596,7 @@ The naive version is one line in `Session.append`.
 
 Do that first, then notice the four problems, which are the exercise.
 
-**It changes the message.** `append` currently writes what it was given. Now it
+It changes the message. `append` currently writes what it was given. Now it
 adds a field, so the file no longer matches what was sent to the provider.
 Reload that session with `--resume` and you are sending the provider messages
 with an `at` key it did not ask for. Some providers ignore unknown fields and
@@ -1600,25 +1604,26 @@ some reject the request, so this is a bug that appears on one model and not
 another. Decide whether `load` strips it, or whether the timestamp lives
 somewhere other than inside the message.
 
-**A timestamp is not a duration.** What you want to know is how long a step took,
+A timestamp is not a duration. What you want to know is how long a step took,
 and that is a subtraction between two timestamps. Which two, exactly? The gap
 between the assistant message and the tool result before it is thinking and
 network time. The gap between a tool call and its result is the tool. Those are
 different numbers with different causes and lumping them together tells you
 nothing about which one to fix.
 
-**Which clock.** Use `time.time()` and you get a wall clock number you can read
-as a date, which drifts and can jump backwards when the system clock is adjusted,
-occasionally producing a negative duration. Use `time.monotonic()` and your
-durations are always correct and the number is meaningless on its own. The
-answer is probably both, and knowing why is the point.
+The third problem is which clock. Use `time.time()` and you get a wall clock
+number you can read as a date, which drifts and can jump backwards when the
+system clock is adjusted, occasionally producing a negative duration. Use
+`time.monotonic()` and your durations are always correct and the number is
+meaningless on its own. The answer is probably both, and knowing why is the
+point.
 
-**Where the boundary is.** `Session` currently knows nothing about turns. It
-receives messages. If you want per turn timing, either the session starts
-inferring turn boundaries from roles, which gives it opinions and breaks the rule
-from section 2 that the recorder does not decide, or the loop tells it, which
-means a new parameter and a wider contract. Both are defensible. Pick one and be
-able to say why.
+The fourth is where the boundary is. `Session` currently knows nothing about
+turns. It receives messages. If you want per turn timing, either the session
+starts inferring turn boundaries from roles, which gives it opinions and
+breaks the rule from section 2 that the recorder does not decide, or the loop
+tells it, which means a new parameter and a wider contract. Both are
+defensible. Pick one and be able to say why.
 
 When it works, run the agent on something real and look at the file. The number
 that surprises you is the thing to optimise, and it will almost certainly not be
@@ -1690,33 +1695,33 @@ process to the `_kill_tree` that already exists when the flag is set.
 
 Three things make it a design exercise rather than a threading exercise.
 
-**What the model is told.** The tool has to return something. A killed command
-has partial stdout, no exit code worth reporting, and a reason. Return the
-partial output and the model may reason from a build log that stopped halfway as
-though it were complete. Return only `Cancelled` and you have thrown away output
-the person may have wanted. The existing pre start message is
-`Cancelled before the command started.` and the wording matters, because the two
-cases are not the same event and the model should not have to guess which one
-happened.
+The first is what the model is told. The tool has to return something. A
+killed command has partial stdout, no exit code worth reporting, and a reason.
+Return the partial output and the model may reason from a build log that
+stopped halfway as though it were complete. Return only `Cancelled` and you
+have thrown away output the person may have wanted. The existing pre start
+message is `Cancelled before the command started.` and the wording matters,
+because the two cases are not the same event and the model should not have to
+guess which one happened.
 
-**What `terminate` actually reaches.** `shell=True` means the process you have a
-handle on is the shell, not the command it ran. Kill the shell and a child that
-outlived it keeps going, still holding the file it was writing. Getting the whole
-tree needs a process group on Unix and a job object on Windows, and those are
-different enough that you have to decide whether you are writing this for one
-platform or both.
+The second is what `terminate` actually reaches. `shell=True` means the
+process you have a handle on is the shell, not the command it ran. Kill the
+shell and a child that outlived it keeps going, still holding the file it was
+writing. Getting the whole tree needs a process group on Unix and a job object
+on Windows, and those are different enough that you have to decide whether you
+are writing this for one platform or both.
 
-**Whether a module attribute survives.** `tools.CANCELLATION` is one value for
-the whole process, which is exactly right for one agent and one terminal. Lesson
-21 runs workers in threads in that same process. Work out what a second worker
-cancelling does to the first one under this design, and what you would have to
-change so that the answer is nothing.
+The third is whether a module attribute survives. `tools.CANCELLATION` is one
+value for the whole process, which is exactly right for one agent and one
+terminal. Lesson 21 runs workers in threads in that same process. Work out
+what a second worker cancelling does to the first one under this design, and
+what you would have to change so that the answer is nothing.
 
 ## 9. This is the end of part 3
 
 Three parts done. Look at what each one was actually for.
 
-**Part 1, lessons 00 to 06, was foundations.** It started with one HTTP request
+Part 1, lessons 00 to 06, was foundations. It started with one HTTP request
 to a model and finished with an agent loop that streams, calls tools, and talks
 to two different wire formats through one interface. The important thing it
 taught is that a language model is text in and text out, that everything else is
@@ -1724,7 +1729,7 @@ a convention built on top of that, and that a conversation is resent in full on
 every single request. Almost every cost and limit in the rest of the course
 follows from that last fact.
 
-**Part 2, lessons 07 to 11, was real tools.** Files with one gate for every path.
+Part 2, lessons 07 to 11, was real tools. Files with one gate for every path.
 A shell with a person standing in front of it. Glob and grep, with the argument
 for why that is the right answer for code rather than a placeholder for something
 fancier. A system prompt that tells the model both how to behave and where it is.
@@ -1733,7 +1738,7 @@ fix a bug in it. The thing it taught, more than any individual tool, was that th
 seam between the loop and the tools is what lets you add the eighth tool as
 easily as the first.
 
-**Part 3, lessons 12 to 18, was the harness.** Permission that remembers what you
+Part 3, lessons 12 to 18, was the harness. Permission that remembers what you
 decided, so the gate still works at the fortieth prompt. Sessions as plain JSONL,
 which turn out to be the best debugging tool in the project. Context management,
 including the trap where trimming between a tool call and its result gets the
@@ -1746,8 +1751,8 @@ against a real directory and the disk is checked afterwards.
 Part 3 did not make your agent more capable. It made it operable. Those are
 different things and this was the part that made the difference visible.
 
-**Part 4, lessons 19 to 23, is about the limits of one agent with tools you
-wrote.** Every limit in section 7 has the same shape. The agent is alone, it can
+Part 4, lessons 19 to 23, is about the limits of one agent with tools you
+wrote. Every limit in section 7 has the same shape. The agent is alone, it can
 only use what is in `tools.py`, it works in one conversation, and you have no
 instrument for telling whether any change you make is an improvement.
 
