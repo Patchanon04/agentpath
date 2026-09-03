@@ -15,7 +15,7 @@ test ผ่านบนเครื่องคนเขียน แล้ว�
 build ถามว่าเอาไฟล์ไหนไปใส่ เทอร์มินัลถามว่าคำสั่งชื่ออะไรและไปเรียกอะไร ส่วน linter กับ
 test runner ถามว่าตั้งค่าไว้ยังไง
 
-นี่คือทั้งไฟล์ของโปรเจกต์นี้ ราวห้าสิบบรรทัด รวมคอมเมนต์ที่อธิบายสี่จุดซึ่งแต่ละจุดเคย
+นี่คือทั้งไฟล์ของโปรเจกต์นี้ ราวหกสิบบรรทัด รวมคอมเมนต์ที่อธิบายห้าจุดซึ่งแต่ละจุดเคย
 เป็นบั๊กหรือการตัดสินใจที่ต้องแก้ต่าง
 
 ```toml
@@ -33,6 +33,17 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = ["httpx>=0.27"]
+# Labels for the PyPI page and its filters. They change nothing about
+# the install, and leaving them out leaves the page blank where it
+# should say which Python and which license.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Education",
+]
 
 [project.urls]
 Homepage = "https://github.com/Patchanon04/agentpath"
