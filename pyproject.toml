@@ -22,6 +22,10 @@ agentpath = "agentpath.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
+# Only the foundations track uses numpy. The package and the twenty four
+# lessons stay on httpx alone, and a person who wants only those never
+# installs it.
+foundations = ["numpy>=1.26"]
 
 [build-system]
 requires = ["hatchling"]

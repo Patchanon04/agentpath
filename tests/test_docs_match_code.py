@@ -20,6 +20,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 LESSONS = ROOT / "lessons"
+# The foundations track is the from zero material. It has no tools.py and
+# no API, so the parity tests do not apply, but a chapter there quotes code
+# from its own folder exactly as a lesson does and drifts the same way.
+FOUNDATIONS = ROOT / "foundations"
+TRACKS = [track for track in (FOUNDATIONS, LESSONS) if track.exists()]
 
 BLOCK = re.compile(r"^```python\n(.*?)^```", re.MULTILINE | re.DOTALL)
 
@@ -72,11 +77,14 @@ def is_partial(block):
 
 
 def chapters():
-    return sorted(LESSONS.glob("*/README.md"))
+    found = []
+    for track in TRACKS:
+        found += sorted(track.glob("*/README.md"))
+    return found
 
 
 def chapter_id(path):
-    return path.parent.name
+    return f"{path.parent.parent.name}/{path.parent.name}"
 
 
 DEFINITION = re.compile(r"^(?:def|class) (\w+)", re.MULTILINE)
@@ -200,7 +208,7 @@ def book_chapters():
 def everything_normalised():
     """Every Python file the book could be quoting, normalised once."""
     sources = []
-    for pattern in ["src/agentpath/**/*.py", "lessons/*/*.py"]:
+    for pattern in ["src/agentpath/**/*.py", "lessons/*/*.py", "foundations/*/*.py"]:
         for path in ROOT.glob(pattern):
             if "__pycache__" not in str(path):
                 sources.append(normalise(path.read_text(encoding="utf-8")))
@@ -256,7 +264,9 @@ def test_the_thai_chapter_quotes_the_same_code_as_the_english_one(chapter):
 
 
 def previous_lesson(lesson):
-    folders = sorted(p for p in LESSONS.iterdir() if p.is_dir())
+    # Within its own track. The first foundations folder has nothing before
+    # it, and the first lesson does not inherit from the last foundation.
+    folders = sorted(p for p in lesson.parent.iterdir() if p.is_dir())
     index = folders.index(lesson)
     return folders[index - 1] if index else None
 

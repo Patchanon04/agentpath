@@ -23,9 +23,16 @@ def main():
     environment["AGENTPATH_AUTO_APPROVE"] = "1"
 
     failures = []
-    lessons = sorted(p for p in (ROOT / "lessons").iterdir() if (p / "check.py").exists())
+    # Two tracks, one runner. The foundations folder holds the from zero
+    # material that needs no API, and it is checked the same way so it can
+    # drift no more quietly than the lessons can.
+    lessons = []
+    for track in ["foundations", "lessons"]:
+        folder = ROOT / track
+        if folder.exists():
+            lessons += sorted(p for p in folder.iterdir() if (p / "check.py").exists())
     for lesson in lessons:
-        print(f"\n=== {lesson.name} ===", flush=True)
+        print(f"\n=== {lesson.parent.name}/{lesson.name} ===", flush=True)
         completed = subprocess.run(
             [sys.executable, "check.py"], cwd=lesson, env=environment, timeout=120
         )
