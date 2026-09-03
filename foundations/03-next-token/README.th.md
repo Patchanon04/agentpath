@@ -59,6 +59,7 @@ OK at temperature zero the same context always gives the same word
 OK the randomness is the sampling and nothing else
 OK the model knows nothing it did not count
 OK more context means fewer choices, and the context is the model's only memory
+OK top k cuts the tail off, so a word outside the k most likely can never be drawn
 ```
 
 ## สิ่งที่ควรสังเกต

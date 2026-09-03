@@ -62,6 +62,7 @@ OK with the grids set to say so, sat looks at cat and mostly nothing else
 OK the mask hides the future completely and the rows still sum to one
 OK the first token has nothing before it and attends to itself
 OK doubling the context quadruples the work, which is why long context costs what it does
+OK a head adjusts a token rather than replacing it, and the adjustment is added on
 ```
 
 ## What to notice

@@ -1,6 +1,7 @@
 """Prove the chapter's claims about vectors on this machine."""
 import sys
 
+from tfidf import DOCUMENTS, bag_of_words, inverse_document_frequency, search, term_frequency
 from vectors import CORPUS, cooccurrence, cosine, euclidean, nearest
 
 
@@ -37,3 +38,23 @@ print("OK cosine ignores how common a word is and euclidean does not")
 if grid[index["cat"]].sum() <= grid[index["dog"]].sum():
     fail("the test assumes cat appears more often than dog in the text")
 print("OK cat is more common than dog and is still its nearest neighbour")
+
+if bag_of_words("แมว กิน ปลา") != bag_of_words("ปลา กิน แมว"):
+    fail("two sentences with the same words should be the same bag")
+print("OK a bag of words cannot tell who ate whom")
+
+ranked = search("แมว", DOCUMENTS)
+if ranked[0][0] != "two" or abs(ranked[0][1] - 0.1352) > 0.0005:
+    fail(f"expected document two to win with 0.1352, got {ranked[0]}")
+if abs(term_frequency("แมว", DOCUMENTS["one"]) - 0.25) > 1e-9:
+    fail("แมว is one word of four in document one")
+if abs(inverse_document_frequency("แมว", DOCUMENTS) - 0.4055) > 0.0005:
+    fail("idf of a word in two documents of three should be log of three halves")
+print("OK the numbers match the worked example, and the shortest document wins")
+
+everywhere = {name: text + " และ" for name, text in DOCUMENTS.items()}
+if inverse_document_frequency("และ", everywhere) != 0.0:
+    fail("a word in every document should have idf zero")
+if any(score != 0.0 for _, score in search("และ", everywhere)):
+    fail("a word in every document should score zero for every document")
+print("OK a word in every document scores zero, because it points at nothing")

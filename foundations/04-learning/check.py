@@ -3,7 +3,7 @@ import sys
 from collections import Counter
 
 import numpy as np
-from learn import CORPUS, gradient, loss, pairs, predict, softmax, train
+from learn import CORPUS, gradient, loss, one_hot, pairs, predict, softmax, train
 
 
 def fail(message):
@@ -56,3 +56,8 @@ after = loss(weights - 1.0 * gradient(weights, xs, ys), xs, ys)
 if not after < before:
     fail("stepping against the gradient did not lower the loss")
 print("OK the gradient points uphill, so stepping against it goes down")
+
+the = index["the"]
+if not np.allclose(one_hot(the, len(index)) @ weights, weights[the]):
+    fail("a one hot row times the grid should be the same as looking the row up")
+print("OK one hot times the grid is a row lookup, and the row is the embedding")

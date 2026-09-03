@@ -39,6 +39,20 @@ def attention(x, w_query, w_key, w_value, mask=None):
     return weights @ values, weights
 
 
+def finish_head(x, mixed, w_out):
+    """What happens to a head's output before the next layer sees it.
+
+    The head returns values mixed by attention, and they live in the value
+    space. w_out projects them back into the token's own space, and then
+    the token the head started from is added back. That addition is the
+    residual connection. Every layer adjusts a token rather than replacing
+    it, which is what lets a stack of dozens of layers be trained at all,
+    because a layer that has learned nothing yet passes its input through
+    unchanged instead of destroying it.
+    """
+    return x + mixed @ w_out
+
+
 def causal_mask(length):
     """Hide the future. Position i may look at positions up to i and no further.
 

@@ -61,6 +61,7 @@ OK every step goes downhill and the loss more than halves
 OK the grid learned what the count table knew, without a count table
 OK a word never seen in that position still gets a small chance rather than none
 OK the gradient points uphill, so stepping against it goes down
+OK one hot times the grid is a row lookup, and the row is the embedding
 ```
 
 ## สิ่งที่ควรสังเกต

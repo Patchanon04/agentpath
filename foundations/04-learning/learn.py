@@ -33,6 +33,20 @@ def pairs(text, index):
     return np.array(ids[:-1]), np.array(ids[1:])
 
 
+def one_hot(index, size):
+    """A row of zeros with a single one, which is how a token id enters a grid.
+
+    weights[index] and one_hot(index, size) @ weights are the same row. The
+    first is a lookup and the second is a multiplication, and a real model
+    does the lookup for exactly the reason the second is wasteful. The row
+    it looks up is called the token's embedding, and in a real model it is
+    a few thousand numbers wide rather than one per word.
+    """
+    row = np.zeros(size)
+    row[index] = 1.0
+    return row
+
+
 def softmax(logits):
     """Turn any row of numbers into probabilities that sum to one.
 

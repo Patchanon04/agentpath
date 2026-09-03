@@ -2,7 +2,7 @@
 import sys
 
 import numpy as np
-from attention import TOKENS, attention, causal_mask, hand_built_grids, score_count
+from attention import TOKENS, attention, causal_mask, finish_head, hand_built_grids, score_count
 
 
 def fail(message):
@@ -39,3 +39,12 @@ print("OK the first token has nothing before it and attends to itself")
 if score_count(2_000) != 4 * score_count(1_000):
     fail("doubling the length should quadruple the scores")
 print("OK doubling the context quadruples the work, which is why long context costs what it does")
+
+mixed, _ = attention(x, w_query, w_key, w_value, causal_mask(len(TOKENS)))
+untouched = finish_head(x, mixed, np.zeros((len(TOKENS), len(TOKENS))))
+if not np.allclose(untouched, x):
+    fail("a head that has learned nothing should pass its input through unchanged")
+adjusted = finish_head(x, mixed, np.eye(len(TOKENS)))
+if np.allclose(adjusted, x) or np.allclose(adjusted, mixed):
+    fail("a head that has learned something should adjust the input, not replace it")
+print("OK a head adjusts a token rather than replacing it, and the adjustment is added on")

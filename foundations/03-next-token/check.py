@@ -2,7 +2,7 @@
 import random
 import sys
 
-from ngram import CORPUS, generate, next_word, probabilities, train
+from ngram import CORPUS, generate, next_word, next_word_top_k, probabilities, train
 
 
 def fail(message):
@@ -42,3 +42,11 @@ if choices_trigram >= choices_bigram:
         f"got {choices_bigram:.2f} then {choices_trigram:.2f}"
     )
 print("OK more context means fewer choices, and the context is the model's only memory")
+
+top_two = {max(after_the, key=after_the.get)}
+ranked = sorted(after_the, key=after_the.get, reverse=True)
+allowed = set(ranked[:2])
+drawn = {next_word_top_k(bigram, ["the"], k=2, rng=random.Random(seed)) for seed in range(200)}
+if not drawn <= allowed or not top_two <= drawn:
+    fail(f"top k of two should only ever draw from {allowed}, drew {drawn}")
+print("OK top k cuts the tail off, so a word outside the k most likely can never be drawn")

@@ -65,6 +65,22 @@ def next_word(model, context, temperature=1.0, rng=random):
     return rng.choices(list(counts), weights=weights, k=1)[0]
 
 
+def next_word_top_k(model, context, k=2, rng=random):
+    """Draw only from the k most likely words. This is the knob called top k.
+
+    Temperature reshapes the whole distribution. Top k cuts it off, so the
+    long tail of unlikely words can never be drawn no matter how the dice
+    fall. Top p is the same idea with a different cut, keep the most likely
+    words until their probabilities add up to p. APIs offer all three and
+    they are all ways of deciding how much of the distribution to trust.
+    """
+    counts = model.get(tuple(context))
+    if not counts:
+        return None
+    kept = sorted(counts.items(), key=lambda pair: -pair[1])[:k]
+    return rng.choices([word for word, _ in kept], weights=[n for _, n in kept], k=1)[0]
+
+
 def generate(model, start, n=2, length=12, temperature=1.0, rng=random):
     """Predict, append, repeat. This loop is the ancestor of the agent loop."""
     out = list(start)
