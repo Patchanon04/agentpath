@@ -40,6 +40,20 @@ lesson 16, and a pairwise judge that asks twice with the order swapped
 in lesson 22, each pinned by check.py. In the book, output guardrails
 in chapter 5 and the forty year old agent frame in chapter 8.
 
+Part 4 of the book, fine tuning and serving a model of your own, with a
+training/ track of five folders. Each has a numpy demo on the grid the
+foundations trained, checked in CI, and a real script with transformers,
+peft and trl that needs a GPU and is not. Dataset engineering with exact
+and near deduplication, decontamination and a report per step. LoRA on
+a grid you can count, with the run that shows forgetting is real and
+rehearsal is the cure. Quantization at eight and four bits with the loss
+measured next to the bytes, and QLoRA. DPO with the loss that starts at
+log two, and the drift that shows the reference is the leash. And the
+arithmetic of serving, weights, cache, concurrency and the bandwidth
+bound on decode, ending in the vLLM command that points the whole
+course at the model you trained. A training extra in pyproject lists
+the real dependencies.
+
 None of this is in the package. The wheel on PyPI is unchanged.
 
 ## 1.0.6

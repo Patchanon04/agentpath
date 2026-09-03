@@ -41,6 +41,13 @@ before lesson 01. Seven short chapters, from text as bytes to the chat template,
 each with code you can run without an API key. It lives in
 [foundations/](foundations/) and in part 0 of the book.
 
+And after lesson 23 there is a training track, part 4 of the book, for the
+reader who wants to fine tune and serve a model of their own. Five chapters,
+dataset engineering, LoRA, quantization, preference tuning with DPO, and the
+arithmetic of serving. Each has a numpy demo on the foundations grid that runs
+anywhere and a real script with transformers, peft and trl that needs a GPU.
+It lives in [training/](training/).
+
 ## Quickstart
 
 Install uv, which is the Python installer and environment manager this course
@@ -182,7 +189,13 @@ what a token is. They come before lesson 01 and need no API key. Text to bytes,
 a tokenizer from nothing, a language model that counts, one that learns, word
 vectors, attention on four tokens, and the chat template. Each folder has a
 short README in both languages and the full chapter is in the book, in Thai.
-This is the one place in the course that uses numpy.
+This and the training track are the two places in the course that use numpy.
+
+`training/` holds five folders for part 4 of the book, fine tuning and serving.
+Each has a numpy demo on the same grid the foundations trained, with a check
+that CI runs, and a real script that needs a GPU and the `training` extra,
+which CI does not run. Data cleaning, LoRA, four bit quantization and QLoRA,
+DPO, and the arithmetic that says what a card can serve.
 
 `src/agentpath/` holds the finished framework, which is the same ideas written
 once and properly, with tests.

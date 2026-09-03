@@ -26,6 +26,10 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 # lessons stay on httpx alone, and a person who wants only those never
 # installs it.
 foundations = ["numpy>=1.26"]
+# Part 4 of the book. The numpy demos in training/ need only the group
+# above. The real fine tuning scripts need these, and a GPU, and are not
+# run in CI.
+training = ["torch>=2.2", "transformers>=4.44", "peft>=0.12", "trl>=0.9", "datasets>=2.20"]
 
 [build-system]
 requires = ["hatchling"]

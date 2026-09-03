@@ -24,7 +24,11 @@ LESSONS = ROOT / "lessons"
 # no API, so the parity tests do not apply, but a chapter there quotes code
 # from its own folder exactly as a lesson does and drifts the same way.
 FOUNDATIONS = ROOT / "foundations"
-TRACKS = [track for track in (FOUNDATIONS, LESSONS) if track.exists()]
+# The training track is part 4, fine tuning and serving. Its numpy demos
+# are checked like the foundations, and its real scripts need a GPU and
+# are quoted by the chapters like any other file.
+TRAINING = ROOT / "training"
+TRACKS = [track for track in (FOUNDATIONS, LESSONS, TRAINING) if track.exists()]
 
 BLOCK = re.compile(r"^```python\n(.*?)^```", re.MULTILINE | re.DOTALL)
 
@@ -208,7 +212,8 @@ def book_chapters():
 def everything_normalised():
     """Every Python file the book could be quoting, normalised once."""
     sources = []
-    for pattern in ["src/agentpath/**/*.py", "lessons/*/*.py", "foundations/*/*.py"]:
+    patterns = ["src/agentpath/**/*.py", "lessons/*/*.py", "foundations/*/*.py", "training/*/*.py"]
+    for pattern in patterns:
         for path in ROOT.glob(pattern):
             if "__pycache__" not in str(path):
                 sources.append(normalise(path.read_text(encoding="utf-8")))

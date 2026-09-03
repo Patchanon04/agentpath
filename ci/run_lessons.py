@@ -28,11 +28,11 @@ def main():
     environment["PYTHONUTF8"] = "1"
 
     failures = []
-    # Two tracks, one runner. The foundations folder holds the from zero
+    # Three tracks, one runner. The foundations folder holds the from zero
     # material that needs no API, and it is checked the same way so it can
     # drift no more quietly than the lessons can.
     lessons = []
-    for track in ["foundations", "lessons"]:
+    for track in ["foundations", "lessons", "training"]:
         folder = ROOT / track
         if folder.exists():
             lessons += sorted(p for p in folder.iterdir() if (p / "check.py").exists())
