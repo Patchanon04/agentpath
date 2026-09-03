@@ -12,7 +12,7 @@ in eighty lines, word vectors and why cosine ignores length, one head of
 attention on four tokens with the quadratic cost as a table, and the chat
 template built by hand with a prompt injection at the marker level. Every
 folder runs without an API key and has a check.py that pins the numbers
-its chapter quotes. numpy is an optional group used only here.
+its chapter quotes. numpy is an optional group, used here and later by the training demos.
 
 The book has a rhythm. The first draft opened three hundred and sixty
 eight paragraphs with a bold label and all sixteen chapters with the same
@@ -41,9 +41,11 @@ in lesson 22, each pinned by check.py. In the book, output guardrails
 in chapter 5 and the forty year old agent frame in chapter 8.
 
 Part 4 of the book, fine tuning and serving a model of your own, with a
-training/ track of five folders. Each has a numpy demo on the grid the
-foundations trained, checked in CI, and a real script with transformers,
-peft and trl that needs a GPU and is not. Dataset engineering with exact
+training/ track of five folders. Three of the five, LoRA, quantization and
+DPO, have a numpy demo on the grid the foundations trained, checked in CI,
+and a real script with transformers, peft and trl that needs a GPU and is
+not. The dataset and serving folders are plain Python at both layers.
+Dataset engineering with exact
 and near deduplication, decontamination and a report per step. LoRA on
 a grid you can count, with the run that shows forgetting is real and
 rehearsal is the cure. Quantization at eight and four bits with the loss
@@ -68,7 +70,24 @@ to the foundations uses one form. About a hundred smaller fixes in
 wording, glosses at first use, and paragraph rhythm, in Thai and
 English. The MCP client now reports the real package version.
 
-None of this is in the package. The wheel on PyPI is unchanged. The wheel on PyPI is unchanged.
+A third pass, in three parts. The top level documents are audited
+against the repository, so the README now describes a book of twenty
+eight chapters in five parts, the Thai README gains that section, the
+install line for running every check includes the numpy extra that the
+foundations and training checks need, and the freeze rule names both
+tracks in lesson 23 and the design document. The verbal tics that
+flattened the voice of chapters 1 to 16, นั่นคือ, ทั้งหมด, เป๊ะ and the
+frame ไม่ใช่ X มันคือ Y, are thinned to the places where they earn it.
+And the second pass is re-read for what it broke, which was a claim in
+chapter 6 that subagent and eval call tools outside the loop, and seven
+places in the foundations that sent readers to book chapter 16 when they
+meant lesson 16.
+
+Two small changes reach the package. The MCP client tells the server the
+real package version rather than a fixed 1.0.0, and a comment in the agent
+loop and a docstring in the MCP client now say what the code does. Nothing
+else in this section touches src/agentpath, and no release has been cut, so
+the wheel on PyPI is still 1.0.6.
 
 ## 1.0.6
 

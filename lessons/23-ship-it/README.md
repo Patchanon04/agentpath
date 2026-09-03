@@ -962,13 +962,15 @@ third principle says every feature must be able to answer what it teaches, and
 one that cannot answer is refused. Ideas that arrived after the freeze live in
 `docs/v2-ideas.md`, and being in that file means not dead rather than accepted.
 
-One thing was added after the freeze and it is worth saying why it did not
-break the rule. A foundations track of seven short chapters now sits before
-lesson 01, in `foundations/`, for the reader who does not yet know what a token
-is. The rule exists to stop good ideas piling up after the last chapter until
-the course never finishes. The foundations sit before the first chapter, they
-take nothing from the twenty four, and they are frozen at seven by the same
-rule, so the argument the rule makes still holds.
+Two things were added after the freeze and it is worth saying why neither
+broke the rule. A foundations track of seven short chapters sits before lesson
+01, in `foundations/`, for the reader who does not yet know what a token is. A
+training track of five sits after lesson 23, in `training/`, for the reader who
+wants to fine tune and serve a model of their own. The rule exists to stop good
+ideas piling into the course until it never finishes. Neither track takes
+anything from the twenty four, neither teaches the harness, and both are frozen
+at their own count by the same rule, so the argument the rule makes still
+holds.
 
 Here are the five in that file. Each one is genuinely worth building. Each one
 costs something, and the cost is the part that usually goes unsaid.

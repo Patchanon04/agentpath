@@ -10,7 +10,8 @@ to a full agent harness.
 You can program a little. You have never built anything with a language model,
 or you have used one through a framework and never understood what it was doing
 underneath. You do not need to know any machine learning. There is no maths in
-this course.
+the 24 lessons. The two optional tracks either side of them are where the
+numbers live, and both can be skipped.
 
 ## Why this exists
 
@@ -44,9 +45,10 @@ each with code you can run without an API key. It lives in
 And after lesson 23 there is a training track, part 4 of the book, for the
 reader who wants to fine tune and serve a model of their own. Five chapters,
 dataset engineering, LoRA, quantization, preference tuning with DPO, and the
-arithmetic of serving. Each has a numpy demo on the foundations grid that runs
-anywhere and a real script with transformers, peft and trl that needs a GPU.
-It lives in [training/](training/).
+arithmetic of serving. Three of the five, LoRA, quantization and DPO, have a
+numpy demo on the foundations grid that runs anywhere and a real script with
+transformers, peft and trl that needs a GPU. The dataset and serving chapters
+are plain Python at both layers. It lives in [training/](training/).
 
 ## Quickstart
 
@@ -72,7 +74,7 @@ cd agentpath
 
 Now read [lessons/00-setup/README.md](lessons/00-setup/README.md). It walks you
 through choosing where your model runs, which can be free and local if you want,
-and setting the three environment variables the whole course uses.
+and setting the three environment variables every lesson uses to reach a model.
 
 ## The lessons
 
@@ -161,6 +163,11 @@ carries what it returned, and `TurnDone` means the turn is over. Ignoring
 an event you do not care about is the normal thing to do, which is why the
 loop above only names two of them.
 
+An `Agent` built with no `permissions` approves every tool call, and
+`file_tools` includes `write_file` and `edit_file`. Point the example at a
+folder you do not mind changing, or pass `Permissions(ask=ask_in_terminal)`
+to be asked first.
+
 Everything above is also importable from the module it lives in, and the
 deeper path is the better one to read. `from agentpath.tools.base import
 ToolRegistry` tells you where a thing is, and the chapters build the layout
@@ -172,10 +179,15 @@ The chapters teach you to build it. There is also a book that explains why it
 is built that way, and how to think when you want to design your own. It is
 written in Thai, with the technical terms kept in English.
 
-[book/](book/) has eleven chapters in two parts. The first seven are the
-theory behind the course. The last four are about taking an idea and working
-out what to build, with a long worked example of a LINE health assistant and
-three shorter ones that reach different answers.
+[book/](book/) has twenty eight chapters in five parts, numbered 0 to 4.
+Part 0 is the seven foundations chapters, from text as bytes to the chat
+template, each with a folder of code in `foundations/`. Part 1 is seven
+chapters of the theory behind the course. Part 2 is four chapters about
+taking an idea and working out what to build, with a long worked example of
+a LINE health assistant and three shorter ones that reach different answers.
+Part 3 is five chapters that walk through the finished code in
+`src/agentpath/` piece by piece. Part 4 is five chapters on fine tuning and
+serving a model of your own, each with a folder of code in `training/`.
 
 ## How this repository is laid out
 
@@ -192,10 +204,11 @@ short README in both languages and the full chapter is in the book, in Thai.
 This and the training track are the two places in the course that use numpy.
 
 `training/` holds five folders for part 4 of the book, fine tuning and serving.
-Each has a numpy demo on the same grid the foundations trained, with a check
-that CI runs, and a real script that needs a GPU and the `training` extra,
-which CI does not run. Data cleaning, LoRA, four bit quantization and QLoRA,
-DPO, and the arithmetic that says what a card can serve.
+Each has a check that CI runs. LoRA, quantization and DPO also have a numpy
+demo on the same grid the foundations trained, and a real script that needs a
+GPU and the `training` extra, which CI does not run. Data cleaning and the
+arithmetic that says what a card can serve are plain Python with no GPU at
+either layer.
 
 `src/agentpath/` holds the finished framework, which is the same ideas written
 once and properly, with tests.
@@ -213,12 +226,14 @@ can run all of them at once against a fake model server, which costs nothing and
 needs no API key.
 
 ```bash
-uv pip install -e ".[dev]"
+uv pip install -e ".[dev,foundations]"
 python ci/run_lessons.py
 ```
 
-This is the same script the project runs in continuous integration, so if it
-passes for you it passes for everyone.
+The `foundations` extra is numpy, which the foundations and training checks
+import. The 24 lesson checks need only httpx. This is the same script and the
+same install line the project runs in continuous integration, so if it passes
+for you it passes for everyone.
 
 ## Contributing
 
@@ -232,7 +247,8 @@ they sit before lesson 01, and the training track at five because it sits after
 lesson 23 and teaches a different thing, the model rather than the harness.
 
 Prose has a house style. No em dash, no emoji, and no colon in ordinary
-sentences. A check in continuous integration enforces the first two.
+sentences. A check in continuous integration enforces all three, and relaxes
+only the colon rule for the working notes in `docs/plans/` and `docs/specs/`.
 
 ## License
 

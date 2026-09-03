@@ -425,7 +425,11 @@ to every program you start. Programs read them to find out how they should
 behave. Python reads them through `os.environ`, which behaves like a dictionary
 of strings.
 
-This course uses exactly three.
+This course uses exactly three to reach a model. Three more turn up later and
+each is introduced where it is needed. `AGENTPATH_AUTO_APPROVE` in lesson 08
+for runs with nobody at the keyboard, `AGENTPATH_WORKSPACE` in lesson 08 for
+the folder the agent may touch, and `AGENTPATH_HOME` in lesson 13 for where
+sessions are saved.
 
 - `AGENTPATH_BASE_URL` is the address of your model service, up to but not
   including `/chat/completions`. In practice it usually ends in `/v1`.
@@ -442,8 +446,9 @@ There are two reasons, and they are independent. Both matter.
 The practical reason is that the same lesson code has to run against more than
 one server. This repository's continuous integration runs `ci/run_lessons.py`,
 which starts the fake server from section 4, sets `AGENTPATH_BASE_URL` to that
-fake server's address, sets `AGENTPATH_MODEL` to `mock`, and then executes every
-lesson's `check.py` unchanged. That is how the course proves on every commit that
+fake server's address, sets `AGENTPATH_MODEL` to `mock`, turns on
+`AGENTPATH_AUTO_APPROVE` so no tool waits for a person, and then executes every
+`check.py` in the repository unchanged, the two tracks included. That is how the course proves on every commit that
 all 24 lessons still work, on Windows and Linux, without spending a cent or
 holding a single credential. If the url were baked into the source, that would be
 impossible, and the course would quietly rot. Configuration through the

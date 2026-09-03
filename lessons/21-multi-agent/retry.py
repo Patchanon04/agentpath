@@ -45,8 +45,8 @@ def with_retries(call, attempts=4, sleep=time.sleep):
 
     A 400 means the request itself was wrong, so sending the same wrong
     request again produces the same wrong answer more slowly. Only statuses
-    that mean try again later, and transport failures where nothing arrived
-    at all, are worth a second attempt.
+    that mean try again later, and transport failures, which are safe because
+    asking the model again changes nothing, are worth a second attempt.
     """
     last_error = None
     for attempt in range(1, attempts + 1):

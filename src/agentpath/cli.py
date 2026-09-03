@@ -1,7 +1,8 @@
 """The agentpath command.
 
-Three subcommands. chat is a conversation. run does one task and exits, which
-is what you want in a script. resume picks up a saved session.
+Four subcommands. chat is a conversation. run does one task and exits, which
+is what you want in a script. resume picks up a saved session. eval runs a
+file of tasks and reports which ones passed.
 
 Everything the harness added in part 3 is wired in here rather than inside the
 agent loop. This file is the only place that knows about terminals, keyboards
