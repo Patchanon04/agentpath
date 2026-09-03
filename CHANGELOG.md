@@ -17,9 +17,13 @@ its chapter quotes. numpy is an optional group used only here.
 The book has a rhythm. The first draft opened three hundred and sixty
 eight paragraphs with a bold label and all sixteen chapters with the same
 sentence, and read like a reference card. STYLE.md gains a section of
-rhythm rules that can be checked by reading. Chapter 6 is rewritten to
-them as the sample, and every foundations chapter is written to them from
-the start. The remaining fifteen chapters follow.
+rhythm rules that can be checked by reading. All sixteen chapters are
+rewritten to them, each opening on the problem it is about rather than on
+a list of what the reader will have, and every foundations chapter is
+written to them from the start. Every code block in the book is byte for
+byte what it was, and the drift tests say so. Chapter 16 also catches up
+with the package as shipped, showing the pyproject.toml that is on PyPI
+and the sdist pattern that has to start with a slash.
 
 None of this is in the package. The wheel on PyPI is unchanged.
 
