@@ -491,7 +491,7 @@ typing_extensions 4.16.0
 root certificate ที่โปรแกรมของคุณเชื่อถือไปแล้ว ลองรันสิ่งนี้กับโปรเจกต์ของคุณเองแล้วตัวเลขมักจะทำให้
 คุณประหลาดใจ
 
-### console script entry point (จุดที่ชื่อคำสั่งผูกเข้ากับฟังก์ชัน)
+### console script entry point (ผูกชื่อคำสั่งเข้ากับฟังก์ชัน)
 
 ```toml
 [project.scripts]

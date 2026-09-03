@@ -213,7 +213,9 @@ either layer.
 `src/agentpath/` holds the finished framework, which is the same ideas written
 once and properly, with tests.
 
-`ci/` holds the script that runs every chapter check and the prose style check.
+`ci/` holds the script that runs every chapter check, the prose style check,
+and a check that a technical term is not explained two different ways in the
+book and in a lesson.
 The fake model server it runs against lives in `src/agentpath/testing/`.
 
 `docs/` holds the design document, the implementation plans and the topic ideas

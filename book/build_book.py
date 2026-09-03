@@ -124,7 +124,17 @@ def convert(text, chapter_id):
         if match := re.match(r"(#{1,3}) (.+)", line):
             level, title = len(match.group(1)), match.group(2).strip()
             if level == 1:
-                out.append(f'<h1 id="ch-{chapter_id}">{inline(title)}</h1>')
+                # The chapter number rides above the title as a kicker, the
+                # way a book sets it, rather than running into the title.
+                named = re.match(r"((?:บทพื้นฐานที่|บทที่) \d+)\s+(.+)", title)
+                if named:
+                    out.append(
+                        f'<header class="opener" id="ch-{chapter_id}">'
+                        f'<p class="chapter-number">{inline(named.group(1))}</p>'
+                        f"<h1>{inline(named.group(2))}</h1></header>"
+                    )
+                else:
+                    out.append(f'<h1 id="ch-{chapter_id}">{inline(title)}</h1>')
             else:
                 out.append(f'<h{level} id="{chapter_id}-{slug(title)}">{inline(title)}</h{level}>')
             i += 1

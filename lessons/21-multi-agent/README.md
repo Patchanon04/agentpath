@@ -124,19 +124,19 @@ they arrive, each one labelled with the job that produced it.
 
 Before any code, the decision that shapes all of it.
 
-The choice starts from the fact that Python offers at least two ways to have
-several things in flight at once. Threads, where the operating system
-schedules several stacks and switches between them, and `asyncio`, where one
-stack runs an event loop and functions marked `async` hand control back at
-every `await`. There is also multiprocessing, which is a third thing and is
-not a candidate here for a reason given below.
+Python offers at least two ways to have several things in flight at once.
+Threads, where the operating system schedules several stacks and switches
+between them, and `asyncio`, where one stack runs an event loop and functions
+marked `async` hand control back at every `await`. There is also
+multiprocessing, which is a third thing and is not a candidate here for a
+reason given below.
 
-This project uses threads, and the reason is in what an agent run actually
-spends its time doing. It builds a request, sends it, and then waits. It waits
-for the first byte of the response. It waits for each chunk of the stream.
-Between turns it runs a tool, which is usually a file read or a subprocess,
-and then it waits again. Almost the entire wall clock life of an agent run is
-time spent blocked on a socket with nothing to compute.
+This project uses threads because of where an agent run actually spends its
+time. It builds a request, sends it, and then waits. It waits for the first
+byte of the response. It waits for each chunk of the stream. Between turns it
+runs a tool, which is usually a file read or a subprocess, and then it waits
+again. Almost the entire wall clock life of an agent run is time spent blocked
+on a socket with nothing to compute.
 
 That is the exact case threads handle well. A blocked thread costs you a stack
 and a scheduler entry and nothing else. The global interpreter lock, which is
@@ -173,13 +173,12 @@ the wrong currency. Threads let this chapter be about fan out, ordering,
 failure and shared state, which are the ideas that transfer, rather than about
 Python's concurrency syntax, which does not transfer anywhere.
 
-The honest version of the claim is that threads are not better than async. A
-service running thousands of concurrent agents would use async, and would be
-right to. At that scale the per thread stack cost and the context switching stop
-being noise, and an event loop holding ten thousand idle sockets is
-straightforwardly cheaper than ten thousand threads holding the same sockets.
-The number where that crossover happens is somewhere in the high hundreds, and
-this chapter runs four workers.
+Threads are not better than async. A service running thousands of concurrent
+agents would use async, and would be right to. At that scale the per thread
+stack cost and the context switching stop being noise, and an event loop holding
+ten thousand idle sockets is straightforwardly cheaper than ten thousand threads
+holding the same sockets. The number where that crossover happens is somewhere
+in the high hundreds, and this chapter runs four workers.
 
 So this is a teaching decision, stated as one. If you take this code into a
 service that fans out to hundreds of agents per process, rewrite it with
@@ -824,8 +823,8 @@ Everything so far has been about merging output. This section is about shared
 state, it is the reason parallel agents are harder than parallel HTTP requests,
 and it is the part that most writing on this subject leaves out.
 
-The concrete failure is this. Two agents are running at the same time. Both have
-`edit_file`. Both decide to change `settings.py`.
+Two agents are running at the same time. Both have `edit_file`. Both decide to
+change `settings.py`.
 
 1. Worker one reads `settings.py`. It now holds the text in its context.
 2. Worker two reads `settings.py`. It holds the same text.
@@ -968,13 +967,13 @@ A reviewer that checks another agent's work is the last pattern. One agent
 does the job, a second agent with a fresh context is given the result and
 asked what is wrong with it. This is not a speedup and does not use
 `fanout.py` at all. It is sequential by nature, since the reviewer needs the
-thing being reviewed. What it buys is that the reviewer has not spent forty
-turns convincing itself the approach was right, so it is far more likely to
-notice that the tests were never run. The cost is one more full agent run per
-job, and the risk is that a reviewer with no ability to check anything
-mechanically will produce plausible approval, which is why the reviewer should
-be given `run_shell` and asked for evidence rather than an opinion. Lesson 22
-is what turns that from a hope into a measurement.
+thing being reviewed. The reviewer has not spent forty turns convincing itself
+the approach was right, so it is far more likely to notice that the tests were
+never run. The cost is one more full agent run per job, and the risk is that a
+reviewer with no ability to check anything mechanically will produce plausible
+approval, which is why the reviewer should be given `run_shell` and asked for
+evidence rather than an opinion. Lesson 22 is what turns that from a hope into
+a measurement.
 
 ## 10. Running check.py
 

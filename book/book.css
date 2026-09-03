@@ -1,126 +1,165 @@
-/* Page geometry. 170 by 240 mm is a common technical book trim, and the
-   measure it leaves is wide enough for an eighty column code line at 8pt. */
+/* Page geometry.
+
+   170 by 240 mm is a common technical trim. The text block is 126 mm wide,
+   which puts a Thai line at about 66 characters at 11pt. The range worth
+   staying inside is 45 to 75, and the previous 135 mm block ran to 76.
+
+   Thai stacks vowels above and tone marks above those, so the leading is
+   1.75 rather than the 1.2 to 1.45 that Latin text is set at. Thai also
+   renders optically smaller than Latin at the same size, hence 11pt. */
 
 @page {
   size: 170mm 240mm;
-  margin: 20mm 16mm 18mm 22mm;
+  margin: 22mm 19mm 20mm 25mm;
+}
 
-  @bottom-center {
+@page :left {
+  margin: 22mm 25mm 20mm 19mm;
+  @top-left {
+    content: "agentpath";
+    font-family: "Sarabun", sans-serif;
+    font-size: 8pt;
+    letter-spacing: 0.06em;
+    color: #a6acb6;
+    margin-bottom: 8mm;
+  }
+  @bottom-left {
     content: counter(page);
     font-family: "Sarabun", sans-serif;
-    font-size: 8.5pt;
+    font-size: 9pt;
     color: #8a8a8a;
-    margin-top: 6mm;
+    margin-top: 7mm;
   }
-  @top-center {
+}
+
+@page :right {
+  margin: 22mm 19mm 20mm 25mm;
+  @top-right {
     content: string(runninghead);
     font-family: "Sarabun", sans-serif;
     font-size: 8pt;
-    letter-spacing: 0.02em;
-    color: #9a9a9a;
-    margin-bottom: 7mm;
+    color: #a6acb6;
+    margin-bottom: 8mm;
+  }
+  @bottom-right {
+    content: counter(page);
+    font-family: "Sarabun", sans-serif;
+    font-size: 9pt;
+    color: #8a8a8a;
+    margin-top: 7mm;
   }
 }
 
-@page :left  { margin: 20mm 22mm 18mm 16mm; }
-@page :right { margin: 20mm 16mm 18mm 22mm; }
-
-@page cover { margin: 0; @top-center { content: ""; } @bottom-center { content: ""; } }
-
-/* The left hand page a part opener leaves behind carries nothing at all,
-   which is what a printed book does. */
-@page :blank { @top-center { content: ""; } @bottom-center { content: ""; } }
-.pagedjs_blank_page [class*="pagedjs_margin"] { visibility: hidden; }
+@page cover { margin: 0; }
+@page :blank { @top-left { content: ""; } @top-right { content: ""; } }
 
 :root {
   --ink: #16181d;
-  --soft: #5d6470;
+  --soft: #545b66;
   --faint: #9aa1ac;
-  --rule: #dcdfe4;
-  --wash: #f5f6f8;
+  --rule: #dfe2e7;
+  --wash: #f6f7f9;
   --accent: #1f3a5f;
 }
 
-/* Type. Sarabun is the workhorse Thai face and carries Latin well enough that
-   the English terms this book keeps in English do not change texture. */
+/* Type. */
 
-html { font-size: 10.5pt; }
+html { font-size: 11pt; }
 
 body {
   font-family: "Sarabun", "Leelawadee UI", "Tahoma", sans-serif;
   color: var(--ink);
-  line-height: 1.78;
+  line-height: 1.75;
   margin: 0;
-  hanging-punctuation: first;
 }
+
+/* Paragraphs are separated by space and never indented. Indent and space are
+   a belt and braces pair, you pick one, and space is the one that suits a
+   book read in pieces with code between the pieces. Thai has no capital
+   letters to mark a sentence start either, which makes a bare indent weak. */
 
 p {
-  margin: 0;
-  orphans: 2;
-  widows: 2;
+  margin: 0 0 0.72em;
+  orphans: 3;
+  widows: 3;
 }
 
-/* Indent runs of prose rather than spacing them, which is what a book does,
-   but never the first paragraph after a heading or a block. */
-p + p { text-indent: 1.4em; }
+h1, h2, h3 { font-weight: 600; line-height: 1.3; break-after: avoid; }
 
-h1, h2, h3 { font-weight: 600; line-height: 1.35; break-after: avoid; }
-
-/* Chapter opener. */
+/* Chapter opener. The title sinks a third of the way down the page, which is
+   what gives a chapter its pause. */
 
 .chapter { break-before: page; }
-.chapter > h1 {
+
+.opener {
+  margin: 52mm 0 0;
+  padding-bottom: 5mm;
+  border-bottom: 1px solid var(--rule);
+  break-after: avoid;
+}
+.chapter-number {
+  margin: 0 0 3mm;
+  font-size: 9.5pt;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--faint);
+}
+.opener h1, .chapter > h1 {
   string-set: runninghead content(text);
-  font-size: 21pt;
+  font-size: 20pt;
   font-weight: 700;
   letter-spacing: -0.01em;
-  margin: 14mm 0 0;
-  padding-top: 6mm;
-  border-top: 2px solid var(--ink);
-  max-width: 24em;
+  line-height: 1.25;
+  margin: 0;
+  max-width: 22em;
 }
-.chapter > h1 + p { margin-top: 7mm; font-size: 11.4pt; color: var(--soft); }
+.chapter > h1 {
+  margin: 52mm 0 0;
+  padding-bottom: 5mm;
+  border-bottom: 1px solid var(--rule);
+}
+.opener + p, .chapter > h1 + p {
+  margin-top: 6mm;
+  margin-bottom: 1.1em;
+  font-size: 11.6pt;
+  color: var(--soft);
+}
 
 h2 {
-  font-size: 13pt;
-  margin: 9mm 0 2.5mm;
+  font-size: 13.5pt;
+  margin: 2.1em 0 0.55em;
   color: var(--accent);
 }
 h3 {
-  font-size: 11pt;
-  margin: 6mm 0 1.5mm;
+  font-size: 11.5pt;
+  margin: 1.6em 0 0.4em;
   color: var(--ink);
 }
-h2 + p, h3 + p { text-indent: 0; }
 
-/* Code. Eight point mono holds eighty columns inside the measure. Long lines
-   wrap with an indent instead of running off the page. */
+/* Code. Seven and a half point holds eighty columns inside the text block.
+   Long lines wrap rather than run off the page, and a block never breaks
+   across a page, because paged.js loses the remainder when it tries. */
 
-/* Ligatures off. A reader who sees an arrow glyph where the code says
-   minus greater than will type the wrong thing. */
-pre, code {
-  font-variant-ligatures: none;
-}
+pre, code { font-variant-ligatures: none; }
 
 pre {
   font-family: "JetBrains Mono", "Consolas", monospace;
-  font-size: 8pt;
-  line-height: 1.5;
+  font-size: 7.5pt;
+  line-height: 1.55;
   background: var(--wash);
-  border-left: 2px solid var(--rule);
-  border-radius: 2px;
-  padding: 3mm 3.5mm;
-  margin: 4mm 0;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 3.5mm 4mm;
+  margin: 1.3em 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  text-indent: 0;
   break-inside: avoid;
 }
 pre code { font: inherit; background: none; padding: 0; }
 
 code {
   font-family: "JetBrains Mono", "Consolas", monospace;
-  font-size: 0.86em;
+  font-size: 0.85em;
   background: var(--wash);
   padding: 0.05em 0.3em;
   border-radius: 2px;
@@ -129,40 +168,39 @@ code {
 
 /* Lists and tables. */
 
-ul, ol { margin: 3mm 0; padding-left: 5.5mm; }
-li { margin-bottom: 1.6mm; }
+ul, ol { margin: 1.1em 0; padding-left: 6mm; }
+li { margin-bottom: 0.45em; padding-left: 1mm; }
 li::marker { color: var(--faint); }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 4mm 0;
-  font-size: 9pt;
-  line-height: 1.55;
+  margin: 1.3em 0;
+  font-size: 9.5pt;
+  line-height: 1.6;
 }
 th, td {
   text-align: left;
   vertical-align: top;
-  padding: 1.5mm 2.5mm 1.5mm 0;
+  padding: 2mm 3mm 2mm 0;
   border-bottom: 1px solid var(--rule);
 }
 th {
   font-weight: 600;
-  border-bottom: 1.5px solid var(--ink);
-  color: var(--ink);
+  border-bottom: 1.2px solid var(--ink);
 }
-td code { font-size: 0.82em; background: none; padding: 0; }
+td code { font-size: 0.85em; background: none; padding: 0; }
 
 a { color: inherit; text-decoration: none; border-bottom: 0.4px solid var(--faint); }
 
 strong { font-weight: 700; }
 
 figure.diagram {
-  margin: 5mm 0;
+  margin: 1.5em 0;
   text-align: center;
   break-inside: avoid;
 }
-figure.diagram svg { max-width: 100%; max-height: 145mm; width: auto; height: auto; }
+figure.diagram svg { max-width: 100%; max-height: 140mm; width: auto; height: auto; }
 
 /* Cover. */
 
@@ -171,7 +209,7 @@ figure.diagram svg { max-width: 100%; max-height: 145mm; width: auto; height: au
   break-after: page;
   height: 240mm;
   box-sizing: border-box;
-  padding: 42mm 24mm 24mm;
+  padding: 46mm 25mm 26mm;
   display: flex;
   flex-direction: column;
   background: var(--ink);
@@ -182,11 +220,11 @@ figure.diagram svg { max-width: 100%; max-height: 145mm; width: auto; height: au
   color: #9fb0c9;
   letter-spacing: 0.04em;
   margin: 0 0 auto;
-  max-width: 22em;
-  line-height: 1.6;
+  max-width: 21em;
+  line-height: 1.7;
 }
 .cover-title {
-  font-size: 54pt;
+  font-size: 52pt;
   font-weight: 700;
   letter-spacing: -0.035em;
   margin: 0;
@@ -194,16 +232,15 @@ figure.diagram svg { max-width: 100%; max-height: 145mm; width: auto; height: au
 }
 .cover-sub {
   font-size: 13pt;
-  font-weight: 400;
   color: #c8d2e0;
-  margin: 5mm 0 0;
-  max-width: 20em;
-  line-height: 1.55;
+  margin: 6mm 0 0;
+  max-width: 19em;
+  line-height: 1.6;
 }
 .cover-foot {
   font-size: 9.5pt;
   color: #7f8ea6;
-  margin: 14mm 0 0;
+  margin: 16mm 0 0;
   padding-top: 4mm;
   border-top: 1px solid #333a45;
 }
@@ -213,31 +250,29 @@ figure.diagram svg { max-width: 100%; max-height: 145mm; width: auto; height: au
 .colophon {
   break-before: page;
   break-after: page;
-  padding-top: 40mm;
-  font-size: 9.5pt;
+  padding-top: 52mm;
+  font-size: 10pt;
   color: var(--soft);
-  max-width: 26em;
+  max-width: 24em;
 }
-.colophon p { margin-bottom: 4mm; }
-.colophon dl { margin-top: 10mm; font-size: 9pt; }
+.colophon dl { margin-top: 12mm; font-size: 9.5pt; }
 .colophon dt { font-weight: 600; color: var(--ink); }
-.colophon dd { margin: 0 0 2.5mm; }
+.colophon dd { margin: 0 0 3mm; }
 
-/* Contents, with real page numbers pulled from wherever the chapter landed. */
+/* Contents. */
 
 .toc { break-before: page; break-after: page; }
-.toc h1 { font-size: 20pt; margin: 6mm 0 9mm; }
+.toc h1 { font-size: 20pt; margin: 30mm 0 10mm; }
 .toc ul { list-style: none; padding: 0; margin: 0; }
 
 .toc-part {
   font-weight: 700;
   font-size: 11pt;
-  margin: 7mm 0 2.5mm;
+  margin: 8mm 0 3mm;
   color: var(--accent);
 }
-.toc-part span { font-variant-numeric: tabular-nums; }
 
-.toc-chapter { margin: 0 0 1.2mm; font-size: 9.8pt; }
+.toc-chapter { margin: 0 0 2mm; font-size: 10pt; }
 .toc-chapter a {
   display: flex;
   align-items: baseline;
@@ -247,52 +282,51 @@ figure.diagram svg { max-width: 100%; max-height: 145mm; width: auto; height: au
 .toc-title { flex: 0 1 auto; }
 .toc-dots {
   flex: 1 1 auto;
-  margin: 0 1.5mm;
+  margin: 0 2mm;
   border-bottom: 0.6px dotted var(--faint);
   transform: translateY(-0.15em);
-  min-width: 4mm;
+  min-width: 5mm;
 }
 .toc-page {
   color: var(--soft);
   font-variant-numeric: tabular-nums;
   flex: 0 0 auto;
-  min-width: 2.2em;
+  min-width: 2.4em;
   text-align: right;
 }
 
-/* Part title page. */
+/* Part opener. */
 
 .part-title {
   break-before: right;
   break-after: page;
-  padding-top: 78mm;
+  padding-top: 86mm;
   text-align: center;
 }
 .part-number {
   font-size: 10pt;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  letter-spacing: 0.24em;
   color: var(--faint);
-  margin: 0 0 5mm;
+  margin: 0 0 6mm;
 }
 .part-name {
-  font-size: 30pt;
+  font-size: 28pt;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
   border: 0;
 }
 .part-blurb {
-  margin: 6mm auto 0;
-  max-width: 20em;
+  margin: 7mm auto 0;
+  max-width: 19em;
   color: var(--soft);
   font-size: 10.5pt;
 }
 
-/* Highlighting, toned down so the page still reads as a printed book. */
+/* Highlighting, held down so the page still reads as a printed book. */
 
 .hljs-keyword, .hljs-built_in { color: #0b4f6c; font-weight: 600; }
 .hljs-string, .hljs-attr { color: #7a4b17; }
-.hljs-comment { color: #7d848e; font-style: italic; }
+.hljs-comment { color: #767d87; font-style: italic; }
 .hljs-number, .hljs-literal { color: #6b3fa0; }
 .hljs-title, .hljs-function .hljs-title { color: #16181d; font-weight: 600; }

@@ -473,8 +473,8 @@ Drive letters and UNC paths get through too. `C:/Windows/win.ini` does not
 start with `/` and contains no `..`, so the check above lets it straight
 through. So does `\\server\share\file`.
 
-Symbolic links are the one that string checks cannot fix at all, even
-in principle. Suppose the workspace contains a symlink named `data` that points
+Symbolic links are the one thing string checks cannot fix at all, even in
+principle. Suppose the workspace contains a symlink named `data` that points
 at `/etc`. The path `data/passwd` contains no `..`, no drive letter, no leading
 slash, and no suspicious characters of any kind. It is a completely ordinary
 relative path and it reads `/etc/passwd`. No amount of inspecting the text can
@@ -485,7 +485,7 @@ filesystem. `.resolve()` follows symlinks, so the resolved path is
 And one more, which is the classic bug in this family and the reason the code
 uses `is_relative_to` rather than a string comparison even after resolving.
 
-The prefix that is not a parent is the last one. Suppose you resolved properly
+The last one is a prefix that is not a parent. Suppose you resolved properly
 but then compared with `str(candidate).startswith(str(WORKSPACE))`. With a
 workspace of `/home/me/work`, the path `/home/me/workspace_evil/notes.txt`
 passes that test, because the workspace string really is a prefix of it. It is

@@ -176,7 +176,7 @@ Here is the `add` schema exactly as it appears in `tools.py`.
 
 Now the same thing field by field.
 
-The outer `type` field holds the literal string `function` as its value. Today
+The outer `type` field holds the literal string `function`. Today
 that is the only value the OpenAI compatible API accepts here. It exists
 because the field is a discriminator, a tag that tells a future parser which
 shape follows. Providers add new kinds of tools over time, so the format left
@@ -223,10 +223,10 @@ raise on a float. Choosing `integer` makes the constraint part of the contract
 the model reads, which means the model is far less likely to send a decimal in
 the first place.
 
-The `description` inside each property is per argument documentation. The
-model reads it when deciding what value to put there. "The first number" is
-thin but adequate for a toy. For a real tool you would write something like
-"Absolute path to the file to read, relative paths are rejected."
+The `description` inside each property explains that one argument. The model
+reads it when deciding what value to put there. "The first number" is thin but
+adequate for a toy. For a real tool you would write something like "Absolute
+path to the file to read, relative paths are rejected."
 
 `parameters.required` is a list of argument names that must be present. Any
 property not listed here is optional, and the model may leave it out. Your

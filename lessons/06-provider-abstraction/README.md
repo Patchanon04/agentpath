@@ -676,11 +676,11 @@ The third shape inherits from a base class with shared code. Write a
 `BaseProvider` with the HTTP handling and let each provider override the parts
 that differ. This is tempting and it is how a lot of code ends up unreadable.
 The two `stream` methods here share almost nothing structurally. They differ in
-the payload, the URL, the headers, and the entire parse loop. What is left to
-share is the `with httpx.Client(...)` line. Hoisting one line into a parent
-class in exchange for making the reader jump between two files is a bad trade.
-Both classes in `providers.py` are written flat, top to bottom, and duplicate a
-little on purpose so that each one can be read on its own.
+the payload, the URL, the headers, and the entire parse loop. The only thing
+left to share is the `with httpx.Client(...)` line. Hoisting one line into a
+parent class in exchange for making the reader jump between two files is a bad
+trade. Both classes in `providers.py` are written flat, top to bottom, and
+duplicate a little on purpose so that each one can be read on its own.
 
 That last decision is worth stating as a rule, because it goes against the
 instinct most people are taught. Duplication is cheap. Wrong shared code is

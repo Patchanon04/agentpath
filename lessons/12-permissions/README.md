@@ -200,15 +200,15 @@ twenty files before it changes one. If every one of those reads asked you a
 question, the agent would be slower than doing the job yourself, and you would
 be habituated before it found anything.
 
-A set is used rather than a flag on each tool for a reason. The alternative is to mark each
-tool as safe or unsafe in its schema, next to its description. That reads nicely
-and it puts the property next to the thing it describes. It is the wrong place
-for it, for one reason. `SCHEMAS` is data that gets serialised and sent to the
-model on every request. A `"safe": true` field either goes over the wire, where
-it is a hint the model can reason about and therefore a thing an attacker can
-argue with, or it has to be stripped before sending, which means the schema is
-no longer the schema. Keeping the safe list in `permissions.py` keeps the safety
-decision on the side of the wire that a model cannot reach.
+We keep the safe list in a set rather than a flag on each tool. The alternative
+is to mark each tool as safe or unsafe in its schema, next to its description.
+That reads nicely and it puts the property next to the thing it describes. It is
+the wrong place for it, for one reason. `SCHEMAS` is data that gets serialised
+and sent to the model on every request. A `"safe": true` field either goes over
+the wire, where it is a hint the model can reason about and therefore a thing an
+attacker can argue with, or it has to be stripped before sending, which means the
+schema is no longer the schema. Keeping the safe list in `permissions.py` keeps
+the safety decision on the side of the wire that a model cannot reach.
 
 One honest limit is worth stating. Safe here means cannot change anything. It does not mean
 cannot leak anything. `read_file` pulls a file into the conversation, and the

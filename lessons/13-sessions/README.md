@@ -128,13 +128,13 @@ migration. All of that is machinery for turning objects that live in memory into
 rows that live on disk, and you have no objects. You have JSON. The distance
 between what you have and what you need is one call to `json.dumps`.
 
-This is a plain dictionary rather than a class for a reason. You could wrap each message in a `Message` class
-with fields and validation, and then you would need a way to turn a `Message`
-into JSON for the provider and back again from disk. That is two conversions and
-a class definition bought in exchange for nothing, because the wire format is
-already the storage format. The rule this course keeps returning to is that the
-fewer representations of the same thing you have, the fewer places they can
-disagree.
+A message is a plain dictionary and not a class. You could wrap each message in
+a `Message` class with fields and validation, and then you would need a way to
+turn a `Message` into JSON for the provider and back again from disk. That is
+two conversions and a class definition bought in exchange for nothing, because
+the wire format is already the storage format. The rule this course keeps
+returning to is that the fewer representations of the same thing you have, the
+fewer places they can disagree.
 
 ## 3. Why JSONL rather than one big JSON file
 
@@ -300,9 +300,9 @@ Notice what is not in `agent.py`. There is no `import session`. There is no
 `open`. There is no path, no filename, no directory, no `AGENTPATH_HOME`. The
 loop cannot write a file and does not know that files exist.
 
-That matters for a reason beyond tidiness. The loop reports what happened
-and something else decides what to do with the report. You have seen this exact
-shape twice before.
+That matters beyond tidiness. The loop reports what happened and something else
+decides what to do with the report. You have seen this exact shape twice
+before.
 
 | Concern | What the loop does | What decides |
 | --- | --- | --- |
@@ -540,7 +540,7 @@ pasting. One empty string reaching `json.loads` raises
 refuses to load because of a blank line is a bad trade for four characters of
 code.
 
-The whole file is read at once for a reason. `read_text` loads everything into memory, which
+We read the whole file at once. `read_text` loads everything into memory, which
 is fine because a conversation that will not fit in a context window will
 certainly fit in RAM. A streaming read line by line would be more careful and
 would buy nothing, since the caller wants the whole list anyway.

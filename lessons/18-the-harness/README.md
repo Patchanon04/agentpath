@@ -1611,14 +1611,14 @@ network time. The gap between a tool call and its result is the tool. Those are
 different numbers with different causes and lumping them together tells you
 nothing about which one to fix.
 
-The third problem is which clock. Use `time.time()` and you get a wall clock
-number you can read as a date, which drifts and can jump backwards when the
+Which clock you use changes the answer. Use `time.time()` and you get a wall
+clock number you can read as a date, which drifts and can jump backwards when the
 system clock is adjusted, occasionally producing a negative duration. Use
 `time.monotonic()` and your durations are always correct and the number is
 meaningless on its own. The answer is probably both, and knowing why is the
 point.
 
-The fourth is where the boundary is. `Session` currently knows nothing about
+The boundary is not obvious either. `Session` currently knows nothing about
 turns. It receives messages. If you want per turn timing, either the session
 starts inferring turn boundaries from roles, which gives it opinions and
 breaks the rule from section 2 that the recorder does not decide, or the loop

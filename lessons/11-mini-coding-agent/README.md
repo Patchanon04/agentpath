@@ -390,16 +390,16 @@ The `# noqa: E402` is the honest way to break the style rule. E402 is the linter
 complaining that an import is not at the top of the file. It is right that this
 is unusual, and we are telling it that we know, on purpose, here.
 
-The workspace comes from an environment variable rather than an argument for a reason. The obvious
-alternative is to pass it as an argument, so that `read_file(workspace, path)`
-takes it explicitly and there is no import order to get wrong. That is a better
-design and part three does exactly that. It is not what part two does, because
-every one of the seven tools would need the extra parameter, every schema would
-have to hide it from the model, and `tools.run` would have to thread it through
-the dispatch. That is real machinery, and putting it in lesson 07 would have
-buried the actual subject of lesson 07 under plumbing. A module level constant
-plus one documented ordering rule is the smaller cost while the program is small,
-and lesson 18 pays the larger cost once there is a reason to.
+The workspace comes from an environment variable rather than an argument. The
+obvious alternative is to pass it as an argument, so that
+`read_file(workspace, path)` takes it explicitly and there is no import order to
+get wrong. That is a better design and part three does exactly that. It is not what part two does,
+because every one of the seven tools would need the extra parameter, every
+schema would have to hide it from the model, and `tools.run` would have to
+thread it through the dispatch. That is real machinery, and putting it in lesson
+07 would have buried the actual subject of lesson 07 under plumbing. A module
+level constant plus one documented ordering rule is the smaller cost while the
+program is small, and lesson 18 pays the larger cost once there is a reason to.
 
 The `resolve()` call before storing matters too. `Path(".").resolve()` turns a relative
 path into an absolute one. Three separate things downstream need that.

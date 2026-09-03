@@ -717,13 +717,13 @@ thousand tokens of exploration become four hundred tokens saying which files
 were read, what was in them, what was tried and what failed. Every real harness
 does some version of this, and the reason is real.
 
-What summarising buys is real. Dropping loses information permanently. If the agent read a
-config file on turn 2 and needs a value from it on turn 20, dropping means it
-reads the file again, which costs a turn and the same tokens. Summarising keeps
-a compressed trace of everything, so the agent still knows the file exists and
-roughly what was in it. On long tasks that difference is large.
+Summarising buys something real. Dropping loses information permanently. If the
+agent read a config file on turn 2 and needs a value from it on turn 20,
+dropping means it reads the file again, which costs a turn and the same tokens.
+Summarising keeps a compressed trace of everything, so the agent still knows the
+file exists and roughly what was in it. On long tasks that difference is large.
 
-The cost is why it is not in this lesson.
+The cost keeps it out of this lesson.
 
 It costs an extra model call, with the whole span you are summarising as input.
 That call is not free in money, and it is not free in time either. It happens

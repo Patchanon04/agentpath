@@ -106,11 +106,10 @@ That is the shape of the problem, and it is the subject of the next section.
 
 ## 2. Why the same conversation costs more every turn
 
-The fact underneath all of this is that a language model is stateless. It has no memory of your
-previous request. Lesson 02 established this and it has been quietly setting the
-economics of everything since. The only reason turn four knows what happened on
-turn one is that your program sent turn one again, in full, inside the turn four
-request.
+A language model is stateless. It has no memory of your previous request.
+Lesson 02 established this and it has been quietly setting the economics of
+everything since. The only reason turn four knows what happened on turn one is
+that your program sent turn one again, in full, inside the turn four request.
 
 It matters here because the price of turn N is not the price of turn
 N's new material. It is the price of turns one through N minus one, plus the new
@@ -344,10 +343,11 @@ change shape to gain any of the five.
 
 ## 4. Why a local tokeniser is the wrong tool for deciding
 
-A tokeniser is the thing that turns text into the units a model actually reads. A model does not read characters. It reads tokens, which
-are chunks of bytes chosen by a compression algorithm that was fitted to a
-training corpus. The mapping from text to tokens is a table, and the table is
-part of the model, not part of the language.
+A tokeniser turns text into the units a model actually reads. A model does not
+read characters. It reads tokens, which are chunks of bytes chosen by a
+compression algorithm that was fitted to a training corpus. The mapping from
+text to tokens is a table, and the table is part of the model, not part of the
+language.
 
 This matters more than it sounds like it should. Different companies fit
 different tables. The same sentence is not the same number of tokens to two

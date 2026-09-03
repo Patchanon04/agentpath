@@ -232,14 +232,14 @@ Every real coding agent takes a command string, because that is the interface
 developers already know and the interface the model has seen a million examples
 of.
 
-It costs something, and this is the honest part. `shell=True` means the string is
-interpreted as a program in a small language, and that language can do anything.
-`rm -rf ~` is a perfectly valid string. So is a string that downloads something
-and runs it. Python's own documentation warns about `shell=True` with untrusted
-input, and the uncomfortable fact here is that every command your agent sends is
-untrusted input, because a model wrote it and section 3 explains who may have
-influenced that model. This is not a reason to avoid `shell=True`. It is the
-reason `confirm` exists.
+It does cost you something, and this is the honest part. `shell=True` means the
+string is interpreted as a program in a small language, and that language can do
+anything. `rm -rf ~` is a perfectly valid string. So is a string that downloads
+something and runs it. Python's own documentation warns about `shell=True` with
+untrusted input, and the uncomfortable fact here is that every command your
+agent sends is untrusted input, because a model wrote it and section 3 explains
+who may have influenced that model. This is not a reason to avoid `shell=True`.
+It is the reason `confirm` exists.
 
 ### cwd=WORKSPACE
 
@@ -291,7 +291,7 @@ these two the output scrolls past on your screen, `communicate` hands back
 tool is not to run a command, it is to bring the result back into the
 conversation.
 
-Two pipes rather than one is a deliberate choice. You could merge them with
+Using two pipes rather than one is deliberate. You could merge them with
 `stderr=subprocess.STDOUT` and get a single stream in true chronological order.
 Keeping them apart costs you that ordering and buys the ability to say which
 stream a line came from. Section 7 argues that trade in full.
@@ -1374,13 +1374,12 @@ there is no PATH lookup to get wrong. The quotes around it handle the space in
 `C:\Program Files\...`, which is where Python often lives on Windows. Two small
 habits, and the check runs identically on every platform.
 
-What this means for your agent is that the model does not know which operating
-system it is on unless you tell it. Trained mostly on Unix, it will guess Unix,
-so on Windows expect `ls` and `cat` and `rm -rf` and expect some of them to
-fail. Lesson 10 puts the operating system and the workspace path into the system
-prompt for exactly this reason, and it is one of the highest-value sentences in
-that whole prompt. Until then, when you try this chapter by hand on Windows,
-write `cmd.exe` commands.
+The model does not know which operating system it is on unless you tell it.
+Trained mostly on Unix, it will guess Unix, so on Windows expect `ls` and `cat`
+and `rm -rf` and expect some of them to fail. Lesson 10 puts the operating
+system and the workspace path into the system prompt for exactly this reason,
+and it is one of the highest-value sentences in that whole prompt. Until then,
+when you try this chapter by hand on Windows, write `cmd.exe` commands.
 
 ### Path separators
 
@@ -1572,12 +1571,12 @@ is produced fresh by whichever program you happened to run, and that program
 made its own choice a moment ago. One case has a defensible default and the
 other does not.
 
-What this still cannot do is handle a mixed buffer. The whole buffer is decoded
-as one thing. A command that emits UTF-8 for half its output and cp437 for the
-other half, which a pipeline of two different tools can genuinely do, will
-decode as whichever candidate happens to accept the whole buffer, and the other
-half will be wrong. Fixing that properly means decoding line by line and
-guessing per line, which is more machinery than the problem deserves.
+It still cannot handle a mixed buffer. The whole buffer is decoded as one thing.
+A command that emits UTF-8 for half its output and cp437 for the other half,
+which a pipeline of two different tools can genuinely do, will decode as
+whichever candidate happens to accept the whole buffer, and the other half will
+be wrong. Fixing that properly means decoding line by line and guessing per
+line, which is more machinery than the problem deserves.
 
 ### The characters the shell destroys before you see them
 
