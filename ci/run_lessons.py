@@ -21,6 +21,11 @@ def main():
     environment["AGENTPATH_MODEL"] = "mock"
     environment["AGENTPATH_API_KEY"] = "mock-key"
     environment["AGENTPATH_AUTO_APPROVE"] = "1"
+    # The checks print Thai, and a Windows runner hands Python a console
+    # that cannot encode it. Chapter 08 tells the whole story. Turning on
+    # UTF-8 mode here, once, is the single gate, rather than a fix in
+    # every check.py that happens to print a non Latin character.
+    environment["PYTHONUTF8"] = "1"
 
     failures = []
     # Two tracks, one runner. The foundations folder holds the from zero
