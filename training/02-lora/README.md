@@ -87,7 +87,7 @@ for, and LoRA lands about a fifth of a loss unit behind full fine tuning
 there while training 164 numbers instead of 1681. That ratio is the whole reason the
 method exists. On a real model the thin pairs are a fraction of a percent
 of the weights, and the memory that full fine tuning needs for gradients
-and optimiser state, three times the model, shrinks with them.
+and optimiser state, several times the weights themselves, shrinks with them.
 
 Now read the old text column. Both methods got worse on what the model
 already knew, and LoRA got worse by more. Forgetting is not something

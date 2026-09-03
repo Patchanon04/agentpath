@@ -153,10 +153,11 @@ class Agent:
         current = loose_signature(call)
         recent.append(current)
 
-        # The fingerprint here is deliberately blind to whitespace and
-        # letter case, because a model that retries with a space added has
+        # The fingerprint here is deliberately blind to surrounding
+        # whitespace, because a model that retries with a space added has
         # not changed anything and should not get a fresh fingerprint for
-        # it. That is the whole of the check.
+        # it. Letter case is kept, since Error and error are two searches.
+        # That is the whole of the check.
         #
         # An earlier version also cried loop when a tool returned the same
         # text three times running, on the theory that identical results

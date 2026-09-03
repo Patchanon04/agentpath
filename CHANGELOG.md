@@ -54,7 +54,21 @@ bound on decode, ending in the vLLM command that points the whole
 course at the model you trained. A training extra in pyproject lists
 the real dependencies.
 
-None of this is in the package. The wheel on PyPI is unchanged.
+A second review pass over every chapter, checking prose against code.
+It found the places where the book had drifted from what the code does.
+Chapter 16 quoted a pyproject without the training group, chapter 13
+quoted the search subprocess before it learned -I and cwd, chapter 6
+said a stop request halts a running stream when the token is only read
+at three gates, chapter 5 said auto approve is never the default when a
+bare Agent approves everything, chapter 4 said Usage keeps the cache
+numbers when the Anthropic provider drops them, and the MCP client
+docstring said only a broken server raises when nothing raises. Every
+reference to a lesson now says lesson, not chapter, and every reference
+to the foundations uses one form. About a hundred smaller fixes in
+wording, glosses at first use, and paragraph rhythm, in Thai and
+English. The MCP client now reports the real package version.
+
+None of this is in the package. The wheel on PyPI is unchanged. The wheel on PyPI is unchanged.
 
 ## 1.0.6
 

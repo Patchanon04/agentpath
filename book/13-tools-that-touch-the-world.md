@@ -6,7 +6,7 @@ tool (เครื่องมือ คือฟังก์ชันที่ 
 และมันคือเหตุผลที่บทนี้มีอยู่
 
 บทที่ 3 บอกว่า tool คือสัญญา บทนี้คือสิ่งที่เกิดขึ้นเมื่อปลายอีกด้านของสัญญาไปแตะไฟล์
-จริง shell จริง และเครื่องของคนอื่นจริง มันจะพาไปถึง tool เจ็ดตัวที่อ่านไฟล์ เขียนไฟล์
+จริง shell จริง และเครื่องของคนอื่นจริง ของที่จะได้คือ tool เจ็ดตัวที่อ่านไฟล์ เขียนไฟล์
 แก้ไฟล์ รันคำสั่ง และค้นหาได้ กับกฎสี่ข้อที่ทำให้มันไม่ทำลายเครื่องของผู้ใช้ กฎทั้งสี่ข้อมา
 จากเหตุการณ์ที่เกิดขึ้นจริงในโปรเจกต์นี้ ไม่ได้มาจากการคิดล่วงหน้า
 
@@ -383,7 +383,7 @@ shell อย่าง `dir` อ่านค่า codepage ตอน shell เ�
 และมันไม่มีอะไรให้ติดตั้งเพิ่ม
 
 จุดที่มันเลิกพอ คือเมื่อคำถามเป็นภาษาคนจริงๆ เช่นเอกสารประกอบสินค้าที่ผู้ใช้ถามด้วยคำที่
-ไม่มีอยู่ในเอกสาร นั่นคือคนละปัญหา และหลักสูตรนี้แยกมันไว้ที่บทเรียน 16
+ไม่มีอยู่ในเอกสาร นั่นคือคนละปัญหา และหลักสูตรนี้แยกมันไว้ที่บทเรียนที่ 16
 
 สิ่งที่ต้องระวังในทางปฏิบัติกลับไม่ใช่เรื่องความหมาย แต่เป็นเรื่องที่ `fnmatch` เข้มกว่าที่
 คนคาด pattern ที่ model เขียนบ่อยที่สุดคือ `**/*.py` ซึ่งถ้าเทียบตรงๆ จะไม่แมตช์ไฟล์ที่อยู่
@@ -459,14 +459,30 @@ thread จับเวลา มันก็ไม่ทำงาน เพร�
         # start up on every search.
         request = json.dumps({"root": str(root), "pattern": pattern, "glob": glob})
         try:
+            # Isolated on purpose, and this is the important part rather
+            # than a detail. Running a module with -m puts the current
+            # directory first on the import path, and the current
+            # directory is the workspace. A file the agent wrote there
+            # called json.py or types.py would then be imported and run by
+            # this child before the search starts, with no permission
+            # check anywhere, because searching is a safe tool. -I removes
+            # that directory from the path and ignores the environment
+            # variables that could put it back.
             completed = subprocess.run(
-                [sys.executable, "-m", "agentpath.tools.search"],
+                [sys.executable, "-I", "-m", "agentpath.tools.search"],
                 input=request,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 timeout=SEARCH_SECONDS,
+                cwd=str(Path(__file__).resolve().parent),
             )
+        except OSError as error:
+            # The child could not be started at all, which is a different
+            # thing from the search failing. Saying so, and naming the tool,
+            # is what lets the model try something else instead of repeating
+            # a search that can never run.
+            return f"Error: the search could not be started. {error}"
         except subprocess.TimeoutExpired:
             return (
                 f"Error: searching for {pattern} took longer than {SEARCH_SECONDS} "
@@ -476,7 +492,9 @@ thread จับเวลา มันก็ไม่ทำงาน เพร�
 ```
 
 ราคาที่จ่ายถูกเขียนไว้ตรงๆ คือประมาณหนึ่งในสิบวินาทีต่อการค้นหาหนึ่งครั้ง นั่นคือของจริง
-และมันไม่ฟรี การเขียนราคาไว้ในคอมเมนต์ทำให้คนที่มาอ่านทีหลังตัดสินใจได้เอง แทนที่จะ
+และมันไม่ฟรี ส่วน `-I` กับ `cwd` มาทีหลัง จากการค้นพบว่า `-m` เอาโฟลเดอร์งานขึ้นต้น
+import path ซึ่งแปลว่าไฟล์ชื่อ `json.py` ที่ agent เพิ่งเขียนจะถูกรันโดย process ลูกก่อน
+การค้นจะเริ่ม โดยไม่ผ่านการขอ permission เลย เพราะการค้นเป็น tool ที่ปลอดภัย การเขียนราคาไว้ในคอมเมนต์ทำให้คนที่มาอ่านทีหลังตัดสินใจได้เอง แทนที่จะ
 ต้องเดาว่าทำไมถึงเลือกทางที่ดูซับซ้อนกว่า
 
 cancellation token ช่วยไม่ได้เลยในกรณีนี้ ระบบยกเลิกที่บทที่ 6 พูดถึงทำงานด้วยการให้โค้ด
@@ -504,7 +522,7 @@ cancellation token ช่วยไม่ได้เลยในกรณีน�
    เปลี่ยนการสูญเสียที่ดังให้เป็นการสูญเสียที่เงียบ ให้ลองวิธีที่ล้มเหลว
    ดังก่อนเสมอ
 
-ข้อที่หนึ่งกับข้อที่สี่คือสองข้อที่โปรเจกต์นี้จ่ายค่าเรียนไปแล้วครับ
+ข้อที่หนึ่ง ข้อที่สาม และข้อที่สี่คือสามข้อที่โปรเจกต์นี้จ่ายค่าเรียนไปแล้วครับ
 
 ## บทเรียนที่ลงมือทำเรื่องนี้
 
@@ -513,5 +531,5 @@ cancellation token ช่วยไม่ได้เลยในกรณีน�
 | 07 file tools | เขียนประตูเดียวแล้วเดิน tool ทั้งสี่ตัวผ่านมัน และทำ edit_file ที่ปฏิเสธการแมตช์ที่กำกวม |
 | 08 shell tool | รันคำสั่งจริง เจอ timeout ที่ฆ่าไม่ตาย แล้วแก้ด้วยการฆ่าทั้ง process tree |
 | 09 search tools | เขียน glob กับ grep และเห็นว่าทำไมมันพอสำหรับโค้ด |
-| 16 retrieval | เขียนการค้นแบบความหมายด้วยมือ แล้วเทียบกับ grep เพื่อดูว่าเมื่อไหร่ควรใช้อันไหน |
+| 16 retrieval | เขียนการค้นด้วยคำที่ซ้อนกันถ่วงด้วยความหายากด้วยมือ แล้วเทียบกับ grep เพื่อดูว่าเมื่อไหร่ควรใช้อันไหน |
 | 12 permissions | เอาการถามผู้ใช้ออกจาก shell tool มาไว้ที่ระบบเดียวที่ตัดสินใจให้ทุก tool |

@@ -121,8 +121,9 @@ class MCPClient:
 
         A tool that fails is not an exception here. The server reports it
         with isError and the failure is something the model should read and
-        respond to, exactly like the tool errors from lesson 07. Only a
-        broken server raises.
+        respond to, exactly like the tool errors from lesson 07. A broken
+        server comes back as text too, so that one dead server does not end
+        the whole turn.
         """
         try:
             result = self._request("tools/call", {"name": name, "arguments": arguments})

@@ -96,8 +96,8 @@ every weight once and the chip's arithmetic is nowhere near the limit.
 That single fact explains three things people pay for. Quantizing to
 four bits raises the ceiling on one request four times. Serving many
 requests at once is nearly free, the weights are read once per step either
-way, which is why providers batch. How many fit is the other number,
-memory, and that is why the int4 row reaches forty six. And output tokens
+way, which is why providers batch. How many fit at once is a memory
+question, not a bandwidth one, which is why the int4 row reaches forty six. And output tokens
 cost more than input tokens, because input is read in
 one pass and output is this loop, one token at a time.
 

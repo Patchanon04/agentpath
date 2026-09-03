@@ -34,7 +34,7 @@ def dpo_loss(weights, reference, preferences, index, beta=1.0):
 `train_dpo.py` คือ loss เดียวกันบน model แบบเปิด โดย trl ถือ reference กับ loop และไฟล์
 ของคู่ความชอบเป็นข้อมูล ไม่ได้รันใน CI
 
-`check.py` ยึดข้ออ้างที่บทพูดไว้
+`check.py` ยืนยันข้ออ้างที่บทพูดไว้
 
 ## รันมัน
 

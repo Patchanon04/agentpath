@@ -226,9 +226,10 @@ Issues and pull requests are welcome. Two rules matter more than the rest.
 
 The course is frozen at 24 chapters. New topic ideas belong in
 [docs/v2-ideas.md](docs/v2-ideas.md), not in a new chapter. If you want to add a
-chapter you have to argue for removing one. The foundations track is the one
-exception, because it sits before the course rather than after it, and it is
-frozen at seven by the same rule.
+chapter you have to argue for removing one. The two tracks either side of the
+course are frozen by the same rule, the foundations at seven chapters because
+they sit before lesson 01, and the training track at five because it sits after
+lesson 23 and teaches a different thing, the model rather than the harness.
 
 Prose has a house style. No em dash, no emoji, and no colon in ordinary
 sentences. A check in continuous integration enforces the first two.
