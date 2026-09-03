@@ -267,12 +267,12 @@ test ตัวเดิมยืนยันสองอย่างในฟั
 ```python
     legacy = (
         f'"{sys.executable}" -c "import sys; '
-        "sys.stdout.buffer.write('cafe resume'.replace('e','é').encode('cp437'))\""
+        "sys.stdout.buffer.write('cafe resume'.replace('e','\u00e9').encode('cp437'))\""
     )
-    assert "café résumé" in run(tmp_path, legacy)
+    assert "caf\u00e9 r\u00e9sum\u00e9" in run(tmp_path, legacy)
 
-    modern = f'"{sys.executable}" -c "print(\'สวัสดี\')"'
-    assert "สวัสดี" in run(tmp_path, modern)
+    modern = f'"{sys.executable}" -c "print(\'\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35\')"'
+    assert "\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35" in run(tmp_path, modern)
 ```
 
 สาเหตุที่หนึ่งอยู่บน Linux ข้อยืนยันเรื่อง codepage เก่าของ Windows เป็นจริงไม่ได้ เพราะ
