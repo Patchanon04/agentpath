@@ -108,7 +108,7 @@ response whose body has not been read.
 
 ```text
 Traceback (most recent call last):
-  File "main.py", line 60, in <module>
+    File "main.py", line 58, in <module>
     run(provider, task, system=system)
   File "agent.py", line 48, in run
     text, calls = provider.stream(
@@ -293,7 +293,7 @@ appends.
 }
 ```
 
-Note `param` in the first body and the `messages.0` prefix in the other two.
+Note `param` in the first body and the `messages.N` prefix in the other two.
 The provider is telling you the index of the offending message. That is the
 single most useful field in the response, and in section 1 you saw why you will
 probably never see it, because `raise_for_status()` on an unread streaming

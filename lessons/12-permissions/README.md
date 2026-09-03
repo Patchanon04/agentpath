@@ -11,7 +11,7 @@ Files in this folder.
 
 ```text
 lessons/12-permissions/
-  permissions.py   new. the whole subject of the chapter, about seventy lines
+  permissions.py   new. the whole subject of the chapter, about ninety lines
   agent.py         the loop from lesson 10, plus one branch
   tools.py         lesson 09's tools, with the confirmation taken out of run_shell
   providers.py     unchanged from lesson 06
@@ -20,8 +20,8 @@ lessons/12-permissions/
   README.md        this file
 ```
 
-Two of the six Python files, `providers.py` and `prompt.py`, are byte for byte
-what they were in an earlier lesson. One new file, one deletion in `tools.py`,
+Three of the seven Python files, `providers.py`, `prompt.py` and
+`grep_worker.py`, are byte for byte what they were in an earlier lesson. One new file, one deletion in `tools.py`,
 and one new branch in the loop.
 
 ## 1. Welcome to part 3
@@ -193,7 +193,7 @@ file, matching a glob and grepping for a pattern all leave the disk exactly as
 they found it. There is no state to restore afterwards because no state moved.
 
 This is the single largest reduction in questions, and it is not a compromise.
-Count the tool calls in the lesson 11 trace. Four calls, of which three were
+Count the tool calls in the lesson 11 trace. Four calls, of which two were
 reads. On a real task the ratio is far more lopsided, because finding the right
 place is most of the work. An agent exploring an unfamiliar codebase will read
 twenty files before it changes one. If every one of those reads asked you a
@@ -260,8 +260,8 @@ anything unrecognised falls through to it.
 ```
 
 Press Enter on an empty line and you get `DENY`. Type `maybe` and you get
-`DENY`. Hit Ctrl+C and the `except (EOFError, KeyboardInterrupt)` above returns
-`DENY`. Every path that is not an explicit yes is a no, which is the only
+`DENY`. Hit Ctrl+C and the `except (EOFError, KeyboardInterrupt)` in `ask_in_terminal`
+returns `DENY`. Every path that is not an explicit yes is a no, which is the only
 defensible default when the question is whether to let a program run a command.
 
 ### Change three. What is remembered is the exact call
@@ -684,8 +684,8 @@ the thing it names is unchanged. If an attacker can write to `conftest.py`, then
 running `pytest` executes their code and your approval covers it. This is why
 `write_file` and `edit_file` are not on the safe list even though writing feels
 less dramatic than running a command. In this session the set dies with the
-process, which limits the blast radius. Lesson 13 makes decisions persist, and
-that is the chapter to ask this question in again.
+process, which limits the blast radius. Lesson 13 makes the conversation persist, and once a decision outlives a
+process that is the question to ask again.
 
 ## 8. A detail worth knowing about streaming and approval
 

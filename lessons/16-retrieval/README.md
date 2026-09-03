@@ -12,7 +12,7 @@ Files in this folder.
 
 ```text
 lessons/16-retrieval/
-  retrieval.py    new. the whole retrieval tool, a hundred and twenty seven lines
+  retrieval.py    new. the whole retrieval tool, a hundred and sixty nine lines
   tools.py        lesson 15's tools, plus nine lines at the bottom that register it
   agent.py        unchanged from lesson 15
   providers.py    unchanged from lesson 15
@@ -21,11 +21,11 @@ lessons/16-retrieval/
   context.py      unchanged from lesson 14
   usage.py        unchanged from lesson 15
   prompt.py       unchanged from lesson 10
-  check.py        five assertions, and one of them is a limitation on purpose
+  check.py        seven assertions, and one of them is a limitation on purpose
   README.md       this file
 ```
 
-Seven of the ten Python files are byte for byte what they were in an earlier
+Eight of the eleven Python files are byte for byte what they were in an earlier
 lesson. One new file, and nine lines appended to `tools.py`. That is the entire
 footprint of adding retrieval to a harness, which is itself part of the argument
 this chapter makes.
@@ -373,7 +373,7 @@ sentence matches the same word in the middle of one. Underscores are kept
 because identifiers such as `issue_refund` should stay one token rather than
 becoming two.
 
-Two of those borrowed names arrive through a small function rather than a
+Three borrowed names arrive through a small function rather than a
 plain import at the top of the file.
 
 ```python
@@ -668,7 +668,7 @@ section 4's index, `# Refunds` is a passage on its own containing one word. Run
 a real query over this course and the top hit is a heading.
 
 ```text
-09-search-tools/README.md:778
+09-search-tools/README.md:1186
 ## 7. Why we cap the number of results
 ```
 
@@ -703,7 +703,7 @@ has somewhere to go, and it already has the tools to go there. Look at the
 heading result again.
 
 ```text
-09-search-tools/README.md:778
+09-search-tools/README.md:1186
 ## 7. Why we cap the number of results
 ```
 
@@ -1104,9 +1104,9 @@ property that is easy to lose in a refactor and expensive to lose in production.
 
 **The third** asks about `quantum entanglement` and requires the words `nothing
 in the documents` in the reply. It proves the zero score filter is doing its job.
-Without it the tool would return the three highest scoring passages out of eight
-regardless of the fact that all three scored zero, and the model would receive
-three paragraphs about refunds and shipping in response to a physics question.
+Without it the tool would return the five highest scoring passages out of eight
+regardless of the fact that all five scored zero, and the model would receive
+five paragraphs about refunds and shipping in response to a physics question.
 
 **The fourth is the interesting one, because it tests a limitation on purpose.**
 
@@ -1132,7 +1132,7 @@ this tool cannot do, and prose in a README drifts away from the code that it
 describes. This assertion fails the build if the claim stops being true.
 
 It makes the limit impossible to skim past. A reader who runs the check sees a
-line about word endings printed alongside four lines about things working. That
+line about word endings printed alongside six lines about things working. That
 is harder to forget than a paragraph, and forgetting it is how somebody ships
 this over a corpus where the synonym problem is the whole problem.
 

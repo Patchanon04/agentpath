@@ -27,7 +27,7 @@ the headline.
 
 ## 1. Welcome to part two
 
-Part one built a loop. Six lessons, about two hundred lines, and at the end of
+Part one built a loop. Six lessons, about three hundred lines, and at the end of
 it you had a program that could hold a conversation, describe your Python
 functions to a model, read back a structured request for one of them, run it,
 feed the result back in, and do all of that against two completely different
@@ -805,14 +805,14 @@ unlucky, at a distance from the cause that makes the connection hard to see.
 Here is the refusal instead, exactly as the tool produces it.
 
 ```text
-'Error: the text to replace appears 3 times in notes.txt. Include more surrounding lines so the match is unique.'
+'Error: the text to replace appears 3 times in notes.py. Include more surrounding lines so the match is unique.'
 ```
 
 And the other refusal, for the case where the model's remembered snippet does
 not match the file at all, usually because of whitespace.
 
 ```text
-'Error: the text to replace was not found in notes.txt. Read the file again and copy the exact text including whitespace.'
+'Error: the text to replace was not found in notes.py. Read the file again and copy the exact text including whitespace.'
 ```
 
 ### Why this way and not the alternatives

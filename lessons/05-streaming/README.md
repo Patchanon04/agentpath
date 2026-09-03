@@ -953,7 +953,7 @@ radius, not a happy accident.
 
 Now picture doing this retrofit later. By the end of part 2 the codebase has
 several tool implementations, a confirmation gate that pauses before running
-anything dangerous, a system prompt, and a conversation store. Every one of
+anything dangerous, a system prompt, and, one part later, a conversation store. Every one of
 those touches the boundary between "the model produced something" and "the
 program did something", and that boundary is precisely what streaming
 redraws. You would be rewriting the printing, the logging, the confirmation
@@ -1080,8 +1080,7 @@ FAIL the reply did not arrive in pieces. Got 1 piece(s)
 ```
 
 The reply was short enough to fit in one event, or the endpoint ignored
-`stream` and sent a normal JSON body that happened to start with `data: `
-never. Confirm by printing every line the loop sees.
+`stream` and sent a normal JSON body, in which no line starts with `data: `. Confirm by printing every line the loop sees.
 
 ```python
 for line in response.iter_lines():
@@ -1176,8 +1175,8 @@ are character for character the same, still five character slices of the same
 string, still individually unparseable, still needing accumulate then parse.
 The index is still what keeps concurrent calls apart.
 
-Everything else is different. Events carry a `type` field and there are seven
-kinds of them. There is no `choices` list. A tool call is a content block
+Everything else is different. Events carry a `type` field and six kinds of them appear in this one
+stream. There is no `choices` list. A tool call is a content block
 that starts and stops rather than an entry in a `tool_calls` array. The
 fragments live under `partial_json` inside a `delta` with its own `type`. The
 stream ends with `message_stop` rather than `[DONE]`, so a client that

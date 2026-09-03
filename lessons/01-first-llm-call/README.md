@@ -4,7 +4,7 @@
 
 At the end of lesson 00 you had a working Python environment and an endpoint that answered when the setup script knocked on it. You have not written a single line of your own code that talks to a model yet. That is what this lesson fixes.
 
-By the end you will have a file called `llm.py` with one function in it. You give the function a string, it gives you back the model's reply as a string. That function is nineteen lines long and every agent you build in the remaining twenty three lessons sits on top of it.
+By the end you will have a file called `llm.py` with one function in it. You give the function a string, it gives you back the model's reply as a string. That function is nineteen lines long and every agent you build in the remaining twenty two lessons sits on top of it.
 
 ## 1. The problem. We have no way to talk to a model at all
 
@@ -83,7 +83,9 @@ Then a blank line, and then the body. The body has two keys here.
 
 Each entry in `messages` is an object with two required keys.
 
-**`role`** says who wrote that message. There are three roles you will meet in this course. `user` is you, the human or the program acting on the human's behalf. `assistant` is the model. `system` is a special instruction block that sets behaviour and rules, and it goes first when it is present. We do not send a system message in this lesson because we want the minimum possible request, and we add one in lesson 02.
+**`role`** says who wrote that message. There are three roles in this lesson, and a fourth, `tool`, arrives in lesson 02. `user` is you, the human or the program acting on the human's behalf. `assistant` is the model. `system` is a special instruction block that sets behaviour and rules, and it goes first when it is present. We do not send a system message in this lesson because we want the minimum
+possible request. Lesson 02 explains the role and leaves adding one to you as
+its first exercise.
 
 The role matters more than it looks. The model was trained on conversations in this format, so it has learned that text marked `user` is a request to respond to and text marked `assistant` is its own previous speech. If you put everything under one role, quality drops noticeably.
 

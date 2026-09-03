@@ -29,7 +29,9 @@ Here is what is in this folder and where each file came from.
 lessons/18-the-harness/
   main.py         new. argument parsing, wiring, and the interrupt handler
   check.py        new. the milestone check for part 3
-  agent.py        identical to lesson 17
+    agent.py        identical to lesson 17
+  grep_worker.py  identical to lesson 09
+
   prompt.py       identical to lesson 10
   permissions.py  identical to lesson 12
   session.py      identical to lesson 13
@@ -43,7 +45,7 @@ lessons/18-the-harness/
   README.md       this file
 ```
 
-Eleven of the thirteen Python files are byte for byte what they were in an
+Twelve of the fourteen Python files are byte for byte what they were in an
 earlier lesson. That is not a claim, it is checkable, and it was checked.
 
 ```bash
@@ -178,8 +180,8 @@ def run_shell(command):
 ```
 
 That last clause is the whole argument. A tool that calls `input` has a terminal
-baked into it. When lesson 20 runs a tool inside a subagent with nobody at a
-keyboard, a tool that asks its own questions hangs forever.
+baked into it. When lesson 22 runs the agent from a CI job with nobody at a keyboard, a
+tool that asks its own questions hangs until the timeout kills it.
 
 ### The session records, and does not decide
 
@@ -432,7 +434,7 @@ nothing.
 | `if system and not messages`, so a resumed run does not get two system messages | 13 |
 | the `budget` parameter and the `to_send` helper | 14 |
 | `provider.stream` returning three values, and `usage.add(reported)` | 15 |
-| repeat detection with `signature`, `recent`, `warned` and `REPEAT_LIMIT` | 15 |
+| repeat detection with `loose_signature`, `recent`, `warned` and `REPEAT_LIMIT` | 15 |
 | the `cancellation` parameter and the two `stop_requested` checks | 17 |
 
 Fourteen differences. Now sort them by cause rather than by line number.
@@ -472,10 +474,11 @@ done
 12-permissions               a01da24bdf59c0d570e8e24179b10c54  60 lines
 13-sessions                  f12dce1e312f8d0c91814d07d3813fb4  80 lines
 14-context-management        3b5ff3dc951bedc2578f8c81ab330d7d  91 lines
-15-token-economy             7751a3e429e71a0f305ccfeb0ddc6519  130 lines
-16-retrieval                 7751a3e429e71a0f305ccfeb0ddc6519  130 lines
-17-errors-and-retries        6eb626bd7e5209fcec78dca971fb29bd  140 lines
-18-the-harness               6eb626bd7e5209fcec78dca971fb29bd  140 lines
+15-token-economy             0d5218a1cf6524ca3c714bcd1c85b258  130 lines
+16-retrieval                 0d5218a1cf6524ca3c714bcd1c85b258  130 lines
+17-errors-and-retries        d04075bbc434dc01cbcab27ee26a52b2  140 lines
+18-the-harness               d04075bbc434dc01cbcab27ee26a52b2  140 lines
+
 ```
 
 Read that table twice, because it says two different things.
@@ -636,7 +639,7 @@ around it.
 `resolve()` before storing it, because three separate things downstream need an
 absolute path. `resolve_inside` compares candidates against `WORKSPACE` with
 `is_relative_to`, which is meaningless when `WORKSPACE` is `.`. `run_shell`
-passes `cwd=WORKSPACE` to `subprocess.run`. And `build_system_prompt` puts the
+passes `cwd=WORKSPACE` to `subprocess.Popen`. And `build_system_prompt` puts the
 directory in the system prompt as a fact about the world, and a model told it is
 working in `.` has been told nothing.
 
@@ -834,8 +837,9 @@ working, and it is the reason those two lines are not a stray import.
 
 The gap that is left is narrower and it is real. Every check is a check made
 before something starts. Press Ctrl+C once while a sixty second `run_shell` is
-already going, and the subprocess runs to completion, because `subprocess.run`
-blocks until the process exits and there is no place inside it to look at a flag.
+already going, and the subprocess runs to completion, because `communicate`
+blocks until the process exits or the timeout fires, and there is no place
+inside it to look at a flag.
 The stop takes effect afterwards, before the next call. Exercise four in section
 8 is about closing that.
 
@@ -1039,7 +1043,7 @@ proves the outcome rather than the path.
 
 One environment note that is not hypothetical, because it happened while this
 chapter was being written. If `python` is not on the `PATH` inside the shell
-`subprocess.run` uses, that fourth call comes back like this.
+`subprocess.Popen` uses, that fourth call comes back like this.
 
 ```text
 [run_shell returned 'python' is not recognized as an internal or external command,
@@ -1678,11 +1682,11 @@ already consults the token, and `main.py` already supplies it, so a command that
 has not started yet will not start. Make Ctrl+C during a sixty second command
 that is already running actually stop it.
 
-This is harder than it looks and that is why it is here. `subprocess.run` blocks
-until the process exits, so there is no place inside it to check a flag. You will
-need `subprocess.Popen`, a loop that polls with a short timeout while checking
-`CANCELLATION`, and a `terminate` followed by a `kill` when the polite request is
-ignored.
+This is harder than it looks and that is why it is here. `communicate(timeout=SHELL_TIMEOUT)`
+blocks until the process exits or the timeout fires, so there is no place
+inside it to check a flag. Replace the single `communicate` with a loop that
+calls `process.wait(timeout=0.2)` while checking `CANCELLATION`, and hand the
+process to the `_kill_tree` that already exists when the flag is set.
 
 Three things make it a design exercise rather than a threading exercise.
 

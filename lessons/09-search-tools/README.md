@@ -370,7 +370,6 @@ first. On a large tree that is the difference between holding one path in
 memory and holding a hundred thousand, and it is also what lets the grep worker
 stop walking early in section 7.
 
-Section 6 is about the `SKIP_DIRECTORIES` line.
 
 ### fnmatch
 
@@ -867,8 +866,8 @@ import tools  # noqa: E402
 Why a separate file rather than a function, a flag or a thread. Because the unit
 the operating system can kill is a process, and the unit a process can be started
 from is a file. Everything smaller than a file shares the interpreter with the
-code that is trying to stop it, and section 5 has already been through why that
-fails. The file boundary is not a style choice, it is the smallest thing with a
+code that is trying to stop it, and layer three above has already been through
+why that fails. The file boundary is not a style choice, it is the smallest thing with a
 kill switch.
 
 Why does it put the lesson folder back on `sys.path` by hand. Because `-I` took
@@ -891,8 +890,8 @@ the file while `grep_files` prints it. Nothing crashes. No test fails unless
 somebody thought to write that exact test. The rule is still in the code, in
 writing, and it is no longer enforced.
 
-This is the same argument section 5 makes about the walk and the same one
-lesson 07 makes about `resolve_inside`, arriving for the third time in three
+This is the same argument the end of this section makes about the walk and the
+same one lesson 07 makes about `resolve_inside`, arriving for the third time in three
 lessons. A rule enforced in one place is a rule. A rule written down in two
 places is a coincidence waiting to end.
 

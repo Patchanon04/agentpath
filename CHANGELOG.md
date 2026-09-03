@@ -83,6 +83,27 @@ chapter 6 that subagent and eval call tools outside the loop, and seven
 places in the foundations that sent readers to book chapter 16 when they
 meant lesson 16.
 
+A fourth pass over the twenty four lesson READMEs in both languages,
+checked against the code in each folder. The numbers had drifted most.
+The agent.py hashes in lesson 18, the line counts and file listings from
+lesson 11 onward, which had never listed grep_worker.py, the pyproject and
+wheel metadata in lesson 23, still shown at 1.0.0 without the extras and
+classifiers, and lesson 15's truncation arithmetic, which described a
+tools.py half the size of the real one. The loop's repeat detection is
+now described as loose_signature everywhere, rather than the exact
+signature it stopped using in lesson 15. Lesson 22 no longer says task
+names must be unique when the code keys results by position. Every
+mention of subprocess.run in lessons 17 to 23 names Popen and communicate,
+which is what run_shell has used since lesson 08. Lesson 06 quotes the
+current mock server. Lesson 10 quotes its full check. In Thai, the term
+model replaces โมเดล in the eight files that had switched, lesson 06 loses
+the English lesson NN references and its English title, part numbers use
+ภาค throughout, and the commas, chained ซึ่ง and doubled ทำให้ the style
+guide bans are gone from the lesson prose.
+
+The PyPI page now carries classifiers, and chapter 16 of the book, which
+quotes pyproject whole, shows them.
+
 Two small changes reach the package. The MCP client tells the server the
 real package version rather than a fixed 1.0.0, and a comment in the agent
 loop and a docstring in the MCP client now say what the code does. Nothing

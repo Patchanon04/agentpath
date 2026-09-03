@@ -1,6 +1,6 @@
 """Check that lesson 22 works.
 
-Six things must be true. A passing task is reported as passing and a
+Seven things must be true. A passing task is reported as passing and a
 failing one as failing. A check that itself throws counts as a failure
 rather than crashing the run, because a report you never get is worse than
 a red line. Usage is recorded per task so you can compare cost as well as

@@ -1,6 +1,6 @@
 [Read in English](README.md)
 
-# บทที่ 23. Ship it
+# บทที่ 23 Ship it
 
 นี่คือบทสุดท้าย และมันไม่ได้คิดค้นอะไรใหม่เลย
 
@@ -13,42 +13,44 @@
 
 ```text
 lessons/23-ship-it/
-  tools.py             422 lines   identical to lesson 19
+  tools.py             621 lines   identical to lesson 19
   providers.py         208 lines   identical to lesson 18
-  mcp.py               188 lines   identical to lesson 19
-  evals.py             149 lines   identical to lesson 22
+  mcp.py               189 lines   identical to lesson 19
+  evals.py             205 lines   identical to lesson 22
   agent.py             140 lines   identical to lesson 18
-  retrieval.py         127 lines   identical to lesson 19
+  retrieval.py         169 lines   identical to lesson 16
   check.py             117 lines   new
   main.py              115 lines   identical to lesson 18
   mock_mcp_server.py   104 lines   identical to lesson 19
   context.py            80 lines   identical to lesson 18
   fanout.py             80 lines   identical to lesson 21
-  permissions.py        77 lines   identical to lesson 18
+  permissions.py        94 lines   identical to lesson 18
   retry.py              67 lines   identical to lesson 18
   subagent.py           61 lines   identical to lesson 20
   session.py            56 lines   identical to lesson 18
   usage.py              48 lines   identical to lesson 18
-  prompt.py             35 lines   identical to lesson 10
+  prompt.py             55 lines   identical to lesson 10
   cancel.py             31 lines   identical to lesson 18
+grep_worker.py        51 lines   identical to lesson 09
+
   README.md                        this file
 ```
 
-สิบเจ็ด module ไฟล์ใหม่หนึ่งไฟล์ และไฟล์ใหม่นั้นคือการตรวจสอบ
+สิบแปด module ไฟล์ใหม่หนึ่งไฟล์ และไฟล์ใหม่นั้นคือการตรวจสอบ
 
 ## 1. สิ่งที่คุณมีอยู่ในมือ
 
 พูดกันตรง ๆ เพราะสิ่งยั่วใจตอนจบคอร์สคือการพองตัวเอง และตอนจบที่พองเกินจริงจะสอนให้คุณ
 ประเมินสิ่งต่อไปที่คุณจะสร้างผิดพลาด
 
-คุณมี Python 1988 บรรทัดกระจายอยู่ในสิบเจ็ดไฟล์ ถ้ารวมไฟล์ตรวจสอบของบทนี้เข้าไปด้วยก็เป็น
-2105 บรรทัด นั่นเล็กกว่าไฟล์ซอร์สไฟล์เดียวส่วนใหญ่ใน framework ที่คนติดตั้งกันเพื่อจะได้ไม่ต้อง
+คุณมี Python 2374 บรรทัดกระจายอยู่ในสิบแปดไฟล์ ถ้ารวมไฟล์ตรวจสอบของบทนี้เข้าไปด้วยก็เป็น
+2491 บรรทัด นั่นเล็กกว่าไฟล์ซอร์สไฟล์เดียวส่วนใหญ่ใน framework ที่คนติดตั้งกันเพื่อจะได้ไม่ต้อง
 เขียนสิ่งนี้ และมันเล็กพอที่คุณจะอ่านทั้งหมดได้ในบ่ายเดียว ซึ่งเป็นคุณสมบัติเดียวที่ทำให้มันคุ้ม
 ค่าแก่การสอน
 
 dependency เดียวที่อยู่นอก Python standard library คือ `httpx` ไม่มีอะไรสักอย่างในโฟลเดอร์นี้ที่
-import agent framework, SDK ของ model provider, ไลบรารี embedding, vector database, ชุด
-เครื่องมือ CLI, ไลบรารี retry หรือ tokeniser การตรวจสอบบังคับข้อนี้แทนที่จะเชื่อใจไปเฉย ๆ
+import agent framework SDK ของ model provider ไลบรารี embedding vector database ชุด
+เครื่องมือ CLI ไลบรารี retry หรือ tokeniser การตรวจสอบบังคับข้อนี้แทนที่จะเชื่อใจไปเฉย ๆ
 
 ```python
 ALLOWED_OUTSIDE_THE_STANDARD_LIBRARY = {"httpx"}
@@ -102,8 +104,8 @@ OK the only dependency outside the standard library is {'httpx'}
 ห้าข้ออ้าง และไม่มีข้อไหนเลยที่พูดถึงฟีเจอร์ใหม่ การตรวจสอบของบทนี้ถามคำถามที่ต่างจากทุกบท
 ในคอร์ส ไม่ใช่ว่าของใหม่ทำงานได้ไหม แต่เป็นว่าทั้งหมดนี้พร้อมส่งมอบหรือยัง ทุก module import
 ได้ด้วยตัวเองโดยไม่มีลำดับที่ซ่อนอยู่ agent ฉบับสมบูรณ์ยังทำงานเดิมเป๊ะ ๆ ที่มันทำได้ในบทที่ 11
-ซึ่งเป็นการทดสอบ regression ของการเพิ่มเติมตลอดสิบเอ็ดบท session และตัวนับจากส่วนที่ 3 ยังมี
-ชีวิตอยู่ในการรันเต็มรูปแบบ tool ทุกตัวจากส่วนที่ 2 และ 3 อยู่ครบ และไม่มีอะไรเอื้อมไปหา
+ซึ่งเป็นการทดสอบ regression ของการเพิ่มเติมตลอดสิบเอ็ดบท session และตัวนับจากภาค 3 ยังมี
+ชีวิตอยู่ในการรันเต็มรูปแบบ tool ทุกตัวจากภาค 2 และ 3 อยู่ครบ และไม่มีอะไรเอื้อมไปหา
 dependency ที่ผู้อ่านไม่เคยถูกบอกให้ติดตั้ง
 
 เรียกชื่อกันตรง ๆ ไฟล์เหล่านั้นคือสิ่งเหล่านี้
@@ -131,7 +133,7 @@ dependency ที่ผู้อ่านไม่เคยถูกบอกใ
 สี่ส่วน หนึ่งเส้นของการให้เหตุผล อ่านไปตามลำดับแล้วรูปร่างของคอร์สคือข้ออ้างเดียวที่ถูกขยายออกไป
 เรื่อย ๆ
 
-**ส่วนที่ 1 บทที่ 00 ถึง 06 บอกว่า model คือ HTTP endpoint** บทที่ 01 ส่ง POST request หนึ่งครั้ง
+**ภาค 1 บทที่ 00 ถึง 06 บอกว่า model คือ HTTP endpoint** บทที่ 01 ส่ง POST request หนึ่งครั้ง
 พร้อมรายการข้อความใน body แล้วได้รายการข้อความกลับมาโดยมีเพิ่มมาอีกหนึ่งอันท้ายสุด ไม่มีไลบรารี
 มาขวางอยู่ตรงกลาง จึงไม่มีที่ให้เวทมนตร์ซ่อนตัว บทที่ 02 ค้นพบว่า model ไม่จำอะไรเลย และบทสนทนา
 ทั้งหมดถูกส่งใหม่ในทุก request ซึ่งเป็นข้อเท็จจริงที่ต้นทุนและข้อจำกัดเกือบทั้งหมดในคอร์สนี้สืบทอด
@@ -139,7 +141,7 @@ dependency ที่ผู้อ่านไม่เคยถูกบอกใ
 object ของ argument แบบ JSON ออกมาแล้วรอให้คุณส่งสตริงกลับไป บทที่ 04 ห่อสิ่งนั้นไว้ในลูป `for`
 ลูปนั้นคือ agent ตัวแรก และมันคือลูปเดียวกับที่คุณมีอยู่ทุกวันนี้
 
-**ส่วนที่ 2 บทที่ 07 ถึง 11 ให้มือกับมัน และแนะนำอันตรายจริงอันแรก** การอ่านและแก้ไขไฟล์ การรัน
+**ภาค 2 บทที่ 07 ถึง 11 ให้มือกับมัน และแนะนำอันตรายจริงอันแรก** การอ่านและแก้ไขไฟล์ การรัน
 คำสั่ง shell การทำ glob และ grep ความสามารถมาพร้อมกับปัญหาที่ติดมาด้วย เพราะทันทีที่ agent เขียน
 ลงดิสก์ของคุณและรันคำสั่งใน shell ของคุณได้ ข้อความที่มันอ่านก็กลายเป็นขอบเขตด้านความปลอดภัย
 บทที่ 08 วางคนไว้หน้า shell tool ตั้งแต่วันแรก แทนที่จะทำเป็นการเสริมความแข็งแกร่งทีหลัง บทที่ 09
@@ -147,7 +149,7 @@ object ของ argument แบบ JSON ออกมาแล้วรอให
 คำอธิบายของ tool คือ prompt engineering ที่คนส่วนใหญ่ไม่เคยแก้ไข บทที่ 11 เล็งทั้งหมดนี้ไปที่
 โฟลเดอร์ที่มี bug จริง แล้วมันก็แก้ได้
 
-**ส่วนที่ 3 บทที่ 12 ถึง 18 เปลี่ยน agent ให้เป็นสิ่งที่อยู่รอดได้** ไม่ใช่เก่งขึ้น แต่อยู่รอดได้
+**ภาค 3 บทที่ 12 ถึง 18 เปลี่ยน agent ให้เป็นสิ่งที่อยู่รอดได้** ไม่ใช่เก่งขึ้น แต่อยู่รอดได้
 ประตูตรวจสอบสิทธิ์ที่จำคำตอบของคุณได้ เพื่อให้มันยังถูกอ่านอยู่ตอน prompt ที่สี่สิบ session ในรูปแบบ
 JSONL ธรรมดา ซึ่งกลายเป็นเครื่องมือ debug ที่ดีที่สุดในโปรเจกต์ การจัดการ context รวมถึงกับดักที่
 การตัดทอนระหว่าง tool call กับผลลัพธ์ของมันทำให้ request ถัดไปถูกปฏิเสธทันที การบริหาร token ที่
@@ -155,7 +157,7 @@ JSONL ธรรมดา ซึ่งกลายเป็นเครื่อ�
 การ retry และการขัดจังหวะที่หยุดงานแทนที่จะหยุดหน้าจอ บทที่ 18 รันทั้งหมดพร้อมกันกับไดเรกทอรี
 จริงแล้วไปตรวจดูดิสก์
 
-**ส่วนที่ 4 บทที่ 19 ถึง 23 เชื่อมมันออกไปข้างนอกและให้คุณวัดผลมันได้** บทที่ 19 เขียน MCP client
+**ภาค 4 บทที่ 19 ถึง 23 เชื่อมมันออกไปข้างนอกและให้คุณวัดผลมันได้** บทที่ 19 เขียน MCP client
 ด้วยมือ ทำให้ tool กลายเป็นสิ่งที่คุณเชื่อมต่อไปหาแทนที่จะเป็นสิ่งที่คุณเขียน แล้วตีราคามันอย่างซื่อสัตย์
 เพราะ schema ของ tool ถูกส่งใหม่ในทุก request และ server สี่ตัวกินพื้นที่ context ของคุณหมดได้ก่อน
 งานจะเริ่มด้วยซ้ำ บทที่ 20 เปลี่ยน agent ทั้งตัวให้เป็น tool หนึ่งตัว เพื่อให้การสืบสวนที่ยาวนานเลิก
@@ -175,13 +177,13 @@ harness ของคุณแอบสมมติเงียบ ๆ ว่า�
 
 ### การวัดผล
 
-บทที่ 18 แจกแจงทุกความแตกต่างระหว่างลูปในบทที่ 04 กับลูปตอนจบส่วนที่ 3 สิบสี่ความแตกต่าง สอง
+บทที่ 18 แจกแจงทุกความแตกต่างระหว่างลูปในบทที่ 04 กับลูปตอนจบภาค 3 สิบสี่ความแตกต่าง สอง
 อย่างมาจาก streaming สองอย่างจาก provider abstraction สองอย่างจาก system prompt หนึ่งอย่างจาก
 permissions สามอย่างจาก session หนึ่งอย่างจากการจัดการ context สองอย่างจากการบริหาร token หนึ่ง
 อย่างจากข้อผิดพลาดและการขัดจังหวะ ศูนย์อย่างมาจากการเพิ่ม tool และนั่นรวมถึงบทที่ 16 ซึ่งสร้าง
 vector index ตัว embedder และตัวให้คะแนน แล้วปล่อย `agent.py` ไว้เหมือนเดิมทุกไบต์
 
-ส่วนที่ 4 คือครึ่งหลังของการวัดผลนี้ และมันเป็นการทดสอบที่หินกว่า เพราะส่วนที่ 4 เพิ่มสี่สิ่งที่มีแนวโน้ม
+ภาค 4 คือครึ่งหลังของการวัดผลนี้ และมันเป็นการทดสอบที่หินกว่า เพราะภาค 4 เพิ่มสี่สิ่งที่มีแนวโน้ม
 มากที่สุดที่จะเรียกร้องการเปลี่ยนแปลงที่ใจกลาง tool ที่อยู่ในโปรเซสอื่น agent ที่เริ่ม agent ตัวอื่น
 agent หลายตัวรันพร้อมกัน และ harness สำหรับทดสอบที่รัน agent ซ้ำหลายรอบ
 
@@ -203,9 +205,9 @@ agent.py in 23-ship-it is identical to 18-the-harness
 ```
 
 ห้าบท สี่ฟีเจอร์ใหญ่ และฟังก์ชันที่สำคัญที่สุดในโปรแกรมไม่ถูกเปิดขึ้นมาเลยสักครั้ง ไฟล์เดียวที่ขยับคือ
-`tools.py` จาก 405 บรรทัดเป็น 422 ตอนที่บทที่ 19 สอนให้มันรับ tool ที่ implementation อยู่หลังท่อ
+`tools.py` จาก 604 บรรทัดเป็น 621 ตอนที่บทที่ 19 สอนให้มันรับ tool ที่ implementation อยู่หลังท่อ
 
-ดูว่าฟีเจอร์ของส่วนที่ 4 แต่ละอย่างลงจอดอย่างไร เพราะรูปแบบมันเหมือนกันทั้งสี่ครั้ง
+ดูว่าฟีเจอร์ของภาค 4 แต่ละอย่างลงจอดอย่างไร เพราะรูปแบบมันเหมือนกันทั้งสี่ครั้ง
 
 | ฟีเจอร์ | มันมาถึงอย่างไร | ลูปเห็นอะไร |
 | --- | --- | --- |
@@ -259,7 +261,7 @@ payload หลังจากรายการข้อความมีอย
 ถ้าคำตอบคือไม่ มันคือใบไม้ปลายกิ่ง มันไปอยู่หลังสัญญาที่มีอยู่แล้ว และเครื่องยนต์ต้องไม่รู้จักชื่อของมัน
 ถ้าคุณพบว่าตัวเองกำลังเพิ่มเงื่อนไขที่เอ่ยชื่อสิ่งใหม่นั้นตรง ๆ แสดงว่าคุณจำแนกใบไม้ผิด และบทที่ 12
 คือตัวอย่าง การยืนยัน shell เริ่มต้นอยู่ข้างใน `run_shell` ซึ่งทำให้ tool นั้นทดสอบไม่ได้และใช้ไม่ได้ถ้า
-ไม่มี terminal และการย้ายมันออกไปที่ `permissions.py` คือสิ่งที่ทำให้บทที่ 20 รัน tool ได้โดยไม่มีคน
+ไม่มี terminal และการย้ายมันออกไปที่ `permissions.py` คือสิ่งที่ทำให้บทที่ 22 รันทั้งชุดจาก CI ได้โดยไม่มีคน
 นั่งอยู่หน้าคีย์บอร์ด
 
 ถ้าคำตอบคือใช่ มันคือ subsystem และมันต้องการรอยต่อ ออกแบบรอยต่อให้เป็นแบบทั่วไปแทนที่จะเฉพาะ
@@ -298,23 +300,58 @@ package ที่ติดตั้งได้
 
 ```toml
 [project]
+# The distribution is agentpath-kit and the package it installs is
+# agentpath, which is a mismatch on purpose. PyPI refused the bare name as
+# too close to agent_path, an abandoned PDM template placeholder. Splitting
+# the two is the ordinary Python answer, the same way scikit-learn installs
+# sklearn, and it leaves the import, the command and the environment
+# variables alone.
 name = "agentpath-kit"
-version = "1.0.0"
+version = "1.0.6"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = ["httpx>=0.27"]
+# Labels for the PyPI page and its filters. They change nothing about
+# the install, and leaving them out leaves the page blank where it
+# should say which Python and which license.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Education",
+]
+
+[project.urls]
+Homepage = "https://github.com/Patchanon04/agentpath"
+Changelog = "https://github.com/Patchanon04/agentpath/blob/main/CHANGELOG.md"
 
 [project.scripts]
 agentpath = "agentpath.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
+# numpy is used by the foundations track and by the numpy demos in the
+# training track. The package and the twenty four lessons stay on httpx
+# alone, and a person who wants only those never installs it.
+foundations = ["numpy>=1.26"]
+# Part 4 of the book. The numpy demos in training/ need only the group
+# above. The real fine tuning scripts need these, and a GPU, and are not
+# run in CI.
+training = ["torch>=2.2", "transformers>=4.46", "peft>=0.12", "trl>=0.20", "datasets>=2.20"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# The sdist is what pip falls back to, so it carries only what building
+# the package needs. The course itself lives in the repository, and the
+# README says where.
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/README.md", "/CHANGELOG.md", "/LICENSE"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentpath"]
@@ -330,7 +367,7 @@ select = ["E", "F", "I", "UP", "B"]
 testpaths = ["tests"]
 ```
 
-สามสิบเอ็ดบรรทัด ห้าตาราง และทุกบรรทัดทำงานอยู่ ไล่ดูทีละอัน
+หกสิบหกบรรทัด สิบตาราง และทุกบรรทัดทำงานอยู่ ไล่ดูทีละอัน
 
 ### ตาราง project
 
@@ -344,9 +381,10 @@ testpaths = ["tests"]
 **`name`** คือตัวตน มันคือสิ่งที่คนพิมพ์ต่อจาก `pip install` และมันต้องไม่ซ้ำกับใครทั้ง Python
 Package Index หัวข้อ 5 พูดถึงเรื่องที่ว่ามันยากกว่าที่ฟังดู
 
-**`version`** คือ `1.0.0` และตัวเลขเดินตามคอร์สแทนที่จะเดินตามปฏิทิน เอกสารออกแบบกำหนดให้หนึ่ง
-ส่วนเท่ากับหนึ่ง release ดังนั้นส่วนที่ 1 จึงออกเป็น `0.1.0` ส่วนที่ 2 เป็น `0.2.0` ส่วนที่ 3 เป็น
-`0.3.0` และส่วนที่ 4 ซึ่งเป็นส่วนที่บทนี้ปิดท้าย เป็น `1.0.0` เหตุผลที่ผูก release กับส่วนแทนที่จะผูก
+**`version`** เคยเป็น `1.0.0` ตอนที่ภาค 4 ออก และวันนี้อ่านได้ `1.0.6` หลัง patch หกรอบ ตัวเลขสาม
+ตัวแรกเดินตามคอร์สแทนที่จะเดินตามปฏิทิน เอกสารออกแบบกำหนดให้หนึ่ง
+ส่วนเท่ากับหนึ่ง release ดังนั้นภาค 1 จึงออกเป็น `0.1.0` ภาค 2 เป็น `0.2.0` ภาค 3 เป็น
+`0.3.0` และภาค 4 ซึ่งเป็นส่วนที่บทนี้ปิดท้าย เป็น `1.0.0` เหตุผลที่ผูก release กับส่วนแทนที่จะผูก
 กับบทคือ หนึ่งส่วนเป็นหน่วยที่เล็กที่สุดของคอร์สที่มีประโยชน์ได้ด้วยตัวเอง การออกเวอร์ชันที่คุณค่าของมัน
 เพิ่งโผล่มาอีกสามบทถัดไปคือการส่งของที่สร้างเสร็จแค่ครึ่งเดียว เหตุผลที่ตัวสุดท้ายเป็น `1.0.0` แทนที่จะ
 เป็น `0.4.0` คือคอร์สจบลงที่ยี่สิบสี่บท และเลข `1.0` เป็นคำประกาศว่ารูปร่างของมันลงตัวแล้ว ไม่ใช่คำ
@@ -366,20 +404,36 @@ Package Index หัวข้อ 5 พูดถึงเรื่องที่
 
 ```text
 Metadata-Version: 2.5
-Name: agentpath
-Version: 1.0.0
+Name: agentpath-kit
+Version: 1.0.6
 Summary: Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness.
+Project-URL: Homepage, https://github.com/Patchanon04/agentpath
+Project-URL: Changelog, https://github.com/Patchanon04/agentpath/blob/main/CHANGELOG.md
 License: MIT
 License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Education
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Education
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.27
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == 'dev'
 Requires-Dist: ruff>=0.6; extra == 'dev'
+Provides-Extra: foundations
+Requires-Dist: numpy>=1.26; extra == 'foundations'
+Provides-Extra: training
+Requires-Dist: datasets>=2.20; extra == 'training'
+Requires-Dist: peft>=0.12; extra == 'training'
+Requires-Dist: torch>=2.2; extra == 'training'
+Requires-Dist: transformers>=4.46; extra == 'training'
+Requires-Dist: trl>=0.20; extra == 'training'
 Description-Content-Type: text/markdown
 ```
 
-ทุกบรรทัดในนั้นมาจากแปดบรรทัดของตาราง project
+ทุกบรรทัดในนั้นมาจากตาราง project
 
 **`requires-python`** คือคำสัญญาที่ถูกบังคับใช้โดยตัวติดตั้งแทนที่จะถูกผู้ใช้ค้นพบเอง ถ้าไม่มีมัน คนที่
 ใช้ Python 3.8 จะติดตั้ง package ได้สำเร็จ แล้วเจอ `SyntaxError` หรือ `AttributeError` จากกลางโค้ด
@@ -486,10 +540,11 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 คำสั่งเดียวที่ล้าสมัยไม่ได้
 
 ```bash
-uv pip install -e ".[dev]"
+uv pip install -e ".[dev,foundations]"
 ```
 
 นั่นคือบรรทัดเดียวกับที่ README ให้ผู้ร่วมพัฒนา และเป็นบรรทัดเดียวกับที่ continuous integration รัน
+ส่วน extra ชื่อ `foundations` คือ numpy สำหรับสองภาคเสริมที่ขนาบคอร์ส
 ซึ่งเป็นคุณสมบัติที่สำคัญ ขั้นตอนติดตั้งที่มีแต่มนุษย์ทำตามจะค่อย ๆ ห่างจากขั้นตอนที่เครื่องทำตาม และ
 ความห่างนั้นจะถูกค้นพบในวันที่ pull request ของใครสักคนล้มเหลวด้วยเหตุผลที่เขาทำซ้ำไม่ได้
 
@@ -794,9 +849,9 @@ curl -s -o /dev/null -w "%{http_code}\n" https://pypi.org/pypi/agentpath/json
 
 ซึ่งบอกว่าชื่อโปรเจกต์คือ `agentpath` ตรวจแล้ว PyPI ว่าง และแทบไม่มีคู่แข่งบน GitHub มันใช้เวลา
 ประมาณสามสิบวินาที และมันคุ้มค่าที่จะทำตอนนั้นมากกว่าทำทีหลัง เพราะลองดูสิว่าชื่อนี้เดินทางไปไกลแค่
-ไหนแล้วตอนจบส่วนที่ 3 มันคือ import path ในทุกไฟล์เหล่านี้ มันคือ console script มันคือ environment
+ไหนแล้วตอนจบภาค 3 มันคือ import path ในทุกไฟล์เหล่านี้ มันคือ console script มันคือ environment
 variable สามตัวที่ทุกบทเรียนและ framework อ่าน มันคือชื่อ repository ชื่อไดเรกทอรีในทุกคำสั่งในทุกบท
-และคำแรกของคำโปรย การค้นพบว่าชื่อชนหลังจบส่วนที่ 3 จะไม่ใช่แค่การเปลี่ยนชื่อ มันจะเป็นการเขียนใหม่
+และคำแรกของคำโปรย การค้นพบว่าชื่อชนหลังจบภาค 3 จะไม่ใช่แค่การเปลี่ยนชื่อ มันจะเป็นการเขียนใหม่
 ของงานเขียนยี่สิบสามบท ทุก code block ในนั้น และชื่อ environment variable ทุกตัว และมันจะทำให้ผู้อ่าน
 ทุกคนที่ตั้งค่ามันไว้แล้วพัง
 
@@ -843,8 +898,8 @@ repository และทุก code block ในยี่สิบสามบท
 มากกว่าจะหมายถึงได้รับการยอมรับ
 
 มีสองสิ่งถูกเพิ่มหลังการตรึง และควรบอกว่าทำไมทั้งคู่ไม่ผิดกฎ ภาคพื้นฐานเจ็ดบทสั้นๆ อยู่ก่อน
-บทเรียนที่ 01 ใน `foundations/` สำหรับคนอ่านที่ยังไม่รู้ว่า token คืออะไร ภาคฝึก model ห้าบท
-อยู่หลังบทเรียนที่ 23 ใน `training/` สำหรับคนอ่านที่อยาก fine-tune และให้บริการ model ของ
+บทที่ 01 ใน `foundations/` สำหรับคนอ่านที่ยังไม่รู้ว่า token คืออะไร ภาคฝึก model ห้าบท
+อยู่หลังบทที่ 23 ใน `training/` สำหรับคนอ่านที่อยาก fine-tune และให้บริการ model ของ
 ตัวเอง กฎมีไว้กันไอเดียดีกองทับเข้ามาในคอร์สจนไม่มีวันจบ ทั้งสองภาคไม่ได้เอาอะไรไปจาก
 ยี่สิบสี่บท ไม่ได้สอน harness และถูกตรึงไว้ที่จำนวนของตัวเองด้วยกฎเดียวกัน ข้อโต้แย้งที่กฎ
 ตั้งไว้จึงยังคงอยู่
@@ -863,8 +918,7 @@ repository และทุก code block ในยี่สิบสามบท
 คุณไม่มีในเครื่อง
 
 **มันมีต้นทุนอะไร** ทุกอย่างที่เคยฟรีตอนเป็นโปรเซสลูกจะเลิกฟรี ท่อไปยังโปรเซสที่คุณเปิดเองไม่ต้องมี
-authentication เพราะระบบปฏิบัติการตัดสินไปแล้วว่าคุณรันมันได้ HTTP endpoint ต้องมี authentication
-ซึ่งหมายถึง token ซึ่งหมายถึงการเก็บและการหมุน token โปรเซสลูกตายพร้อมคุณ จึงไม่มีอายุ session ให้
+authentication เพราะระบบปฏิบัติการตัดสินไปแล้วว่าคุณรันมันได้ HTTP endpoint ต้องมี authentication นั่นหมายถึง token และ token ก็หมายถึงการเก็บและการหมุนมัน โปรเซสลูกตายพร้อมคุณ จึงไม่มีอายุ session ให้
 จัดการ server ระยะไกลไม่ตาย ดังนั้น transport จึงต้องจัดการการเชื่อมต่อใหม่และ event ที่ server ส่ง
 แบบสตรีม และเรื่องความไว้วางใจก็เปลี่ยนรูปร่างไปทั้งหมด server ในเครื่องรันในฐานะคุณ กับไฟล์ของคุณ
 server ระยะไกลคือโค้ดของคนอื่นที่ถือ request ของคุณไว้ และทุกคำอธิบาย tool ที่มันส่งมาให้คุณจะเข้าไป
@@ -933,7 +987,7 @@ subsystem ตามการทดสอบที่ให้ไว้ตรง�
 นี่คือข้อที่ช่องว่างระหว่างสิ่งที่ harness สัญญากับสิ่งที่มันบังคับใช้ได้กว้างที่สุด `tools.py` จำกัดพาธของ
 ไฟล์ไว้ใน workspace และ `run_shell` รันโดยตั้ง `cwd` ไว้ที่นั่น นั่นคือประตูจริง และมันเป็นประตูที่อยู่ใน
 โปรเซสของคุณเอง `run_shell` จะรันคำสั่งที่อ่านไฟล์นอก workspace หรือเปิดการเชื่อมต่อเครือข่าย หรือ
-ติดตั้ง package ได้อย่างสบายใจ เพราะ `subprocess.run` สืบทอดทุกอย่างที่โปรเซสของคุณทำได้
+ติดตั้ง package ได้อย่างสบายใจ เพราะ `subprocess.Popen` สืบทอดทุกอย่างที่โปรเซสของคุณทำได้
 
 **มันให้อะไร** ความสามารถที่จะมอบงานให้ agent แล้วเดินไปทำอย่างอื่น ทุกอย่างที่ระบบสิทธิ์มีไว้เพื่อ
 กลายเป็นเรื่องเชิงโครงสร้างแทนที่จะเป็นคำถามที่คุณต้องตอบให้ถูกต้องเรื่อยไปจนถึง prompt ที่สี่สิบ และ
@@ -984,7 +1038,7 @@ abstraction ในบทที่ 06 มีไว้เพื่อการน�
 ก็ตาม คอร์สที่เพิ่มมันเข้ามาจะใช้เวลาสี่บทสอนงานปฏิบัติการเว็บภายใต้ชื่อที่มีรูปร่างเป็น agent
 
 มีกฎข้อหนึ่งวางอยู่ใต้ทั้งสี่ข้อ และมันคือหลักการข้อสามจากเอกสารออกแบบ ทุกฟีเจอร์ต้องบอกได้ว่ามัน
-สอนอะไร และฟีเจอร์ที่บอกไม่ได้จะถูกปฏิเสธ กฎข้อนั้นคือสิ่งที่ทำให้โปรเจกต์นี้อยู่ที่ยี่สิบสี่บทและ 1872
+สอนอะไร และฟีเจอร์ที่บอกไม่ได้จะถูกปฏิเสธ กฎข้อนั้นคือสิ่งที่ทำให้โปรเจกต์นี้อยู่ที่ยี่สิบสี่บทและ 2374
 บรรทัด มันเป็นกฎที่ดีที่ควรขโมยไปใช้
 
 ## 8. จะเรียนรู้ต่อจากนี้อย่างไร

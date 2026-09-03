@@ -626,7 +626,8 @@ today does not change when the tools get real. Only the tools do.
 Open the file and read it top to bottom. It has three parts, and the ordering
 is intentional. The schemas come first because they are the interface, the
 functions come second because they are the implementation, and the dispatcher
-comes last because it joins the two.
+comes last because it joins the two. The docstring at the top is shortened
+here, the file itself carries the full nine lines.
 
 ```python
 """Toy tools with hand written schemas."""

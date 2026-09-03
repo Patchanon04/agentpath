@@ -39,7 +39,7 @@ def run(user_input, max_turns=10):
         )
 ```
 
-That `from llm import complete_stream` line is the whole problem in eight
+That `from llm import complete_stream` line is the whole problem in four
 words. The loop does not ask for a way to talk to a model. It reaches out and
 grabs one specific way, by name, at import time. There is exactly one
 `complete_stream` in the world as far as this file is concerned.
@@ -1389,25 +1389,30 @@ call there was no text before it, so the newline lands on an empty line.
 
 The reason both halves work is that this project's fake server, at
 `src/agentpath/testing/mock_server.py`, speaks both dialects. Its request
-handler branches on the path.
+handler branches on the path, after a hook that lets a test ask for a
+failure and a line that counts tokens for the usage block.
 
 ```python
     def do_POST(self):
         payload = self._read_json()
-        text, tool_calls = decide(payload.get("messages", []))
+        if self._maybe_fail():
+            return
+        messages = payload.get("messages", [])
+        text, tool_calls = decide(messages)
+        usage = usage_for(messages, text, tool_calls)
         streaming = bool(payload.get("stream"))
         path = self.path.rstrip("/")
         if path.endswith("/chat/completions"):
             if streaming:
-                self._send_sse(openai_stream_events(text, tool_calls))
+                self._send_sse(openai_stream_events(text, tool_calls, usage))
             else:
-                self._send_json(openai_body(text, tool_calls))
+                self._send_json(openai_body(text, tool_calls, usage))
             return
         if path.endswith("/messages"):
             if streaming:
-                self._send_sse(anthropic_stream_events(text, tool_calls))
+                self._send_sse(anthropic_stream_events(text, tool_calls, usage))
             else:
-                self._send_json(anthropic_body(text, tool_calls))
+                self._send_json(anthropic_body(text, tool_calls, usage))
             return
 ```
 
@@ -1418,22 +1423,26 @@ symmetry and also the reason the check is a genuine test rather than a
 tautology. If your translation is wrong in either direction, one half fails
 and the other passes, and the difference tells you where to look.
 
-`decide` also handles both shapes of tool result, which is worth seeing,
-because it proves the merge logic from section 6 arrived correctly.
+`decide` reads the last message through a helper that handles both shapes
+of tool result, which is worth seeing, because it proves the merge logic from
+section 6 arrived correctly.
 
 ```python
-    if role == "tool":
-        return f"The tool returned {content}.", []
-
+def _tool_result_of(message):
+    """Return the tool result content of a message, or None."""
+    if message.get("role") == "tool":
+        return message.get("content", "")
+    content = message.get("content", "")
     if isinstance(content, list):
         for block in content:
             if block.get("type") == "tool_result":
-                return f"The tool returned {block.get('content', '')}.", []
+                return block.get("content", "")
+    return None
 ```
 
-The first branch catches the OpenAI shaped result message. The second catches
-the Anthropic shaped user message with a `tool_result` block in it. Both
-produce the same sentence, which is why both halves of the check print
+The helper's first branch catches the OpenAI shaped result message. The
+second catches the Anthropic shaped user message with a `tool_result` block
+in it. `decide` then returns `The tool returned {last_result}.` for either, which is why both halves of the check print
 `The tool returned 5.` and both contain a `5`.
 
 ### Running it against a real service
@@ -1534,7 +1543,7 @@ right place.
 Two other failures are worth naming in advance.
 
 If a real model answers `5` in words without calling the tool, you get the
-`FAIL` line about the round trip, and section 9 of lesson 03 is the right place
+`FAIL` line about the round trip, and section 10 of lesson 03 is the right place
 to go. Small local models often do this and it is a model capability problem,
 not a plumbing problem.
 

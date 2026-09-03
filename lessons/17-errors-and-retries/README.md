@@ -26,7 +26,9 @@ lessons/17-errors-and-retries/
   usage.py       unchanged since lesson 15
   retrieval.py   unchanged since lesson 16
   prompt.py      unchanged since lesson 10
+    grep_worker.py unchanged since lesson 09
   check.py       six claims about failure, proved against the mock server
+
   README.md      this file
 ```
 
@@ -109,8 +111,8 @@ def with_retries(call, attempts=4, sleep=time.sleep):
 
     A 400 means the request itself was wrong, so sending the same wrong
     request again produces the same wrong answer more slowly. Only statuses
-    that mean try again later, and transport failures where nothing arrived
-    at all, are worth a second attempt.
+    that mean try again later, and transport failures, which are safe because
+    asking the model again changes nothing, are worth a second attempt.
     """
     last_error = None
     for attempt in range(1, attempts + 1):
@@ -791,9 +793,9 @@ happen.
 
 And there is a second gap that survives the wiring. The check runs before the
 command starts, so a shell command already running when you press Ctrl+C still
-finishes on its own. The `subprocess.run` timeout from lesson 08 bounds it, and
-the loop refuses to start the next one. Killing a command mid run needs
-`subprocess.Popen` and a loop that polls while watching the token, which is more
+finishes on its own. The `communicate(timeout=SHELL_TIMEOUT)` call in `run_shell` bounds it, and
+the loop refuses to start the next one. Killing a command mid run needs a loop
+that polls the process while watching the token, which is more
 machinery than this chapter wants and is left as an exercise in lesson 18.
 
 ### The interrupt handler, and the second press
@@ -896,18 +898,32 @@ REPEAT_LIMIT = 3
 ```
 
 ```python
-            current = signature(call["name"], call["arguments"])
+            current = loose_signature(call["name"], call["arguments"])
             recent.append(current)
             going_in_circles = recent[-REPEAT_LIMIT:].count(current) >= REPEAT_LIMIT
 ```
 
-`signature` is the function lesson 12 wrote for remembering permission decisions,
-reused here without modification.
+`loose_signature` sits beside the `signature` lesson 12 wrote for remembering
+permission decisions, and it is the forgiving cousin. It strips the whitespace
+off each value before hashing.
 
 ```python
-def signature(name, arguments):
-    """A stable string identifying this exact call, used for remembering."""
-    return f"{name}({json.dumps(arguments, sort_keys=True)})"
+def loose_signature(name, arguments):
+    """The same idea as signature, but forgiving about the edges of a value.
+
+    This one is for spotting a model going in circles, not for deciding
+    what is allowed. A model that retries with a trailing space added has
+    changed nothing and should not get a fresh fingerprint for it. A model
+    that changes a letter's case has, because a case sensitive search for
+    Error and a search for error are different searches. Permission
+    decisions keep using the exact signature, because there the difference
+    between two nearly identical commands can be the whole point.
+    """
+    # Trailing and leading space only. Folding case as well made three
+    # genuinely different searches look identical, and a model widening a
+    # pattern from Error to error was told it was going in circles.
+    flattened = {key: str(value).strip() for key, value in arguments.items()}
+    return f"{name}({json.dumps(flattened, sort_keys=True)})"
 ```
 
 **What it is.** A string that identifies one exact call.
@@ -935,12 +951,13 @@ nine, with real work in between, is not a loop. A model that reads a file,
 changes it, runs the tests, and reads the same file again is behaving correctly,
 and a detector that punished that would be worse than no detector.
 
-The reuse of `signature` for two different jobs is not an accident worth
-glossing over. Both jobs need the same thing, which is a stable identity for a
-specific call, so both use the same function. Had permissions used a different
-scheme, a permission remembered for one spelling of the arguments would not match
-the loop's idea of the same call, and the two features would drift apart in ways
-nobody would notice until they collided.
+The two jobs deliberately use two functions. Permissions keep the exact
+`signature`, because there the difference between two nearly identical
+commands can be the whole point. The loop uses the forgiving one, because a
+model that retries with a trailing space added has changed nothing and should
+not get a fresh fingerprint for it. Case is kept, since a search for `Error`
+and a search for `error` are different searches, and an earlier version that
+folded case told a model widening its pattern that it was going in circles.
 
 ### The warning
 
@@ -1114,7 +1131,7 @@ of thing you get wrong once and remember forever.
 ```
 
 The obvious implementation is a module level dictionary. It works when you run
-one check. Then CI runs nineteen lesson checks in a row against one process, and
+one check. Then CI runs thirty six checks in a row against one process, and
 the counter has already been incremented by an earlier lesson, so the failure
 budget is used up and your two failures become one. The check fails, and it fails
 only in CI, only when the full suite runs, and only in whatever order the
@@ -1295,7 +1312,7 @@ Seven folders, and every one of them contains a full copy of everything that cam
 before. `prompt.py` is identical in every folder from lesson 10 onwards.
 `permissions.py` is identical in every folder from lesson 12 onwards.
 `retrieval.py` appears in this folder byte for byte as it appeared in lesson 16.
-There are twelve Python files here and two of them are new.
+There are thirteen Python files here and two of them are new.
 
 That was the right choice for teaching. Every lesson stands alone, you can run
 any chapter without having read the previous one, and a diff between two folders

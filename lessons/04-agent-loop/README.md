@@ -248,8 +248,7 @@ Here is the same loop as a picture, for one round trip.
   no tool calls, so return the text and stop
 ```
 
-The loop body ran once. For the dice example it would run twice. For a question
-the model can answer from memory it runs zero times, because step one comes
+The loop body ran once. For the dice example it would run twice. For a question the model can answer from memory the tool steps run zero times, because step one comes
 back with words on the first try and we return immediately.
 
 ## 4. Why the assistant message with tool_calls must go back into the history
@@ -495,7 +494,8 @@ are coming.
 
 ## 6. Writing agent.py line by line
 
-Here is the whole file. Read it once end to end, then read the walkthrough.
+Here is the whole file, with its docstring shortened. Read it once end to
+end, then read the walkthrough.
 
 ```python
 """The agent loop."""
@@ -1026,7 +1026,7 @@ The assertion is also different in kind. Lesson 03 checked that the model
 *asked* for the right thing. Lesson 04 checks that the tool's result *reached*
 the final answer, which is the thing that was impossible before. The bracketed
 `[[tool:add:...]]` directive is the same fake server marker explained in lesson
-03 section 8, and it is ignored by a real model.
+03 section 9, and it is ignored by a real model.
 
 ```bash
 python check.py

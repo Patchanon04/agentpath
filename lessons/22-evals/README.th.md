@@ -1,21 +1,23 @@
 [Read in English](README.md)
 
-# บทที่ 22. Evals และการเลือก model
+# บทที่ 22 Evals และการเลือก model
 
 บทนี้สร้างเครื่องมือวัดที่ทุกบทก่อนหน้ายังขาดอยู่
-และมันสร้างขึ้นจาก dataclass ที่มีสามฟิลด์ runner ที่มีสองสาขา
+และมันสร้างขึ้นจาก dataclass ที่มีสี่ฟิลด์ โดยหนึ่งฟิลด์ไม่บังคับ runner ที่มีสองสาขา
 และตัวให้เกรดที่อ่านคำเดียว
 
 นั่นไม่ใช่การถ่อมตัว เหตุผลที่การประเมินถูกข้ามไปคือคนจินตนาการว่ามันเป็นแพลตฟอร์ม
 พวกเขาจึงเลื่อนมันออกไปจนกว่าจะมีเวลาสร้างแพลตฟอร์ม และเวลานั้นก็ไม่เคยมี
-`evals.py` ทั้งไฟล์มีหนึ่งร้อยห้าสิบบรรทัดรวม docstring แล้ว เวลามีมาตลอด
+`evals.py` ทั้งไฟล์มีสองร้อยห้าบรรทัดรวม docstring แล้ว เวลามีมาตลอด
 
 นี่คือสิ่งที่อยู่ในโฟลเดอร์นี้และที่มาของแต่ละไฟล์
 
 ```text
 lessons/22-evals/
-  evals.py            new. Task, Result, run_one, run_evals, judge, report
-  check.py            new. six claims about the measuring instrument
+    evals.py            new. Task, Result, run_one, run_evals, judge, compare, report
+  check.py            new. seven claims about the measuring instrument
+  grep_worker.py      identical to lesson 21
+
   fanout.py           identical to lesson 21
   agent.py            identical to lesson 21
   tools.py            identical to lesson 21
@@ -35,7 +37,7 @@ lessons/22-evals/
   README.md           this file
 ```
 
-ไฟล์ Python สิบหกจากสิบแปดไฟล์เหมือนกันทุกไบต์กับบทที่แล้ว
+ไฟล์ Python สิบเจ็ดจากสิบเก้าไฟล์เหมือนกันทุกไบต์กับบทที่แล้ว
 ซึ่งตรวจสอบได้ ไม่ใช่แค่คำกล่าวอ้าง
 
 ```bash
@@ -143,8 +145,8 @@ system prompt คือข้อความหนึ่งก้อนที่
 agent ไม่ได้ทำงานแบบนั้น
 
 request พก sampling temperature มาด้วย
-บทสนทนาเดียวกันผลิตข้อความต่างกันในการเรียกต่างครั้ง และข้อความที่ต่างกันแปลว่า tool call ที่ต่างกัน
-ซึ่งแปลว่าผลลัพธ์ของ tool ที่ต่างกัน ซึ่งแปลว่าเทิร์นที่สองเริ่มจากจุดที่ต่างกัน
+บทสนทนาเดียวกันผลิตข้อความต่างกันในการเรียกต่างครั้ง และข้อความที่ต่างกันแปลว่า tool call ที่ต่างกัน นั่นแปลว่าผลลัพธ์ของ tool ต่างกัน
+และเทิร์นที่สองก็เริ่มจากจุดที่ต่างกัน
 ความแตกต่างทบกันข้ามเทิร์น และ agent run มีหลายเทิร์น
 บทที่ 21 ทำให้เรื่องนี้แย่ลงโดยตั้งใจ เพราะ agent สี่ตัวที่เขียนลง workspace เดียว
 ผลิตสถานะสุดท้ายที่ขึ้นอยู่กับ thread scheduling และ thread scheduling ก็ไม่ใช่สิ่งที่คุณควบคุม
@@ -499,7 +501,7 @@ def compare(provider, question, first, second, criteria):
 ถามสองครั้ง โดยครั้งที่สองสลับลำดับคำตอบ ความชอบที่รอดจากการสลับคือความชอบเรื่อง
 คำตอบ ความชอบที่พลิกตามลำดับคือความชอบเรื่องตำแหน่ง และคำตัดสินที่ซื่อสัตย์คือเสมอ
 คำตัดสินที่ไม่ใช่ตัวอักษรทั้งสองไม่ใช่เสมอ มันคือผู้ให้เกรดที่คุณอ่านไม่ออก และมันกลับมาเป็น
-ค่าของตัวเอง ซึ่งคือกฎของหัวข้อ 6 ใช้สองรอบ เรื่องนี้มีราคาสองครั้งแทนที่จะเป็นหนึ่ง ซึ่งเป็น
+ค่าของตัวเอง ซึ่งคือกฎของหัวข้อ 6 ใช้สองรอบ เรื่องนี้มีราคาสองครั้งแทนที่จะเป็นหนึ่ง นั่นคือ
 ราคาปกติของการไม่ถูกหลอก และ `check.py` พิสูจน์มันด้วยผู้ให้เกรดปลอมสองตัว ตัวหนึ่งอ่านแต่
 ตำแหน่ง อีกตัวอ่านคำตอบแบบหยาบ ๆ ด้วยความยาว ซึ่งพอให้เห็นความชอบที่รอดจากการสลับ การ
 สลับเปลี่ยนตัวแรกให้เป็นเสมอ และปล่อยตัวที่สองไว้ตามเดิม
@@ -664,13 +666,17 @@ check ของ task ที่สิบเอ็ด raise `KeyError` เพร�
 
         return produce
 
+        # Jobs are labelled by position rather than by name. Two tasks are allowed
+    # to share a name, and keying on the name would quietly merge them, turning
+    # one task's verdict into the other's and changing the exit code with it.
+    labelled = [(str(index), make(task)) for index, task in enumerate(tasks)]
     collected = {}
-    for label, event in run_in_parallel([(task.name, make(task)) for task in tasks], workers):
+    for label, event in run_in_parallel(labelled, workers):
         if isinstance(event, Result):
             collected[label] = event
     return [
-        collected.get(task.name, Result(task.name, False, "the task produced no result"))
-        for task in tasks
+        collected.get(str(index), Result(task.name, False, "the task produced no result"))
+        for index, task in enumerate(tasks)
     ]
 ```
 
@@ -683,9 +689,9 @@ eval task คือ job ที่มี event เดียว ไม่มีก
 ทีนี้มาถึงส่วนที่สำคัญ ซึ่งคือสามบรรทัดสุดท้าย
 
 ผลลัพธ์มาถึงตามลำดับที่เสร็จ task ที่เจ็ดเสร็จก่อนเพราะ prompt ของมันสั้น
-แล้วก็ task ที่สอง แล้วก็ task ที่เก้า `collected` ใช้ชื่อ task เป็น key
+แล้วก็ task ที่สอง แล้วก็ task ที่เก้า `collected` ใช้ตำแหน่งเป็น key
 แล้วคำสั่ง return ก็เดินไปบน `tasks` ซึ่งเป็น list ที่คุณเขียน
-และดึงผลลัพธ์แต่ละอันออกมาด้วยชื่อ
+และดึงผลลัพธ์แต่ละอันออกมาด้วย index
 ลำดับของ output คือลำดับที่คุณเขียน เสมอ ไม่ว่า thread จะทำอะไรไปก็ตาม
 
 **ทำไมต้องเสียเวลาทำ** เพราะจุดประสงค์ทั้งหมดของบทนี้คือการเปรียบเทียบ
@@ -713,13 +719,11 @@ eval task คือ job ที่มี event เดียว ไม่มีก
 
 ### ข้อจำกัดสองข้อที่พูดกันตรง ๆ
 
-**ชื่อ task ต้องไม่ซ้ำกัน** `collected` เป็น dictionary ที่ใช้ชื่อเป็น key
-task สองอันที่ชื่อ `edits-the-file` จะชนกัน ผลลัพธ์ที่สองเขียนทับอันแรก
-และ list ที่คืนออกมาจะแสดง `Result` เดียวกันสองครั้งภายใต้ทั้งสองแถว
-ไม่มีอะไรตรวจจับเรื่องนี้ นี่คือราคาของการใช้ชื่อเป็น key แทนตำแหน่ง
-และการใช้ตำแหน่งเป็น key คือสิ่งที่หัวข้อ 3 ปฏิเสธ
-เพราะมันทำให้ report เทียบกันไม่ได้ข้ามการแก้ไข
-ถ้าคุณอยากได้ความปลอดภัย ก็ assert ว่าชื่อไม่ซ้ำกันก่อนจะรัน
+**ชื่อ task ซ้ำกันได้โดยไม่เสียหาย** `collected` ใช้ตำแหน่งเป็น key task สองอันที่ชื่อ
+`edits-the-file` จึงเก็บคำตัดสินของตัวเองแยกกัน และ report แสดงทั้งสองแถว รุ่นก่อนหน้าใช้ชื่อ
+เป็น key และผลลัพธ์ที่สองเขียนทับอันแรกเงียบ ๆ ถึงอย่างนั้นก็ควรตั้งชื่อให้ต่างกัน เพื่อคนอ่าน
+report และเพราะข้อโต้แย้งของหัวข้อ 3 เรื่องการเทียบ report ข้ามการแก้ไขตั้งอยู่บนการที่ชื่อ
+หนึ่งชื่อหมายถึงสิ่งเดียว
 
 **การรัน eval แบบขนานอยู่ใต้คำเตือนของบทที่ 21 เรื่อง shared state**
 ถ้า task สองอันระบุ `workspace` เดียวกันและทั้งคู่แก้มัน
@@ -814,7 +818,7 @@ results = run_evals(TASKS, with_model(name))
 elapsed = time.monotonic() - started
 ```
 
-ใช้ `time.monotonic` แทน `time.time` ด้วยเหตุผลเดียวกับที่แบบฝึกหัดของบทที่ 21 ให้ไว้
+ใช้ `time.monotonic` แทน `time.time` ด้วยเหตุผลเดียวกับที่หัวข้อ 7 ของบทที่ 21 ให้ไว้
 ว่านาฬิกาแขวนผนังกระโดดถอยหลังได้และให้ระยะเวลาติดลบ
 ถ้าคุณอยากได้ตัวเลขรายต่อ task ก็ใส่สองบรรทัดเดิมคร่อมการเรียก `run_agent` ข้างใน `run_one`
 แล้วเพิ่มฟิลด์ลงใน `Result` เป็นการเปลี่ยนแปลงห้าบรรทัด
@@ -949,7 +953,7 @@ suite ที่คุณรันเองตอนที่นึกได้ �
 และการกระทำที่มีประโยชน์ครั้งสุดท้ายของมันจะเกิดขึ้นหกเดือนก่อนที่ใครจะกลับมามองมันครั้งต่อไป
 exit code คือสิ่งที่ทำให้เครื่องจักรลงมือทำตามการวัดได้โดยไม่ต้องมีคุณ
 ขั้นตอนใน workflow ที่รัน `agentpath eval evals/tasks.py`
-จะทำให้ build ล้มเหลวเมื่อตัวเลขตก และ pull request ที่ทำให้ agent แย่ลงก็จะไม่ถูก merge
+จะทำให้ build ล้มเหลวเมื่อตัวเลขตก และ pull request ที่ทำ agent พังก็จะไม่ถูก merge
 
 ```yaml
       - name: agent evals

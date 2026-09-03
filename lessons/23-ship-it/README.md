@@ -14,36 +14,38 @@ Here is the folder and where every file came from.
 
 ```text
 lessons/23-ship-it/
-  tools.py             422 lines   identical to lesson 19
+  tools.py             621 lines   identical to lesson 19
   providers.py         208 lines   identical to lesson 18
-  mcp.py               188 lines   identical to lesson 19
-  evals.py             149 lines   identical to lesson 22
+  mcp.py               189 lines   identical to lesson 19
+  evals.py             205 lines   identical to lesson 22
   agent.py             140 lines   identical to lesson 18
-  retrieval.py         127 lines   identical to lesson 19
+  retrieval.py         169 lines   identical to lesson 16
   check.py             117 lines   new
   main.py              115 lines   identical to lesson 18
   mock_mcp_server.py   104 lines   identical to lesson 19
   context.py            80 lines   identical to lesson 18
   fanout.py             80 lines   identical to lesson 21
-  permissions.py        77 lines   identical to lesson 18
+  permissions.py        94 lines   identical to lesson 18
   retry.py              67 lines   identical to lesson 18
   subagent.py           61 lines   identical to lesson 20
   session.py            56 lines   identical to lesson 18
   usage.py              48 lines   identical to lesson 18
-  prompt.py             35 lines   identical to lesson 10
+  prompt.py             55 lines   identical to lesson 10
   cancel.py             31 lines   identical to lesson 18
+grep_worker.py        51 lines   identical to lesson 09
+
   README.md                        this file
 ```
 
-Seventeen modules, one new file, and that new file is a check.
+Eighteen modules, one new file, and that new file is a check.
 
 ## 1. What you have
 
 Be plain about it, because the temptation at the end of a course is to inflate,
 and an inflated ending teaches you to misjudge the next thing you build.
 
-You have 1988 lines of Python across seventeen files. Add the chapter's check
-and it is 2105. That is smaller than most single source files in the frameworks
+You have 2374 lines of Python across eighteen files. Add the chapter's check
+and it is 2491. That is smaller than most single source files in the frameworks
 people install to avoid writing this, and it is small enough that you could
 read the whole thing in an afternoon, which is the only property that made it
 worth teaching.
@@ -225,8 +227,8 @@ agent.py in 23-ship-it is identical to 18-the-harness
 ```
 
 Five chapters, four major features, and the most important function in the
-program was not opened once. The only file that moved was `tools.py`, from 405
-lines to 422, when lesson 19 taught it to accept a tool whose implementation
+program was not opened once. The only file that moved was `tools.py`, from 604
+lines to 621, when lesson 19 taught it to accept a tool whose implementation
 lives behind a pipe.
 
 Look at how each part 4 feature landed, because the pattern is the same four
@@ -294,7 +296,7 @@ exists, and the engine must not learn its name. If you find yourself adding a
 branch that mentions the new thing by name, you have misclassified a leaf, and
 lesson 12 is the example. The shell confirmation started inside `run_shell`,
 where it made the tool untestable and unusable without a terminal, and moving it
-out to `permissions.py` is what let lesson 20 run tools with nobody at a
+out to `permissions.py` is what lets lesson 22 run the whole suite from CI with nobody at a
 keyboard.
 
 If the answer is yes, it is a subsystem, and it needs a seam. Design the seam so
@@ -343,23 +345,58 @@ Here is the whole thing.
 
 ```toml
 [project]
+# The distribution is agentpath-kit and the package it installs is
+# agentpath, which is a mismatch on purpose. PyPI refused the bare name as
+# too close to agent_path, an abandoned PDM template placeholder. Splitting
+# the two is the ordinary Python answer, the same way scikit-learn installs
+# sklearn, and it leaves the import, the command and the environment
+# variables alone.
 name = "agentpath-kit"
-version = "1.0.0"
+version = "1.0.6"
 description = "Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = ["httpx>=0.27"]
+# Labels for the PyPI page and its filters. They change nothing about
+# the install, and leaving them out leaves the page blank where it
+# should say which Python and which license.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Education",
+]
+
+[project.urls]
+Homepage = "https://github.com/Patchanon04/agentpath"
+Changelog = "https://github.com/Patchanon04/agentpath/blob/main/CHANGELOG.md"
 
 [project.scripts]
 agentpath = "agentpath.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
+# numpy is used by the foundations track and by the numpy demos in the
+# training track. The package and the twenty four lessons stay on httpx
+# alone, and a person who wants only those never installs it.
+foundations = ["numpy>=1.26"]
+# Part 4 of the book. The numpy demos in training/ need only the group
+# above. The real fine tuning scripts need these, and a GPU, and are not
+# run in CI.
+training = ["torch>=2.2", "transformers>=4.46", "peft>=0.12", "trl>=0.20", "datasets>=2.20"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# The sdist is what pip falls back to, so it carries only what building
+# the package needs. The course itself lives in the repository, and the
+# README says where.
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/README.md", "/CHANGELOG.md", "/LICENSE"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentpath"]
@@ -375,7 +412,7 @@ select = ["E", "F", "I", "UP", "B"]
 testpaths = ["tests"]
 ```
 
-Thirty one lines, five tables, and every line is doing something. Take them one
+Sixty six lines, ten tables, and every line is doing something. Take them one
 at a time.
 
 ### The project table
@@ -393,7 +430,8 @@ arbitrary source.
 it must be unique across the whole of the Python Package Index. Section 5 is
 about that being harder than it sounds.
 
-**`version`** is `1.0.0`, and the number follows the course rather than the
+**`version`** was `1.0.0` when part 4 shipped and reads `1.0.6` today after six
+patch releases, and the first three numbers follow the course rather than the
 calendar. The design document made one part equal one release, so part 1 shipped
 as `0.1.0`, part 2 as `0.2.0`, part 3 as `0.3.0`, and part 4, which is the part
 this chapter closes, as `1.0.0`. The reason for tying releases to parts rather
@@ -422,20 +460,36 @@ from it. Here is the top of the metadata from the wheel this chapter built.
 
 ```text
 Metadata-Version: 2.5
-Name: agentpath
-Version: 1.0.0
+Name: agentpath-kit
+Version: 1.0.6
 Summary: Learn how AI agents actually work by building a real one, from a single LLM call to a full agent harness.
+Project-URL: Homepage, https://github.com/Patchanon04/agentpath
+Project-URL: Changelog, https://github.com/Patchanon04/agentpath/blob/main/CHANGELOG.md
 License: MIT
 License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Education
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Education
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.27
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == 'dev'
 Requires-Dist: ruff>=0.6; extra == 'dev'
+Provides-Extra: foundations
+Requires-Dist: numpy>=1.26; extra == 'foundations'
+Provides-Extra: training
+Requires-Dist: datasets>=2.20; extra == 'training'
+Requires-Dist: peft>=0.12; extra == 'training'
+Requires-Dist: torch>=2.2; extra == 'training'
+Requires-Dist: transformers>=4.46; extra == 'training'
+Requires-Dist: trl>=0.20; extra == 'training'
 Description-Content-Type: text/markdown
 ```
 
-Every one of those lines came from the eight lines of the project table.
+Every one of those lines came from the project table.
 
 **`requires-python`** is a promise that gets enforced by the installer rather
 than discovered by the user. Without it, somebody on Python 3.8 installs the
@@ -557,11 +611,12 @@ They are still declared rather than written in a contributing guide, because a
 declared group can be installed by one command that cannot go stale.
 
 ```bash
-uv pip install -e ".[dev]"
+uv pip install -e ".[dev,foundations]"
 ```
 
 That is the same line the README gives contributors and the same line
-continuous integration runs, which is the property that matters. A setup step
+continuous integration runs, and the `foundations` extra is numpy for the
+two tracks either side of the course, which is the property that matters. A setup step
 that only humans follow drifts away from the one the machine follows, and the
 drift is discovered on the day somebody's pull request fails for a reason they
 cannot reproduce.
@@ -1077,7 +1132,7 @@ it enforces. `tools.py` confines file paths to the workspace and `run_shell` run
 with `cwd` set to it. That is a real gate, and it is a gate inside your own
 process. `run_shell` will happily run a command that reads a file outside the
 workspace, or opens a network connection, or installs a package, because
-`subprocess.run` inherits everything your process can do.
+`subprocess.Popen` inherits everything your process can do.
 
 **What it buys.** The ability to give an agent a task and go and do something
 else. Everything the permission system is for becomes structural rather than a
@@ -1142,8 +1197,7 @@ agent shaped title.
 
 There is a rule sitting under all four, and it is the third principle from the
 design document. Every feature must be able to say what it teaches, and one that
-cannot is refused. That rule is what kept this project to twenty four chapters
-and 1872 lines. It is a good rule to steal.
+cannot is refused. That rule is what kept this project to twenty four chapters and 2374 lines. It is a good rule to steal.
 
 ## 8. How to keep learning from here
 

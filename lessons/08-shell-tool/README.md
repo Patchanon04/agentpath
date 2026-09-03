@@ -303,7 +303,7 @@ which takes a reader thread on each pipe instead of the single `communicate`
 call below, and which is a chapter's worth of code by itself. This lesson takes
 the simple version on purpose.
 
-### **_new_process_group()
+### `**_new_process_group()`
 
 **What it is.** A small dictionary of keyword arguments that differs by
 platform, unpacked into the call with `**`.
@@ -391,7 +391,7 @@ This is the heart of the chapter. If you skim everything else, read this.
 ### A shell tool is a different kind of tool
 
 Lesson 07 built a gate called `resolve_inside`, and it made a promise you can
-check by reading twelve lines of code. Nothing outside the workspace. No
+check by reading twenty lines of code. Nothing outside the workspace. No
 credential files. Every file tool goes through it, so the promise holds for all
 four of them at once.
 

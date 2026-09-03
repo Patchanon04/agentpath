@@ -1,6 +1,6 @@
 [Read in English](README.md)
 
-# บทที่ 17. ข้อผิดพลาดและการ retry
+# บทที่ 17 ข้อผิดพลาดและการ retry
 
 ทุกบทมาจนถึงตรงนี้เขียนราวกับว่าเครือข่ายตอบเสมอ model คืบหน้าเสมอ
 และคนที่นั่งอยู่หน้าคีย์บอร์ดไม่เคยเปลี่ยนใจ ทั้งสามอย่างนั้นไม่จริงสักอย่าง
@@ -25,7 +25,9 @@ lessons/17-errors-and-retries/
   usage.py       unchanged since lesson 15
   retrieval.py   unchanged since lesson 16
   prompt.py      unchanged since lesson 10
+    grep_worker.py unchanged since lesson 09
   check.py       six claims about failure, proved against the mock server
+
   README.md      this file
 ```
 
@@ -100,8 +102,8 @@ def with_retries(call, attempts=4, sleep=time.sleep):
 
     A 400 means the request itself was wrong, so sending the same wrong
     request again produces the same wrong answer more slowly. Only statuses
-    that mean try again later, and transport failures where nothing arrived
-    at all, are worth a second attempt.
+    that mean try again later, and transport failures, which are safe because
+    asking the model again changes nothing, are worth a second attempt.
     """
     last_error = None
     for attempt in range(1, attempts + 1):
@@ -167,8 +169,7 @@ provider ยุ่งอยู่หนึ่งวินาที socket ตา
 
 ควรพูดให้ชัดว่าทำไมครึ่งที่แย่ถึงแย่ เพราะความล้มเหลวที่มันก่อนั้นแนบเนียนมากกว่าจะดังโครม
 
-สมมติคุณ retry ทุกอย่าง คุณส่งบทสนทนาที่มี tool call ซึ่งขาดผลลัพธ์ไป
-ซึ่งคือกับดักเรื่องการจับคู่จากบทที่ 14 provider ตอบ `400` คุณรอหนึ่งวินาทีแล้วส่งบทสนทนาเดิมเป๊ะ
+สมมติคุณ retry ทุกอย่าง คุณส่งบทสนทนาที่มี tool call ที่ขาดผลลัพธ์ไป นั่นคือกับดักเรื่องการจับคู่จากบทที่ 14 provider ตอบ `400` คุณรอหนึ่งวินาทีแล้วส่งบทสนทนาเดิมเป๊ะ
 `400` คุณรอสองวินาที `400` คุณรอสี่วินาที `400`
 
 เจ็ดวินาทีต่อมาคุณ raise error ตัวเดียวกับที่คุณมีตั้งแต่วินาทีที่ศูนย์ ไม่ได้อะไรเพิ่ม
@@ -644,7 +645,7 @@ request ยาว ๆ มันต้องยกเลิกได้ ถ้า
 
 **ชั้นต่าง ๆ ไม่ได้อยู่บน thread เดียวกันทั้งหมด** `Cancellation` ห่อ `threading.Event`
 ซึ่งเป็น flag แบบ one shot ที่ปลอดภัยกับ thread ของไลบรารีมาตรฐาน `set` และ `is_set`
-ปลอดภัยจากทุก thread ดังนั้น signal handler, main loop และ worker
+ปลอดภัยจากทุก thread ดังนั้น signal handler main loop และ worker
 จึงอ่านค่าเดียวกันได้โดยคุณไม่ต้อง lock อะไรเลย boolean ธรรมดาจะเป็น data race
 ที่ทำงานได้ในทุก test และล้มเหลวครั้งเดียวตอนมีโหลด
 
@@ -734,9 +735,9 @@ def run_shell(command):
 อาการเดียวคือฟีเจอร์ที่คุณชี้ให้ดูในซอร์สโค้ดได้นั้นไม่เกิดขึ้นจริง
 
 และยังมีช่องว่างที่สองที่รอดจากการต่อสายมาได้ การตรวจเกิดขึ้นก่อนคำสั่งจะเริ่ม
-คำสั่ง shell ที่กำลังรันอยู่แล้วตอนคุณกด Ctrl+C จึงยังทำงานจนจบด้วยตัวเอง timeout ของ
-`subprocess.run` จากบทที่ 08 จำกัดขอบเขตมันไว้ และ loop ปฏิเสธที่จะเริ่มอันถัดไป
-การฆ่าคำสั่งกลางคันต้องใช้ `subprocess.Popen` กับ loop ที่คอยตรวจ token ไปด้วย
+คำสั่ง shell ที่กำลังรันอยู่แล้วตอนคุณกด Ctrl+C จึงยังทำงานจนจบด้วยตัวเอง การเรียก
+`communicate(timeout=SHELL_TIMEOUT)` ใน `run_shell` จำกัดขอบเขตมันไว้ และ loop ปฏิเสธที่จะเริ่มอันถัดไป
+การฆ่าคำสั่งกลางคันต้องใช้ loop ที่คอยตรวจ process พร้อมกับตรวจ token ไปด้วย
 ซึ่งเป็นกลไกที่มากกว่าที่บทนี้ต้องการ และถูกทิ้งไว้เป็นแบบฝึกหัดในบทที่ 18
 
 ### interrupt handler และการกดครั้งที่สอง
@@ -831,18 +832,31 @@ REPEAT_LIMIT = 3
 ```
 
 ```python
-            current = signature(call["name"], call["arguments"])
+            current = loose_signature(call["name"], call["arguments"])
             recent.append(current)
             going_in_circles = recent[-REPEAT_LIMIT:].count(current) >= REPEAT_LIMIT
 ```
 
-`signature` คือฟังก์ชันที่บทที่ 12 เขียนไว้สำหรับจำการตัดสินใจเรื่องสิทธิ์
-นำมาใช้ซ้ำที่นี่โดยไม่ดัดแปลง
+`loose_signature` อยู่ข้าง `signature` ที่บทที่ 12 เขียนไว้สำหรับจำการตัดสินใจเรื่องสิทธิ์
+และเป็นญาติแบบผ่อนปรน มันตัดช่องว่างหัวท้ายของแต่ละค่าออกก่อน hash
 
 ```python
-def signature(name, arguments):
-    """A stable string identifying this exact call, used for remembering."""
-    return f"{name}({json.dumps(arguments, sort_keys=True)})"
+def loose_signature(name, arguments):
+    """The same idea as signature, but forgiving about the edges of a value.
+
+    This one is for spotting a model going in circles, not for deciding
+    what is allowed. A model that retries with a trailing space added has
+    changed nothing and should not get a fresh fingerprint for it. A model
+    that changes a letter's case has, because a case sensitive search for
+    Error and a search for error are different searches. Permission
+    decisions keep using the exact signature, because there the difference
+    between two nearly identical commands can be the whole point.
+    """
+    # Trailing and leading space only. Folding case as well made three
+    # genuinely different searches look identical, and a model widening a
+    # pattern from Error to error was told it was going in circles.
+    flattened = {key: str(value).strip() for key, value in arguments.items()}
+    return f"{name}({json.dumps(flattened, sort_keys=True)})"
 ```
 
 **มันคืออะไร** สตริงที่ระบุการเรียกหนึ่งครั้งอย่างเจาะจง
@@ -868,11 +882,11 @@ model ที่พ่น key ในลำดับต่างกันในค
 model ที่อ่านไฟล์ แก้มัน รัน test แล้วอ่านไฟล์เดิมอีกครั้ง กำลังทำถูกต้อง
 และตัวตรวจจับที่ลงโทษพฤติกรรมนั้นจะแย่กว่าการไม่มีตัวตรวจจับเลย
 
-การนำ `signature` มาใช้ซ้ำสำหรับสองงานที่ต่างกันไม่ใช่เรื่องบังเอิญที่ควรมองข้าม
-ทั้งสองงานต้องการสิ่งเดียวกัน ซึ่งคืออัตลักษณ์ที่เสถียรของการเรียกเฉพาะครั้งหนึ่ง
-ทั้งสองจึงใช้ฟังก์ชันเดียวกัน ถ้าระบบสิทธิ์ใช้แบบแผนอื่น
-สิทธิ์ที่จำไว้สำหรับการสะกด argument แบบหนึ่งจะไม่ตรงกับความคิดของ loop
-ว่าเป็นการเรียกเดียวกัน และสองฟีเจอร์นั้นจะเคลื่อนห่างกันในแบบที่ไม่มีใครสังเกตจนกว่ามันจะชนกัน
+สองงานนี้จงใจใช้สองฟังก์ชัน ระบบสิทธิ์ใช้ `signature` แบบตรงทุกตัวอักษร เพราะตรงนั้น
+ความต่างเล็กน้อยระหว่างสองคำสั่งอาจคือประเด็นทั้งหมด ส่วน loop ใช้แบบผ่อนปรน เพราะ model
+ที่ลองใหม่โดยเติมช่องว่างท้ายค่าไม่ได้เปลี่ยนอะไร และไม่ควรได้ลายนิ้วมือใหม่ ตัวพิมพ์ยังถูกเก็บไว้
+เพราะการค้น `Error` กับ `error` เป็นคนละการค้น และรุ่นก่อนหน้าที่พับตัวพิมพ์เคยบอก model
+ที่กำลังขยาย pattern ว่ามันวนอยู่กับที่
 
 ### คำเตือน
 
@@ -1035,7 +1049,7 @@ docstring พูดประเด็นนี้ไว้และมันค�
 ```
 
 วิธีทำที่เห็นชัดคือ dictionary ระดับโมดูล มันใช้ได้เมื่อคุณรัน check เดียว แล้ว CI ก็รัน
-check ของบทเรียนสิบเก้าบทติดกันในกระบวนการเดียว
+check สามสิบหกอันติดกันในกระบวนการเดียว
 และตัวนับถูกเพิ่มไปแล้วโดยบทก่อนหน้า งบความล้มเหลวจึงถูกใช้หมด
 และความล้มเหลวสองครั้งของคุณกลายเป็นครั้งเดียว check ล้มเหลว และมันล้มเหลวเฉพาะใน CI
 เฉพาะตอนรันชุดทดสอบทั้งชุด และเฉพาะในลำดับที่การไล่รายชื่อไดเรกทอรีบังเอิญให้มา
@@ -1188,7 +1202,7 @@ check ยืนยันบน exception แทนที่จะยืนยั
 นับดูว่าภาค 3 สร้างอะไรมาบ้าง permission ที่มีสามคำตอบและมีความจำ session ในรูป JSONL
 ที่คุณเปิดอ่านใน text editor ได้ context ที่พอดีกับงบโดยไม่ทำลายคู่ของ tool call
 การนับการใช้งานและ prompt caching retrieval ที่คุณวัดได้แทนที่จะเถียงกันเรื่องมัน
-การ retry, backoff, jitter, cancellation และการตรวจจับการวน
+การ retry backoff jitter cancellation และการตรวจจับการวน
 
 ทีนี้นับโฟลเดอร์ที่ของเหล่านั้นอยู่
 
@@ -1205,7 +1219,7 @@ lessons/17-errors-and-retries/   + retry.py cancel.py
 เจ็ดโฟลเดอร์ และทุกโฟลเดอร์บรรจุสำเนาเต็มของทุกอย่างที่มาก่อนหน้า `prompt.py`
 เหมือนกันในทุกโฟลเดอร์ตั้งแต่บทที่ 10 เป็นต้นมา `permissions.py`
 เหมือนกันในทุกโฟลเดอร์ตั้งแต่บทที่ 12 เป็นต้นมา `retrieval.py`
-ปรากฏในโฟลเดอร์นี้แบบไบต์ต่อไบต์เหมือนที่มันปรากฏในบทที่ 16 มีไฟล์ Python สิบสองไฟล์ที่นี่
+ปรากฏในโฟลเดอร์นี้แบบไบต์ต่อไบต์เหมือนที่มันปรากฏในบทที่ 16 มีไฟล์ Python สิบสามไฟล์ที่นี่
 และสองไฟล์ในนั้นเป็นของใหม่
 
 นั่นคือทางเลือกที่ถูกต้องสำหรับการสอน ทุกบทยืนอยู่ได้ด้วยตัวเอง

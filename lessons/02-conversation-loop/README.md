@@ -139,7 +139,7 @@ This is worth staring at for a second, because it is the part beginners skip. Th
 
 Tool messages carry the result of a tool that the model asked to run. The model says "call `read_file` with this path", your code runs it, and you hand the output back as a message with the role `tool`.
 
-You will not use this until lesson 03, and `chat.py` never creates one. It is worth knowing now for two reasons. First, it tells you where the course is heading. An agent is, mechanically, a chat loop with tool messages in it. Second, `check.py` in this folder already uses one to prove a point, and I want you to be able to read that file. Here is the shape.
+You will not use this until lesson 04, and `chat.py` never creates one. It is worth knowing now for two reasons. First, it tells you where the course is heading. An agent is, mechanically, a chat loop with tool messages in it. Second, `check.py` in this folder already uses one to prove a point, and I want you to be able to read that file. Here is the shape.
 
 ```json
 {"role": "tool", "tool_call_id": "call_mock_1", "content": "42"}
@@ -314,7 +314,9 @@ $ python check.py
 FAIL history was not sent back. Reply was 'I do not have that information.'
 ```
 
-The first means the model returned nothing at all, usually a model name that does not exist at that base URL. The second means the model did not see the faked tool message containing `42`, which points at a proxy or gateway between you and the model that is dropping or rewriting the history.
+The first means the model returned an empty string, which some gateways do
+for a model that is loaded but not answering. A model name that does not exist
+gives you a 400 from `raise_for_status` instead. The second means the model did not see the faked tool message containing `42`, which points at a proxy or gateway between you and the model that is dropping or rewriting the history.
 
 Now the chat itself.
 
@@ -448,7 +450,10 @@ An LLM produces text. That is its entire capability. It cannot read a file, run 
 
 Look back at `chat.py` and you will see there is nowhere for such a capability to live. The loop reads a string, sends a list, prints a string. There is no point in it where your computer does anything on the model's behalf.
 
-That gap is precisely the difference between a chatbot and an agent, and it is what lesson 03 closes. You will describe some functions to the model, let it say "run this one with these arguments", actually run it in your own Python process, and hand the result back as a message with the role `tool`, the one from section 3 that you have already seen faked in `check.py`. The message list you built here is the vehicle for all of it, unchanged.
+That gap is precisely the difference between a chatbot and an agent, and it is what lessons 03 and 04 close. Lesson 03 describes some functions
+to the model, lets it say "run this one with these arguments", and runs it in
+your own Python process. Lesson 04 hands the result back as a message with the
+role `tool`, the one from section 3 that you have already seen faked in `check.py`. The message list you built here is the vehicle for all of it, unchanged.
 
 ---
 

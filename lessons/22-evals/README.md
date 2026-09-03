@@ -3,20 +3,22 @@
 # Lesson 22. Evals and choosing a model
 
 This chapter builds the instrument that every chapter before it has been
-missing, and it builds it out of a dataclass with three fields, a runner with
+missing, and it builds it out of a dataclass with four fields, one optional, a runner with
 two branches, and a grader that reads one word.
 
 That is not modesty. The reason evaluation gets skipped is that people imagine
 it as a platform, so they postpone it until there is time to build a platform,
-and there never is. The whole of `evals.py` is one hundred and fifty lines
+and there never is. The whole of `evals.py` is two hundred and five lines
 including the docstrings. There was always time.
 
 Here is what is in this folder and where each file came from.
 
 ```text
 lessons/22-evals/
-  evals.py            new. Task, Result, run_one, run_evals, judge, report
-  check.py            new. six claims about the measuring instrument
+    evals.py            new. Task, Result, run_one, run_evals, judge, compare, report
+  check.py            new. seven claims about the measuring instrument
+  grep_worker.py      identical to lesson 21
+
   fanout.py           identical to lesson 21
   agent.py            identical to lesson 21
   tools.py            identical to lesson 21
@@ -36,7 +38,7 @@ lessons/22-evals/
   README.md           this file
 ```
 
-Sixteen of the eighteen Python files are byte for byte what they were last
+Seventeen of the nineteen Python files are byte for byte what they were last
 chapter, which is checkable rather than claimed.
 
 ```bash
@@ -705,13 +707,17 @@ seconds is twenty seven minutes of a machine sitting idle on a socket.
 
         return produce
 
+        # Jobs are labelled by position rather than by name. Two tasks are allowed
+    # to share a name, and keying on the name would quietly merge them, turning
+    # one task's verdict into the other's and changing the exit code with it.
+    labelled = [(str(index), make(task)) for index, task in enumerate(tasks)]
     collected = {}
-    for label, event in run_in_parallel([(task.name, make(task)) for task in tasks], workers):
+    for label, event in run_in_parallel(labelled, workers):
         if isinstance(event, Result):
             collected[label] = event
     return [
-        collected.get(task.name, Result(task.name, False, "the task produced no result"))
-        for task in tasks
+        collected.get(str(index), Result(task.name, False, "the task produced no result"))
+        for index, task in enumerate(tasks)
     ]
 ```
 
@@ -725,9 +731,9 @@ callables rather than at agents.
 Now the part that matters, which is the last three lines.
 
 Results arrive in completion order. Task seven finishes first because its
-prompt was short, then task two, then task nine. `collected` is keyed by task
-name, and then the return statement walks `tasks`, the list you wrote, and pulls
-each result out by name. The output order is the order you wrote, always,
+prompt was short, then task two, then task nine. `collected` is keyed by
+position, and then the return statement walks `tasks`, the list you wrote, and
+pulls each result out by index. The output order is the order you wrote, always,
 whatever the threads did.
 
 **Why bother.** Because the entire purpose of this chapter is comparison, and
@@ -755,13 +761,12 @@ the report survives.
 
 ### Two honest limits
 
-**Task names must be unique.** `collected` is a dictionary keyed by name. Two
-tasks called `edits-the-file` collide, the second result overwrites the first,
-and the returned list shows the same `Result` twice under both rows. Nothing
-detects this. It is the price of keying by name rather than by position, and
-keying by position was the thing section 3 rejected because it makes reports
-uncomparable across edits. If you want the safety, assert that the names are
-distinct before you run.
+**Task names may repeat without harm.** `collected` is keyed by position, so
+two tasks called `edits-the-file` each keep their own verdict and the report
+shows both rows. An earlier version keyed by name, and the second result
+quietly overwrote the first. Keep names distinct anyway, for the reader of the
+report, and because section 3's argument about comparing reports across edits
+rests on the name meaning one thing.
 
 **Parallel eval runs are subject to lesson 21's warning about shared state.** If
 two tasks name the same `workspace` and both edit it, running them on separate
@@ -860,8 +865,7 @@ results = run_evals(TASKS, with_model(name))
 elapsed = time.monotonic() - started
 ```
 
-Use `time.monotonic` rather than `time.time` for the same reason lesson 21's
-exercises gave, that a wall clock can jump backwards and produce a negative
+Use `time.monotonic` rather than `time.time` for the same reason lesson 21's section 7 gave, that a wall clock can jump backwards and produce a negative
 duration. If you want per task numbers, put the same two lines around the
 `run_agent` call inside `run_one` and add the field to `Result`. It is a five
 line change and it is the first thing most people add.

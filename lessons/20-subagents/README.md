@@ -12,7 +12,9 @@ lessons/20-subagents/
   subagent.py         new. sixty one lines, and sixteen of them are the docstring
   check.py            new. six claims, and the last one is a warning
   agent.py            identical to lesson 19
-  tools.py            identical to lesson 19
+    tools.py            identical to lesson 19
+  grep_worker.py      identical to lesson 19
+
   prompt.py           identical to lesson 19
   permissions.py      identical to lesson 19
   session.py          identical to lesson 19
@@ -33,7 +35,7 @@ be opened on its own and run without first copying files in from a neighbour.
 That is why `mcp.py`, `mock_mcp_server.py`, and `main.py` are sitting here even
 though this chapter never mentions them.
 
-Fourteen of the seventeen Python files are byte for byte what they were last
+Fifteen of the seventeen Python files are byte for byte what they were last
 chapter. That is checkable rather than assertable.
 
 ```bash

@@ -21,8 +21,10 @@ Here is what is in this folder and where each file came from.
 
 ```text
 lessons/21-multi-agent/
-  fanout.py           the subject of this chapter. run_in_parallel, the DONE
-                      sentinel, and FanoutError
+    fanout.py           new. the subject of this chapter. run_in_parallel, the
+                      DONE sentinel, and FanoutError
+  grep_worker.py      identical to lesson 20
+
   check.py            new. four claims about running things at once
   agent.py            identical to lesson 20
   subagent.py         identical to lesson 20
@@ -43,11 +45,9 @@ lessons/21-multi-agent/
 ```
 
 Every folder from lesson 19 onward carries the whole course, so a chapter can be
-opened on its own and run without first copying files in from a neighbour. Only
-`check.py` differs from lesson 20, which means sixteen of the seventeen Python
-files are byte for byte what they were last chapter. `fanout.py` is one of the
-sixteen, because lesson 20's folder already shipped a copy of it that lesson 20
-never used. That is checkable rather than claimed.
+opened on its own and run without first copying files in from a neighbour. Two files are new, `fanout.py` and `check.py`, which means sixteen of the
+eighteen Python files are byte for byte what they were last chapter. That is
+checkable rather than claimed.
 
 ```bash
 cd lessons
@@ -155,7 +155,7 @@ is buying an expensive solution to a problem you do not have.
 it would cost the reader rather than what it would cost the machine.
 
 Every module in this project is synchronous. `providers.py` calls `httpx` and
-blocks. `tools.py` calls `subprocess.run` and blocks. `agent.py` is an ordinary
+blocks. `tools.py` calls `subprocess.Popen` and waits in `communicate`. `agent.py` is an ordinary
 `for` loop calling ordinary functions. Introducing `asyncio` here does not add a
 keyword. It changes the colour of every function it touches, and the change
 spreads outward. `run_in_parallel` becomes `async def`. To await inside it, the
@@ -247,7 +247,7 @@ def run_in_parallel(jobs, workers=4):
         thread.join()
 ```
 
-Thirty lines. Take them in the order they matter.
+Forty lines. Take them in the order they matter.
 
 ### What a job is
 

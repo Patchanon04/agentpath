@@ -26,7 +26,7 @@ lessons/13-sessions/
   README.md      this file
 ```
 
-Four of the seven Python files are byte for byte what they were in an earlier
+Five of the eight Python files are byte for byte what they were in an earlier
 lesson. `session.py` is new and `agent.py` gains two parameters. Nothing else
 moves.
 

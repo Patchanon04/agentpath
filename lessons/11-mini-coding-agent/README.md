@@ -26,13 +26,15 @@ lessons/11-mini-coding-agent/
   agent.py       unchanged from lesson 10
   providers.py   unchanged from lesson 06
   prompt.py      unchanged from lesson 10
-  tools.py       unchanged from lesson 09
+    tools.py       unchanged from lesson 09
+  grep_worker.py unchanged from lesson 09
+
   check.py       the milestone check. a real bug, a real fix, read back off disk
   README.md      this file
 ```
 
-Five of the six Python files are byte for byte what they were in an earlier
-lesson. The only new file is `main.py`, and `main.py` contains no agent logic at
+Four of the seven Python files are byte for byte what they were in an earlier
+lesson. The new files are `main.py` and `check.py`, and `main.py` contains no agent logic at
 all. It reads arguments, sets one environment variable, builds a provider, and
 calls `run`.
 
@@ -171,8 +173,9 @@ def run(provider, user_input, system=None, max_turns=10):
             messages, schemas, on_text=lambda piece: print(piece, end="", flush=True)
         )
 
-        if not calls:
+                if not calls:
             print()
+            messages.append({"role": "assistant", "content": text})
             return text, messages
 
         messages.append({...assistant message with tool_calls...})
@@ -206,15 +209,16 @@ if the list is complete.
 | `call["error"]` branch | 05, where broken argument JSON became a message |
 | `system=None` parameter and the message it prepends | 10 |
 | returns `(text, messages)` instead of `text` | 10, so a caller can inspect the conversation |
+| final answer appended to the conversation before returning | 10, so the list the caller gets is complete |
 
-Six differences. Now sort them by cause. Two came from streaming, two from the
-provider abstraction, two from the system prompt.
+Seven differences. Now sort them by cause. Two came from streaming, two from
+the provider abstraction, three from the system prompt.
 
 Zero came from a tool.
 
 ### The claim, and the evidence for it
 
-Between lesson 06 and lesson 10 you added five tools. `read_file`,
+Between lesson 06 and lesson 10 you added seven tools. `read_file`,
 `write_file`, `edit_file` and `list_files` in lesson 07. `run_shell` in lesson
 08. `glob_files` and `grep_files` in lesson 09. Along the way you added path
 confinement, a secret file refusal, output truncation, an ambiguous edit
@@ -247,7 +251,7 @@ function. Neither side knows anything else about the other. The loop has never
 heard of files, of subprocesses, of globs or of the confirmation prompt. The
 shell tool has never heard of `max_turns` or of the assistant message format.
 
-That is why adding `run_shell` was forty lines at the bottom of `tools.py` and
+That is why adding `run_shell` was two hundred lines at the bottom of `tools.py` and
 nothing anywhere else.
 
 Now picture the design where the seam is in the wrong place. It is very easy to
@@ -269,7 +273,7 @@ Both designs run the same agent on day one. They diverge on day thirty.
 
 So the test for whether a seam is in the right place is not how elegant it looks
 when you draw it. It is what happened when you were not thinking about it. Over
-five tools and eight kinds of safety check, spread across three chapters written
+seven tools and eight kinds of safety check, spread across three chapters written
 weeks apart, `agent.py` never needed an edit. That is not a claim about the
 design, it is a measurement of it.
 
@@ -555,7 +559,7 @@ average 100, not 75. The bug is `len(numbers) + 1`, an off by one that produces
 a plausible number rather than a crash, which is exactly the kind of bug that
 survives a code review.
 
-Now set your environment and run the agent. These are the same four variables
+Now set your environment and run the agent. These are the same three variables
 from lesson 00.
 
 ```bash
@@ -674,7 +678,7 @@ One character removed and a pair of parentheses gone. The docstring is intact,
 
 Every `check.py` so far has tested a piece. Lesson 07's proved four file tools
 in isolation. Lesson 08's proved that a refused command really does not run.
-Lesson 09's proved that a glob matches and that `.venv` is skipped. All of them
+Lesson 09's proved that a glob matches and that `.venv` is skipped. Those three
 call `tools.run` directly and none of them involve a model.
 
 This one is different, and the difference is the point of a milestone.
@@ -923,7 +927,7 @@ There is nowhere for a decision to live.
 **Lesson 12, the permission system.** Three outcomes instead of two, which are
 ask, allow and deny. Rules that match patterns rather than exact strings, so that
 `pytest tests/test_a.py` and `pytest tests/test_b.py` can be one decision.
-Decisions that persist for a session or for a workspace. And the gate moved so it
+Decisions that last for the rest of the session. And the gate moved so it
 guards every tool rather than only the shell, because `write_file` on a file
 outside your project is not obviously safer than a command. Lesson 12 also covers
 prompt injection properly, which is the first exercise in section 7 and the
@@ -953,7 +957,7 @@ Nothing anywhere counts how large `messages` has become.
 
 Watch the arithmetic. `read_file` truncates at 4000 characters, so this lesson's
 own `tools.py` comes back as 4036 characters with a note saying
-`[truncated, 10174 more characters]`. Roughly a thousand tokens. Read eight files
+`[truncated, 18701 more characters]`. Roughly a thousand tokens. Read eight files
 on a real task and you have ten thousand tokens of file contents in the
 conversation. That is survivable. But lesson 02 established that the entire
 conversation is resent on every request, so those tokens are sent again on turn
@@ -1109,7 +1113,7 @@ python
 >>> len(result)
 4036
 >>> result[-40:]
-'\n\n[truncated, 10174 more characters]'
+'\n\n[truncated, 18701 more characters]'
 ```
 
 So one read costs about 4036 characters, call it a thousand tokens. Now do the

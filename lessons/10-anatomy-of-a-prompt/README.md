@@ -4,7 +4,7 @@
 
 This is the last lesson before the milestone, and it is the one with the worst
 ratio of effort to effect in the whole course. You are going to write a file
-with two names in it and add three lines to the agent loop. Perhaps twenty
+with three names in it and add three lines to the agent loop. Perhaps twenty
 lines of Python in total. The agent will not gain a single new capability.
 
 And it will get dramatically better at using the seven capabilities it already
@@ -238,8 +238,7 @@ before the model does anything.
 ## 3. What belongs in the system prompt
 
 Open `prompt.py`. It is short, and it does two jobs that are easy to confuse,
-plus a third one this section comes back to. The first two are two different jobs that
-are easy to confuse.
+plus a third one this section comes back to.
 
 **Job one is behaviour.** How to work. What to prefer. What to do when things
 go wrong. This part is written by you once and never changes between runs.
@@ -405,7 +404,8 @@ fact gets read as a suggestion.
 `extra` is the extension point. It appends caller supplied text to the end,
 which is where per project instructions belong. If you have used a coding agent
 that reads a file of project specific rules from the repository root, this
-parameter is where such a file would be dropped in. Lesson 11 uses it.
+parameter is where such a file would be dropped in. Nothing in part two passes
+it yet.
 
 Here is the whole thing assembled, printed from a real run on the machine this
 chapter was written on.
@@ -445,7 +445,20 @@ shape matters.
 
 ```python
 def examples_block(pairs):
-    """Turn a few question and answer pairs into text the prompt can carry."""
+        """Turn a few question and answer pairs into text the prompt can carry.
+
+    Showing the model two or three worked examples is called few shot
+    prompting, and it is the most reliable way to get a particular shape
+    of answer, because a model that predicts the next token will continue
+    a pattern it can see far more faithfully than it will follow a
+    description of one. The pairs go in as they are, question then
+    answer, in the order given. Order is part of the pattern.
+
+    Examples are paid for on every request like every other line of the
+    prompt, so two good ones beat six, and none at all beats two that do
+    not match the task.
+    """
+
     shown = []
     for question, answer in pairs:
         shown.append(f"Request\n{question}\n\nGood answer\n{answer}")
@@ -1084,7 +1097,7 @@ Now the code, which after all that argument is short.
 
 ### prompt.py
 
-The whole file, top to bottom.
+The file, with the docstring and `examples_block` from section 3 left out.
 
 ```python
 import platform
@@ -1165,12 +1178,13 @@ prompt does not produce an empty system message. An empty system message is not
 an error, but it is a message that costs a little and says nothing, and models
 occasionally treat an unexpected empty message as meaningful.
 
-There is a second, smaller change further down. The function now returns both
-the text and the message list.
+There is a second, smaller change further down. The function now appends the final answer to the conversation before
+returning, and returns both the text and the message list.
 
 ```python
-        if not calls:
+                if not calls:
             print()
+            messages.append({"role": "assistant", "content": text})
             return text, messages
 ```
 
@@ -1235,8 +1249,9 @@ about where a system prompt lives, and it should not have to.
 
 ## 9. Running check.py
 
-`check.py` asserts four things. The first three are each a different kind of
-claim, and the fourth pins the shape of the examples block from section 3.
+`check.py` asserts four things. The first two and the fourth are each a
+different kind of claim, and the third pins the shape of the examples block
+from section 3.
 
 ```python
 def main():
@@ -1247,9 +1262,21 @@ def main():
 
     if "Platform" not in system:
         fail("the system prompt does not tell the model which platform it is on")
-    print("OK the system prompt states the platform")
+        print("OK the system prompt states the platform")
+
+    pairs = [("rename x to total", "Edited math.py"), ("add a test", "Edited test_math.py")]
+    shown = examples_block(pairs)
+    with_examples = build_system_prompt(workspace, extra=shown)
+    if not with_examples.endswith(shown):
+        fail("the examples did not reach the end of the system prompt")
+    if shown.index("rename x") > shown.index("add a test"):
+        fail("the examples changed order, and the order is part of the pattern")
+    if shown.index("rename x") > shown.index("Edited math.py"):
+        fail("an answer came before its question")
+    print("OK examples ride in the prompt in the order given, each answer after its question")
 
     provider = OpenAICompatProvider(...)
+
     _, messages = run(provider, "Say hello.", system=system)
     if messages[0]["role"] != "system":
         fail(f"the first message was {messages[0]['role']!r} rather than the system prompt")
@@ -1261,7 +1288,7 @@ and they need no model at all. The workspace check compares against the resolved
 temporary directory the check made for itself, so it is verifying that the real
 path arrives rather than that some path shaped text is present.
 
-The third one is different, and it is the only reason this check needs a
+The fourth one is different, and it is the only reason this check needs a
 provider. It calls `run` and then looks at the conversation that came back. That
 is the only way to prove the ordering claim from section 8, because the ordering
 is a property of the list the loop built, not of the prompt string.
@@ -1324,11 +1351,11 @@ The `Hello from the mock server.` in the middle is not part of the check. It is
 the model's streamed reply printing as it arrives, from the `on_text` callback
 you wrote in lesson 05, and it appears fourth because the first three
 assertions run before the request is made. Against a real model that line will say
-something else, and the check will still pass, because none of the three
+something else, and the check will still pass, because none of the four
 assertions is about what the model said.
 
 If the first line fails, `build_system_prompt` is not resolving `root`, or it
-is dropping the facts block. If the third fails and reports that the first
+is dropping the facts block. If the fourth fails and reports that the first
 message was `'user'`, the `if system` block in `agent.py` is missing or is
 running after the user message is appended.
 

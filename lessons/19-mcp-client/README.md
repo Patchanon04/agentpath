@@ -197,7 +197,7 @@ lesson 03.
 They are the same three fields wearing different clothes. Name, description,
 JSON Schema. That is not a coincidence and it is the reason this whole chapter
 is short. The conversion from what a server announces into what a model reads is
-a rename of two keys, which is why `mcp_schemas` is thirty lines and most of
+a rename of two keys, which is why `mcp_schemas` is under forty lines and most of
 those are the docstring.
 
 ### Why this matters, and it is not because it is a standard
@@ -256,10 +256,10 @@ grep -c "" mcp.py
 ```
 
 ```text
-188
+189
 ```
 
-One hundred and eighty eight lines including a seventeen line module docstring and
+One hundred and eighty nine lines including an eighteen line module docstring and
 comments that explain the reasoning. The real code is a class with six methods
 and one function. You can read the whole protocol in ten minutes, and afterwards
 you will know exactly what happens when a server hangs, exactly what `isError`

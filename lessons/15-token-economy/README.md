@@ -383,7 +383,7 @@ for name, text in samples.items():
 | --- | --- | --- | --- | --- | --- |
 | system prompt | 612 | 153 | 149 | 133 | 134 |
 | tool schemas | 2595 | 648 | 669 | 649 | 649 |
-| `read_file` of `tools.py` | 4035 | 1008 | 1155 | 929 | 931 |
+| `read_file` of `tools.py` | 4036 | 1008 | 1155 | 929 | 931 |
 | a `grep_files` result | 1998 | 499 | 742 | 541 | 541 |
 
 Read the last row carefully. The same 1998 bytes are 742 tokens to one counter
@@ -721,9 +721,9 @@ print(len(whole), len(found))
 ```
 
 Four thousand and thirty five characters against fifty. About a thousand tokens
-against a dozen. And `tools.py` is 13,372 characters, so the four thousand is
-already what is left after `truncate` cut it, which means the agent got a third of
-the file and a note saying `[truncated, 9372 more characters]`.
+against a dozen. And `tools.py` is 21,899 characters, so the four thousand is
+already what is left after `truncate` cut it, which means the agent got under a fifth of
+the file and a note saying `[truncated, 17899 more characters]`.
 
 Now remember section 2. That thousand tokens does not cost you once. It sits in
 the conversation and is resent on every subsequent request for the rest of the
@@ -873,13 +873,15 @@ model a way to search the catalogue, which keeps the sent set fixed.
 This one is in `agent.py` in this folder and it is new since lesson 14.
 
 ```python
-            current = signature(call["name"], call["arguments"])
+            current = loose_signature(call["name"], call["arguments"])
             recent.append(current)
             going_in_circles = recent[-REPEAT_LIMIT:].count(current) >= REPEAT_LIMIT
 ```
 
-`signature` comes from `permissions.py`, where lesson 12 already needed a stable
-string for one exact call, and `REPEAT_LIMIT` is 3. If the last three calls are
+`loose_signature` comes from `permissions.py`. It is a forgiving cousin of the
+`signature` lesson 12 uses for permissions, ignoring leading and trailing
+whitespace so a model that retries with a stray space is still caught, while a
+change of case still counts as a different search, and `REPEAT_LIMIT` is 3. If the last three calls are
 the same tool with the same arguments, the model is told so, in words.
 
 ```python
