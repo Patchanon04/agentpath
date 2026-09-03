@@ -15,6 +15,7 @@ workspace = Path(tempfile.mkdtemp(prefix="agentpath-lesson16-"))
 os.environ["AGENTPATH_WORKSPACE"] = str(workspace)
 
 import tools  # noqa: E402
+from retrieval import recall_at_k, rerank  # noqa: E402
 
 
 def fail(message):
@@ -64,6 +65,19 @@ def main():
     if "billing.py" not in exact:
         fail("grep did not find an exact name, which is what it is for")
     print("OK when you know the exact name, grep answers directly and costs nothing to build")
+
+    scattered = {"text": "Working days matter. Two of them. Orders wait.", "source": "a"}
+    phrased = {"text": "Orders ship within two working days.", "source": "b"}
+    if rerank("two working days", [scattered, phrased])[0]["source"] != "b":
+        fail("reranking should prefer the passage that says the phrase over one with the words")
+    print("OK reranking breaks the tie between the words and the phrase, on a shortlist only")
+
+    ranked = [line for line in answer.splitlines() if ".md:" in line]
+    if recall_at_k(ranked, {"refunds.md:3"}, 1) != 1.0:
+        fail(f"the right passage should be first for the refund question, ranked {ranked}")
+    if recall_at_k(["team.md:3", "shipping.md:3"], {"refunds.md:3"}, 2) != 0.0:
+        fail("a list without the right passage should score zero")
+    print("OK recall at k says whether the right passage was on the page, and here it is first")
 
 
 if __name__ == "__main__":

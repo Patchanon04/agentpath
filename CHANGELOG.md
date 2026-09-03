@@ -25,6 +25,21 @@ byte what it was, and the drift tests say so. Chapter 16 also catches up
 with the package as shipped, showing the pyproject.toml that is on PyPI
 and the sdist pattern that has to start with a slash.
 
+The course was read against eight books on language models and AI
+engineering, and the gaps were filled. In the foundations track, top p
+and beam search with the run that shows why chat models sample instead
+of searching, perplexity as the loss a person can read, embeddings that
+are learned rather than counted, position vectors and the experiment
+that shows attention is order blind without them, the rest of the
+transformer block, the KV cache with the check that it gives exactly
+what masked attention gives, the four tokenizer families, hallucination
+as the same mechanism that makes a model answer at all, scaling laws,
+when to fine tune, and the encoder decoder split. In the lessons, few
+shot examples with a helper in lesson 10, reranking and recall at k in
+lesson 16, and a pairwise judge that asks twice with the order swapped
+in lesson 22, each pinned by check.py. In the book, output guardrails
+in chapter 5 and the forty year old agent frame in chapter 8.
+
 None of this is in the package. The wheel on PyPI is unchanged.
 
 ## 1.0.6

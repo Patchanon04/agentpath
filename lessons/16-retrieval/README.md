@@ -321,6 +321,7 @@ def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN
     best = [entry for entry in ranked if score(question_words, entry, rarity) > 0]
     if not best:
         return f"nothing in the documents mentions any of the words in {question!r}"
+    best = rerank(question, best[:RERANK_TOP]) + best[RERANK_TOP:]
     _, _, truncate = _from_tools()
     parts = [f"{entry['source']}\n{entry['text']}" for entry in best[: int(limit)]]
     return truncate("\n\n".join(parts))
@@ -328,7 +329,9 @@ def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN
 
 Read the middle three statements and you have read the technique. Count how many
 passages each word appears in. Turn that count into a weight. Sort the passages
-by the sum of the weights of the words they share with the question.
+by the sum of the weights of the words they share with the question. The
+`rerank` line after the filter is a second look at the top twenty, and section
+7 explains it. Ignore it until then.
 
 The scoring function itself is one line.
 
@@ -858,6 +861,57 @@ will most likely also want the word scoring in this folder. Building this first
 is not a detour on the way to the real thing. It is the half of the real thing
 that most people skip.
 
+### Reranking, in the cheapest form that still counts
+
+Serious systems do one more thing after the merge, and it has a name worth
+knowing because the shape of it turns up everywhere. The first pass scores
+every passage in the corpus, so it has to be cheap, and cheap scorers ignore
+things. This one scores single words and never sees their order. A passage that
+mentions every word of the question in unrelated sentences ties with one that
+says the phrase. Reranking is a second, slower look at only the top few
+candidates, where a costlier scorer is affordable because there are few of
+them. In production the costlier scorer is often a small model that reads the
+question and the passage together. Here it is word pairs, which is enough to
+see the shape.
+
+```python
+def rerank(question, entries):
+    """A second, slower look at the best few, using something the first pass ignored."""
+    wanted = phrases(question)
+    return sorted(entries, key=lambda entry: -len(wanted & phrases(entry["text"])))
+```
+
+`search_notes` applies it to the top twenty before slicing to the limit, and
+`RERANK_TOP` is the knob. Two things to notice. It can only reorder what the
+first pass found, so a passage the rarity scoring missed stays missed, and that
+is true of every reranker. And it is a stable sort, so where the pairs tie the
+rarity order is kept. The rest of the lesson does not change, because the
+tool's contract did not.
+
+### Measuring it, which is the part people skip
+
+Everything above is an opinion until you can put a number on it, and the
+number retrieval is measured by is recall at k. Write down a handful of
+questions and, for each, which passages should have come back. Run the search.
+Recall at k is the share of the right passages that appear in the top k.
+
+```python
+def recall_at_k(ranked_sources, relevant, k):
+    """What share of the passages that should have been found are in the top k."""
+    found = set(ranked_sources[:k]) & set(relevant)
+    return len(found) / len(relevant) if relevant else 0.0
+```
+
+It is deliberately narrow. It says nothing about whether the model then
+answered well, which is lesson 22's problem. It says whether the right passage
+was on the page the model was shown, which is the only part retrieval is
+responsible for, and separating the two is how you find out which half of a
+bad answer to fix. The cost is the test set. Somebody has to write the
+questions and mark the right passages, keep them current as the documents
+change, and resist the temptation to write questions in the documents' own
+words, which is the case where retrieval always looks good. Exercise four of
+lesson 22 is the same discipline aimed at the whole agent.
+
 ## 8. Retrieval is a tool, not a system
 
 Here is the whole of the wiring that adds retrieval to the harness, at the
@@ -972,9 +1026,10 @@ fit.
 
 ## 9. Running check.py
 
-`check.py` builds a small workspace in a temporary directory and asserts five
+`check.py` builds a small workspace in a temporary directory and asserts seven
 things. Four of them prove the tool works. One proves that it does not, which
-takes some explaining.
+takes some explaining. The last two pin the reranker and the measure from
+section 7.
 
 The fixture is four files.
 
@@ -1025,9 +1080,11 @@ OK every passage says which file and line it came from
 OK a question with no matching words says so instead of guessing
 OK word matching does not understand word endings, which is the honest limit
 OK when you know the exact name, grep answers directly and costs nothing to build
+OK reranking breaks the tie between the words and the phrase, on a shortlist only
+OK recall at k says whether the right passage was on the page, and here it is first
 ```
 
-Five lines, no network, no API key, no model. Retrieval is an ordinary Python
+Seven lines, no network, no API key, no model. Retrieval is an ordinary Python
 function and the fact that a model will eventually call it has nothing to do with
 whether it works.
 
@@ -1105,11 +1162,20 @@ scoring, no rarity weights and no chunking decision. That is question three of
 section 2 answering itself in the same check file as question four, so the
 comparison is not rhetorical.
 
+**The sixth and seventh** are section 7's last two subsections, executed. Two
+passages that contain the same words, one scattered across three sentences
+and one saying the phrase, and `rerank` puts the phrase first. Then the refund
+answer from the first assertion, scored with `recall_at_k` against the one
+passage that should be there, gives one at k equals one, and a ranked list
+without it gives zero.
+
 If the first line fails, look at whether the workspace environment variable was
 set before `tools` was imported, which is lesson 09's ordering trap and it is
 still here. If the second fails, the source format string lost its line number.
 If the fourth fails and the tool did return a passage, something added stemming
-or fuzzy matching, and section 7 needs rewriting before that change lands.
+or fuzzy matching, and section 7 needs rewriting before that change lands. If
+the sixth fails, `phrases` is probably splitting words differently from `words`,
+and the two must agree.
 
 ## 10. What you cannot do yet
 

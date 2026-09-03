@@ -20,7 +20,7 @@ os.environ["AGENTPATH_WORKSPACE"] = str(workspace)
 
 import tools  # noqa: E402
 from agent import run  # noqa: E402
-from evals import Task, judge, report, run_evals  # noqa: E402
+from evals import Task, compare, judge, report, run_evals  # noqa: E402
 from permissions import Permissions  # noqa: E402
 from providers import OpenAICompatProvider  # noqa: E402
 from usage import Usage  # noqa: E402
@@ -93,6 +93,27 @@ def main():
     if judge(Grader("Well, it depends"), "q", "a", "must be correct")[0] is not False:
         fail("an unreadable verdict became a pass, which must never happen")
     print("OK the judge reads pass and fail, and anything unreadable counts as a failure")
+
+    class Biased:
+        """A grader that always prefers whichever answer it was shown first."""
+
+        def stream(self, messages, tools=None, on_text=None):
+            return "A because it came first", [], {}
+
+    class Fair:
+        """A grader that prefers the longer answer wherever it appears."""
+
+        def stream(self, messages, tools=None, on_text=None):
+            text = messages[0]["content"]
+            a = text.split("Answer A\n", 1)[1].split("\n\nAnswer B\n", 1)[0]
+            b = text.split("Answer B\n", 1)[1].split("\n\nReply", 1)[0]
+            return ("A it is fuller" if len(a) > len(b) else "B it is fuller"), [], {}
+
+    if compare(Biased(), "q", "short", "a much longer answer", "must be full") != "tie":
+        fail("a judge that only reads position should have been caught by the swap")
+    if compare(Fair(), "q", "short", "a much longer answer", "must be full") != "second":
+        fail("a judge with a real preference should keep it when the order is swapped")
+    print("OK swapping the order catches a judge that reads position rather than the answers")
 
     text = report(results)
     if "1 of 2 tasks passed" not in text:

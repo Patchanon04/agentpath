@@ -142,6 +142,53 @@ def judge(provider, question, answer, criteria):
     return first == "PASS", verdict
 
 
+COMPARE_PROMPT = """You are comparing two answers to the same question against a standard.
+
+The standard
+{criteria}
+
+The question
+{question}
+
+Answer A
+{first}
+
+Answer B
+{second}
+
+Reply with the single letter A or the single letter B, whichever better
+meets the standard, then one short sentence saying why."""
+
+
+def compare(provider, question, first, second, criteria):
+    """Ask a model which of two answers is better, twice, with the order swapped.
+
+    Judges have a position bias. Shown two answers, a model prefers the
+    first more often than the first deserves, and the size of the bias
+    depends on the model and the wording. Asking once therefore measures
+    the order as much as the answers. Asking twice with the order swapped
+    catches it. If the verdicts agree, the preference survived a change of
+    position and can be trusted. If they disagree, the judge was reading
+    the position, and the honest answer is a tie.
+    """
+
+    def ask(left, right):
+        request = COMPARE_PROMPT.format(
+            criteria=criteria, question=question, first=left, second=right
+        )
+        verdict, _, _ = provider.stream([{"role": "user", "content": request}])
+        verdict = (verdict or "").strip()
+        return verdict.split()[0].upper().strip(".,") if verdict.split() else ""
+
+    forwards = ask(first, second)
+    backwards = ask(second, first)
+    if forwards == "A" and backwards == "B":
+        return "first"
+    if forwards == "B" and backwards == "A":
+        return "second"
+    return "tie"
+
+
 def report(results) -> str:
     """A plain table, because a report nobody reads changes nothing."""
     lines = []

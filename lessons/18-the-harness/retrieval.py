@@ -83,6 +83,45 @@ def score(question_words, entry, rarity):
     return sum(rarity.get(word, 0.0) for word in question_words & entry["words"])
 
 
+RERANK_TOP = 20
+
+
+def phrases(text):
+    """Every pair of adjacent words, which is the cheapest notion of phrase there is."""
+    listed = words(text)
+    return set(zip(listed, listed[1:], strict=False))
+
+
+def rerank(question, entries):
+    """A second, slower look at the best few, using something the first pass ignored.
+
+    The first pass scores single words and never sees order, so a passage
+    that mentions every word of the question in unrelated sentences ties
+    with one that says the phrase. Reranking runs a costlier scorer over
+    only the top few candidates, where paying more per passage is
+    affordable because there are few of them. Here the costlier scorer is
+    word pairs, which is enough to break the tie. In a real system it is
+    often a small model that reads the question and the passage together,
+    and the shape is the same. A cheap pass over everything, then an
+    expensive pass over a shortlist.
+    """
+    wanted = phrases(question)
+    return sorted(entries, key=lambda entry: -len(wanted & phrases(entry["text"])))
+
+
+def recall_at_k(ranked_sources, relevant, k):
+    """What share of the passages that should have been found are in the top k.
+
+    This is the number retrieval is measured by. It needs a set of
+    questions with known right answers, which somebody has to write, and
+    it says nothing about whether the model then answered well. It says
+    whether the right passage was on the page the model was shown, which
+    is the part retrieval is responsible for.
+    """
+    found = set(ranked_sources[:k]) & set(relevant)
+    return len(found) / len(relevant) if relevant else 0.0
+
+
 def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN):
     root = Path(root or os.environ.get("AGENTPATH_WORKSPACE", ".")).resolve()
     index = build_index(root, pattern)
@@ -101,6 +140,7 @@ def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN
     if not best:
         return f"nothing in the documents mentions any of the words in {question!r}"
 
+    best = rerank(question, best[:RERANK_TOP]) + best[RERANK_TOP:]
     _, _, truncate = _from_tools()
     parts = [f"{entry['source']}\n{entry['text']}" for entry in best[: int(limit)]]
     return truncate("\n\n".join(parts))

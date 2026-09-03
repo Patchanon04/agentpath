@@ -295,10 +295,14 @@ def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN
     best = [entry for entry in ranked if score(question_words, entry, rarity) > 0]
     if not best:
         return f"nothing in the documents mentions any of the words in {question!r}"
+    best = rerank(question, best[:RERANK_TOP]) + best[RERANK_TOP:]
     _, _, truncate = _from_tools()
     parts = [f"{entry['source']}\n{entry['text']}" for entry in best[: int(limit)]]
     return truncate("\n\n".join(parts))
 ```
+
+บรรทัด `rerank` หลังตัวกรองคือการมองรอบที่สองที่ยี่สิบอันดับแรก และหัวข้อ 7 อธิบายมัน
+ข้ามไปก่อนจนกว่าจะถึงตรงนั้น
 
 อ่านสามคำสั่งตรงกลางแล้วคุณก็ได้อ่านเทคนิคนี้ครบแล้ว
 นับว่าแต่ละคำปรากฏในกี่ passage แปลงจำนวนนั้นเป็นน้ำหนัก
@@ -790,6 +794,49 @@ search ให้การจัดการคำพ้องความหม�
 การสร้างสิ่งนี้ก่อนไม่ใช่ทางอ้อมระหว่างเดินไปหาของจริง
 มันคือครึ่งหนึ่งของของจริงที่คนส่วนใหญ่ข้ามไป
 
+### reranking ในรูปที่ถูกที่สุดที่ยังนับว่าเป็นของจริง
+
+ระบบที่จริงจังทำอีกอย่างหนึ่งหลังการรวมผล และมันมีชื่อที่ควรรู้ เพราะรูปร่างของมันโผล่มา
+ทุกที่ pass แรกให้คะแนนทุก passage ใน corpus มันจึงต้องถูก และตัวให้คะแนนที่ถูกจะมองข้าม
+บางอย่าง ตัวนี้ให้คะแนนคำเดี่ยว ๆ และไม่เคยเห็นลำดับของคำ passage ที่พูดถึงทุกคำในคำถาม
+กระจายอยู่ในประโยคที่ไม่เกี่ยวกัน จึงเสมอกับ passage ที่พูดวลีนั้นตรง ๆ reranking คือการมอง
+รอบที่สองที่ช้ากว่า เฉพาะผู้เข้ารอบไม่กี่ตัวบนสุด ซึ่งจ่ายค่าตัวให้คะแนนที่แพงกว่าไหว เพราะ
+มีไม่กี่ตัว ในระบบจริงตัวให้คะแนนที่แพงกว่ามักเป็น model เล็ก ๆ ที่อ่านคำถามกับ passage
+พร้อมกัน ที่นี่คือคู่คำ ซึ่งพอให้เห็นรูปร่าง
+
+```python
+def rerank(question, entries):
+    """A second, slower look at the best few, using something the first pass ignored."""
+    wanted = phrases(question)
+    return sorted(entries, key=lambda entry: -len(wanted & phrases(entry["text"])))
+```
+
+`search_notes` ใช้มันกับยี่สิบอันดับแรกก่อนตัดตาม limit และ `RERANK_TOP` คือปุ่มปรับ
+สองเรื่องที่ควรสังเกต มันเรียงใหม่ได้เฉพาะสิ่งที่ pass แรกหาเจอ passage ที่การให้คะแนนด้วย
+rarity พลาดไปก็ยังพลาดอยู่ และเรื่องนี้จริงกับ reranker ทุกตัว และมันเป็น stable sort จุด
+ที่คู่คำเสมอกันจึงคงลำดับของ rarity ไว้ ส่วนที่เหลือของบทไม่เปลี่ยน เพราะสัญญาของ tool ไม่
+ได้เปลี่ยน
+
+### การวัดมัน ซึ่งเป็นส่วนที่คนข้าม
+
+ทุกอย่างข้างบนเป็นความเห็นจนกว่าคุณจะใส่ตัวเลขให้มันได้ และตัวเลขที่ใช้วัด retrieval คือ
+recall at k เขียนคำถามสักหยิบมือ และสำหรับแต่ละข้อ passage ไหนที่ควรกลับมา รันการค้น
+recall at k คือสัดส่วนของ passage ที่ถูกต้องซึ่งปรากฏใน k อันดับแรก
+
+```python
+def recall_at_k(ranked_sources, relevant, k):
+    """What share of the passages that should have been found are in the top k."""
+    found = set(ranked_sources[:k]) & set(relevant)
+    return len(found) / len(relevant) if relevant else 0.0
+```
+
+มันแคบโดยตั้งใจ มันไม่บอกอะไรเลยว่า model ตอบดีไหมหลังจากนั้น ซึ่งเป็นปัญหาของบทที่ 22
+มันบอกว่า passage ที่ถูกอยู่บนหน้าที่ model ได้เห็นหรือเปล่า ซึ่งเป็นส่วนเดียวที่ retrieval
+รับผิดชอบ และการแยกสองอย่างนี้ออกจากกันคือวิธีหาว่าคำตอบที่แย่ต้องแก้ครึ่งไหน ราคาคือชุด
+ทดสอบ ต้องมีคนเขียนคำถามและทำเครื่องหมาย passage ที่ถูก ต้องคอยอัปเดตเมื่อเอกสาร
+เปลี่ยน และต้องต้านความอยากเขียนคำถามด้วยคำในเอกสารเอง ซึ่งเป็นกรณีที่ retrieval ดูดี
+เสมอ แบบฝึกหัดข้อสี่ของบทที่ 22 คือวินัยเดียวกันที่เล็งไปที่ agent ทั้งตัว
+
 ## 8. retrieval เป็น tool ไม่ใช่ system
 
 นี่คือการต่อสายทั้งหมดที่เพิ่ม retrieval เข้าไปใน harness อยู่ท้ายไฟล์ `tools.py`
@@ -893,8 +940,9 @@ code` กฎที่มีเหตุผลติดมาด้วยจะ�
 
 ## 9. การรัน check.py
 
-`check.py` สร้าง workspace เล็ก ๆ ในไดเรกทอรีชั่วคราวและยืนยันห้าอย่าง
+`check.py` สร้าง workspace เล็ก ๆ ในไดเรกทอรีชั่วคราวและยืนยันเจ็ดอย่าง
 สี่อย่างพิสูจน์ว่า tool ทำงานได้ อีกหนึ่งพิสูจน์ว่ามันทำไม่ได้ ซึ่งต้องอธิบายกันหน่อย
+สองอย่างสุดท้ายตรึง reranker กับตัววัดจากหัวข้อ 7
 
 fixture คือสี่ไฟล์
 
@@ -943,9 +991,11 @@ OK every passage says which file and line it came from
 OK a question with no matching words says so instead of guessing
 OK word matching does not understand word endings, which is the honest limit
 OK when you know the exact name, grep answers directly and costs nothing to build
+OK reranking breaks the tie between the words and the phrase, on a shortlist only
+OK recall at k says whether the right passage was on the page, and here it is first
 ```
 
-ห้าบรรทัด ไม่มี network ไม่มี API key ไม่มี model retrieval คือฟังก์ชัน Python ธรรมดา
+เจ็ดบรรทัด ไม่มี network ไม่มี API key ไม่มี model retrieval คือฟังก์ชัน Python ธรรมดา
 และการที่ model จะเรียกมันในที่สุดไม่เกี่ยวอะไรกับว่ามันทำงานได้หรือไม่
 
 ดูทีละข้อ
@@ -1018,11 +1068,17 @@ billing.py:1: def issue_refund(order_id):
 ไม่มีน้ำหนัก rarity และไม่มีการตัดสินใจเรื่อง chunking นั่นคือคำถามที่สามของหัวข้อ 2
 ตอบตัวเองในไฟล์ check เดียวกับคำถามที่สี่ การเปรียบเทียบจึงไม่ใช่แค่วาทศิลป์
 
+**ข้อที่หกและเจ็ด** คือสองหัวข้อย่อยสุดท้ายของหัวข้อ 7 ที่ถูกรันจริง passage สองอันที่มี
+คำเดียวกัน อันหนึ่งกระจายอยู่ในสามประโยค อีกอันพูดวลีนั้นตรง ๆ และ `rerank` วางวลีไว้
+ก่อน จากนั้นคำตอบเรื่อง refund จากข้อยืนยันแรก ให้คะแนนด้วย `recall_at_k` เทียบกับ
+passage เดียวที่ควรอยู่ตรงนั้น ได้หนึ่งที่ k เท่ากับหนึ่ง และรายการที่ไม่มีมันได้ศูนย์
+
 ถ้าบรรทัดแรกล้มเหลว ให้ดูว่าตัวแปรสภาพแวดล้อม workspace
 ถูกตั้งค่าก่อนที่ `tools` จะถูก import หรือไม่ ซึ่งเป็นกับดักเรื่องลำดับของบทที่ 09
 และมันยังอยู่ตรงนี้ ถ้าข้อที่สองล้มเหลว format string ของ source ทำหมายเลขบรรทัดหาย
 ถ้าข้อที่สี่ล้มเหลวและ tool คืน passage มาจริง แสดงว่ามีคนเพิ่ม stemming หรือ fuzzy
-matching เข้ามา และหัวข้อ 7 ต้องถูกเขียนใหม่ก่อนที่การเปลี่ยนแปลงนั้นจะเข้ามา
+matching เข้ามา และหัวข้อ 7 ต้องถูกเขียนใหม่ก่อนที่การเปลี่ยนแปลงนั้นจะเข้ามา ถ้าข้อที่หก
+ล้มเหลว `phrases` น่าจะตัดคำต่างจาก `words` และสองตัวนี้ต้องตรงกัน
 
 ## 10. สิ่งที่คุณยังทำไม่ได้
 

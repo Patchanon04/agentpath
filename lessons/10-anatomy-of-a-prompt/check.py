@@ -13,7 +13,7 @@ workspace = Path(tempfile.mkdtemp(prefix="agentpath-lesson10-"))
 os.environ["AGENTPATH_WORKSPACE"] = str(workspace)
 
 from agent import run  # noqa: E402
-from prompt import build_system_prompt  # noqa: E402
+from prompt import build_system_prompt, examples_block  # noqa: E402
 from providers import OpenAICompatProvider  # noqa: E402
 
 
@@ -31,6 +31,17 @@ def main():
     if "Platform" not in system:
         fail("the system prompt does not tell the model which platform it is on")
     print("OK the system prompt states the platform")
+
+    pairs = [("rename x to total", "Edited math.py"), ("add a test", "Edited test_math.py")]
+    shown = examples_block(pairs)
+    with_examples = build_system_prompt(workspace, extra=shown)
+    if not with_examples.endswith(shown):
+        fail("the examples did not reach the end of the system prompt")
+    if shown.index("rename x") > shown.index("add a test"):
+        fail("the examples changed order, and the order is part of the pattern")
+    if shown.index("rename x") > shown.index("Edited math.py"):
+        fail("an answer came before its question")
+    print("OK examples ride in the prompt in the order given, each answer after its question")
 
     provider = OpenAICompatProvider(
         os.environ["AGENTPATH_BASE_URL"],

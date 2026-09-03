@@ -430,6 +430,55 @@ Python 3.11
 618 characters. Roughly 150 tokens. Hold that number, because section 7 is
 about why it should stay small.
 
+### The examples block, and two other techniques with names
+
+There is a third kind of content a prompt can carry, and it has a name you
+will meet in every book on the subject. Showing the model two or three worked
+examples of the answer you want is called few shot prompting, and the reason
+it works is the foundations track in one sentence. A model predicts the next
+token, so it continues a pattern it can see far more faithfully than it
+follows a description of one. Tell it to answer in one line and it might.
+Show it three one line answers and it almost always will.
+
+`prompt.py` has a small helper for it, because examples have a shape and the
+shape matters.
+
+```python
+def examples_block(pairs):
+    """Turn a few question and answer pairs into text the prompt can carry."""
+    shown = []
+    for question, answer in pairs:
+        shown.append(f"Request\n{question}\n\nGood answer\n{answer}")
+    return "Examples of the kind of answer wanted\n\n" + "\n\n".join(shown)
+```
+
+It goes in through `extra`, which is what `extra` is for. Three things to
+know before using it. The examples are paid for on every request like every
+other line, so two good ones beat six. The order is part of the pattern, and
+the model will lean toward the last one, so put the most typical case last.
+And an example that does not match the task is worse than none, because the
+model will match it anyway. `check.py` pins the shape, that the block lands at
+the end of the prompt and that each answer follows its own question.
+
+The second technique with a name is already in `BEHAVIOUR`, in the sentence
+that says to look before changing anything. Asking a model to work through
+the steps before giving an answer is called chain of thought, and on tasks
+with more than one step it raises accuracy for the same reason a person
+showing their working makes fewer arithmetic mistakes. Each token the model
+writes is context for the next one, so a model that writes the reasoning
+first is predicting the answer from the reasoning rather than from the
+question alone. For an agent this mostly takes care of itself, because tool
+calls are steps, and a loop that reads a file before editing it is a chain
+of thought made of actions. The models you will call today also do a version
+of this on their own, and lesson 06 showed the block it comes back in.
+
+The third is the expensive one. Ask the same question several times at a
+temperature above zero and take the answer that comes back most often. That
+is called self consistency, it measurably beats a single answer on questions
+with one right answer, and it costs as many calls as you take samples. It is
+not a prompting technique so much as an evaluation technique, and lesson 22
+is where it belongs, next to the judge, with a bill attached.
+
 ## 4. Why the model needs to be told where it is and what platform it is on
 
 This section exists because the facts block looks like the least interesting
@@ -1185,7 +1234,8 @@ about where a system prompt lives, and it should not have to.
 
 ## 9. Running check.py
 
-`check.py` asserts three things, and each one is a different kind of claim.
+`check.py` asserts four things. The first three are each a different kind of
+claim, and the fourth pins the shape of the examples block from section 3.
 
 ```python
 def main():
@@ -1255,22 +1305,24 @@ A passing run against the mock server looks like this.
 ```text
 OK the system prompt states the workspace directory
 OK the system prompt states the platform
+OK examples ride in the prompt in the order given, each answer after its question
 Hello from the mock server.
 OK the system prompt is the first message in the conversation
 ```
 
-Three OK lines, which are the three claims.
+Four OK lines, which are the four claims.
 
 ```text
 OK the system prompt states the workspace directory
 OK the system prompt states the platform
+OK examples ride in the prompt in the order given, each answer after its question
 OK the system prompt is the first message in the conversation
 ```
 
 The `Hello from the mock server.` in the middle is not part of the check. It is
 the model's streamed reply printing as it arrives, from the `on_text` callback
-you wrote in lesson 05, and it appears third because the first two assertions
-run before the request is made. Against a real model that line will say
+you wrote in lesson 05, and it appears fourth because the first three
+assertions run before the request is made. Against a real model that line will say
 something else, and the check will still pass, because none of the three
 assertions is about what the model said.
 

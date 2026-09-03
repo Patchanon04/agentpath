@@ -479,6 +479,58 @@ ordinary task and `run_one` never learns that a model was involved in grading
 it. That is the same seam as everywhere else in this project. The runner
 consults, and implements nothing.
 
+### What a judge gets wrong, and the swap that catches one of them
+
+The table above said a judge can be wrong. It is worth being specific, because
+the ways it is wrong are known and two of them are cheap to defend against.
+
+A judge prefers longer answers. Shown a complete answer and a complete answer
+with three more paragraphs, it leans toward the second, whether or not the
+paragraphs help. A judge prefers its own family. A model grading answers from
+the same model, or one trained the same way, scores them higher than an
+outside grader would, which is the reason the provider is a parameter. And a
+judge has a position bias. Shown two answers and asked which is better, it
+picks the first more often than the first deserves, by an amount that depends
+on the model and the wording and that you cannot know in advance.
+
+The first two are handled by how you use it. Write criteria that say what a
+good answer contains rather than how much of it there is, and grade with a
+model that did not produce the answers. The third one is handled by code.
+
+```python
+def compare(provider, question, first, second, criteria):
+    """Ask a model which of two answers is better, twice, with the order swapped."""
+
+    def ask(left, right):
+        request = COMPARE_PROMPT.format(
+            criteria=criteria, question=question, first=left, second=right
+        )
+        verdict, _, _ = provider.stream([{"role": "user", "content": request}])
+        verdict = (verdict or "").strip()
+        return verdict.split()[0].upper().strip(".,") if verdict.split() else ""
+
+    forwards = ask(first, second)
+    backwards = ask(second, first)
+    if forwards == "A" and backwards == "B":
+        return "first"
+    if forwards == "B" and backwards == "A":
+        return "second"
+    return "tie"
+```
+
+Ask twice, with the answers in the other order the second time. A preference
+that survives the swap is a preference about the answers. One that flips with
+the order was a preference about the position, and the honest verdict is a
+tie. This costs two calls instead of one, which is the usual price of not
+being fooled, and `check.py` proves it with two fake graders, one that only
+ever picks the first answer and one that has a real opinion. The swap turns
+the first into a tie and leaves the second alone.
+
+Pairwise comparison is also the form that model selection in section 9
+quietly wants. Grading two models against a standard gives two pass rates.
+Comparing their answers to the same question, with the swap, gives a
+preference, and preferences are what people actually have about models.
+
 ## 6. Why an unreadable verdict counts as a failure
 
 Look again at the two lines that read the verdict.
@@ -1046,6 +1098,7 @@ Hello from the mock server.
 Hello from the mock server.
 OK five tasks ran on three workers and the report kept the written order
 OK the judge reads pass and fail, and anything unreadable counts as a failure
+OK swapping the order catches a judge that reads position rather than the answers
 OK the report says plainly what happened
 
 pass  greets  said hello
@@ -1063,11 +1116,11 @@ python ci/run_lessons.py
 The repeated greeting is the agent streaming its answer to the terminal, once
 per agent run, which is a useful reminder that unlike lesson 21's check this one
 does start real agents. Eight runs in total. Two for the pass and fail pair, one
-for the broken check, five for the ordering claim, and none at all for the judge,
-which uses a fake grader.
+for the broken check, five for the ordering claim, and none at all for the judge or the
+comparison, which use fake graders.
 
-Read the six OK lines against the sections above, because each one pins a claim
-this chapter made.
+Read the seven OK lines against the sections above, because each one pins a
+claim this chapter made.
 
 The first is the baseline, and without it nothing else means anything. A task
 whose check returns true is reported as passing, a task whose check returns
@@ -1134,8 +1187,14 @@ The fifth is section 6, the three judge verdicts with the fake grader, and the
 third of them is the one that matters. An unreadable verdict must never become
 a pass.
 
-The sixth is section 3, that the report says plainly what happened, asserted by
-looking for the summary line.
+The sixth is the swap from the end of section 5, with two fake graders. One
+always answers A, so it is reading the position, and `compare` returns a tie
+for it. The other reads both answers and prefers the longer one wherever it
+sits, and `compare` returns the second answer for it, because the preference
+survived the swap.
+
+The seventh is section 3, that the report says plainly what happened, asserted
+by looking for the summary line.
 
 If the first line fails, look at how `run_one` builds the `Result`, since
 `passed=bool(passed)` and the unpacking of the check's return pair are where
