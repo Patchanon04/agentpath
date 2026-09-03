@@ -5,7 +5,8 @@
 ตัวบทอธิบายว่าทำไมคำถึงกลายเป็นชุดตัวเลข การที่สองคำอยู่ใกล้กันแปลว่าอะไร และเอกสาร
 ทั้งฉบับกลายเป็น vector ที่ค้นหาได้ยังไง ไฟล์นี้คือฉบับสั้นสำหรับรันโค้ด
 
-ไม่มี model ให้เรียก ไม่มี API key `vectors.py` ใช้ numpy `tfidf.py` ไม่ใช้
+ไม่มี model ให้เรียก ไม่มี API key `vectors.py` กับ `skipgram.py` ใช้ numpy `tfidf.py`
+ไม่ใช้
 
 ## มีอะไรอยู่ในนี้
 
@@ -33,7 +34,34 @@ def tfidf(term, text, documents):
     return term_frequency(term, text) * inverse_document_frequency(term, documents)
 ```
 
-`check.py` ยึดข้ออ้างที่บทพูดไว้เกี่ยวกับทั้งสองไฟล์
+`skipgram.py` คือก้าวจากการนับไปสู่การเรียนรู้ `training_pairs` แปลงข้อความเป็นทุกคำ
+จับคู่กับทุกเพื่อนบ้าน `train` เรียนรู้ vector แปดตัวเลขต่อคำด้วยการทายเพื่อนบ้านพวก
+นั้น ซึ่งคือวิธีของบทที่ 4 บวกตารางที่สอง และ `nearest` จัดอันดับด้วย vector ที่เรียนรู้
+มา นี่คือแนวคิด word2vec ปี 2013 บน corpus ที่เล็กพอจะดูได้
+
+```python
+def train(text, size=8, steps=400, learning_rate=0.5, seed=0):
+    """Learn a vector per word by guessing neighbours. Chapter 4 again, with two grids."""
+    words, index = vocabulary(text)
+    centres, contexts = training_pairs(text, index)
+    rng = np.random.default_rng(seed)
+    embedding = rng.normal(0, 0.1, size=(len(words), size))
+    readout = rng.normal(0, 0.1, size=(size, len(words)))
+    history = []
+    for _ in range(steps):
+        hidden = embedding[centres]
+        guess = softmax(hidden @ readout)
+        history.append(-np.log(guess[np.arange(len(contexts)), contexts]).mean())
+        guess[np.arange(len(contexts)), contexts] -= 1
+        guess /= len(contexts)
+        readout_change = hidden.T @ guess
+        hidden_change = guess @ readout.T
+        readout -= learning_rate * readout_change
+        np.add.at(embedding, centres, -learning_rate * hidden_change)
+    return embedding, index, history
+```
+
+`check.py` ยึดข้ออ้างที่บทพูดไว้เกี่ยวกับทั้งสามไฟล์
 
 ## รันมัน
 
@@ -75,6 +103,26 @@ idf of กบ 1.0986, in one document of three
 ```
 
 ```bash
+python skipgram.py
+```
+
+```text
+25 words, each a vector of 8 numbers, not 25
+loss at the start 3.217, after training 2.173
+
+nearest to 'cat' by the learned vectors
+  dog      0.945
+  sofa     0.825
+  bone     0.789
+nearest to 'agent' by the learned vectors
+  tool     0.978
+  model    0.933
+  answer   0.913
+
+cosine(cat, dog) 0.945   cosine(cat, file) 0.545
+```
+
+```bash
 python check.py
 ```
 
@@ -87,6 +135,9 @@ OK cat is more common than dog and is still its nearest neighbour
 OK a bag of words cannot tell who ate whom
 OK the numbers match the worked example, and the shortest document wins
 OK a word in every document scores zero, because it points at nothing
+OK the learned vectors are eight numbers wide and the counted ones are twenty five
+OK guessing neighbours finds the groups that counting found, in a third of the numbers
+OK the word next to everything pulls the learned vectors together less than the counted
 ```
 
 ## สิ่งที่ควรสังเกต
@@ -102,3 +153,11 @@ frequency เป็นศูนย์และหลุดออกจากท�
 count vector ส่วนใหญ่เป็นศูนย์ และใน vocabulary จริงที่มีคำหลายหมื่นคำ มันเกือบเป็นศูนย์
 ทั้งหมด นั่นคือความหมายของคำว่า sparse และการเก็บเฉพาะตำแหน่งที่ไม่ใช่ศูนย์คือสิ่งที่ทำให้
 การค้นเอกสารล้านฉบับด้วยคำมีราคาที่จ่ายไหว
+
+`skipgram.py` ได้กลุ่มเดียวกันจากแปดตัวเลขต่อคำแทนที่จะเป็นยี่สิบห้า และมันไม่เคยนับ
+เพื่อนบ้านเลย มันทาย ถูกบอกว่าผิดแค่ไหน แล้วขยับ vector ซึ่งคือบทที่ 4 โดยมี embedding
+เป็นสิ่งที่ถูกเรียนรู้ มีสองอย่างให้ดูใน output vector เป็นแบบ dense ทุกตัวเลขถูกใช้ ซึ่ง
+คือสิ่งที่ทำให้ embedding model จริงบรรยายคำได้ในไม่กี่ร้อยตัวเลขทั้งที่ vocabulary มีเป็น
+แสน และ `cat` กับ `file` ตกจาก 0.854 เหลือ 0.545 เพราะ vector ที่ต้องทายเพื่อนบ้านของ
+ตัวเอง ใช้ตัวเองไปกับ `the` ซึ่งทายอะไรไม่ได้ ได้ไม่มาก embedding model ที่อยู่หลัง
+บทเรียนที่ 16 คือแนวคิดนี้ ฝึกบนเว็บ โดยใช้ทั้งประโยคแทนคำ

@@ -6,7 +6,8 @@ The chapter explains why a word becomes a list of numbers, what it means
 for two words to be close, and how a whole document becomes a vector you
 can search. This file is the short version for running the code.
 
-No model to call, no API key. `vectors.py` uses numpy, `tfidf.py` does not.
+No model to call, no API key. `vectors.py` and `skipgram.py` use numpy,
+`tfidf.py` does not.
 
 ## What is here
 
@@ -36,7 +37,36 @@ def tfidf(term, text, documents):
     return term_frequency(term, text) * inverse_document_frequency(term, documents)
 ```
 
-`check.py` pins the claims the chapter makes about both files.
+`skipgram.py` is the step from counting to learning. `training_pairs`
+turns the text into every word paired with every neighbour, `train`
+learns a vector of eight numbers per word by guessing those neighbours,
+which is chapter 4's method with a second grid, and `nearest` ranks by
+the learned vectors. This is the 2013 word2vec idea, on a corpus small
+enough to watch.
+
+```python
+def train(text, size=8, steps=400, learning_rate=0.5, seed=0):
+    """Learn a vector per word by guessing neighbours. Chapter 4 again, with two grids."""
+    words, index = vocabulary(text)
+    centres, contexts = training_pairs(text, index)
+    rng = np.random.default_rng(seed)
+    embedding = rng.normal(0, 0.1, size=(len(words), size))
+    readout = rng.normal(0, 0.1, size=(size, len(words)))
+    history = []
+    for _ in range(steps):
+        hidden = embedding[centres]
+        guess = softmax(hidden @ readout)
+        history.append(-np.log(guess[np.arange(len(contexts)), contexts]).mean())
+        guess[np.arange(len(contexts)), contexts] -= 1
+        guess /= len(contexts)
+        readout_change = hidden.T @ guess
+        hidden_change = guess @ readout.T
+        readout -= learning_rate * readout_change
+        np.add.at(embedding, centres, -learning_rate * hidden_change)
+    return embedding, index, history
+```
+
+`check.py` pins the claims the chapter makes about all three files.
 
 ## Run it
 
@@ -78,6 +108,26 @@ idf of กบ 1.0986, in one document of three
 ```
 
 ```bash
+python skipgram.py
+```
+
+```text
+25 words, each a vector of 8 numbers, not 25
+loss at the start 3.217, after training 2.173
+
+nearest to 'cat' by the learned vectors
+  dog      0.945
+  sofa     0.825
+  bone     0.789
+nearest to 'agent' by the learned vectors
+  tool     0.978
+  model    0.933
+  answer   0.913
+
+cosine(cat, dog) 0.945   cosine(cat, file) 0.545
+```
+
+```bash
 python check.py
 ```
 
@@ -90,6 +140,9 @@ OK cat is more common than dog and is still its nearest neighbour
 OK a bag of words cannot tell who ate whom
 OK the numbers match the worked example, and the shortest document wins
 OK a word in every document scores zero, because it points at nothing
+OK the learned vectors are eight numbers wide and the counted ones are twenty five
+OK guessing neighbours finds the groups that counting found, in a third of the numbers
+OK the word next to everything pulls the learned vectors together less than the counted
 ```
 
 ## What to notice
@@ -108,3 +161,15 @@ The count vectors are mostly zeros, and in a real vocabulary of tens of
 thousands of words they are almost entirely zeros. That is what sparse
 means, and storing only the positions that are not zero is what makes
 searching a million documents by word affordable.
+
+`skipgram.py` gets the same groups from eight numbers per word instead
+of twenty five, and it never counts a neighbour. It guesses them, is
+told how wrong it was, and nudges the vectors, which is chapter 4 with
+the embedding as the thing being learned. Two things to see in its
+output. The vectors are dense, every number is used, which is what lets
+a real embedding model describe a word in a few hundred numbers when
+the vocabulary is a hundred thousand. And `cat` and `file` fall from
+0.854 to 0.545, because a vector that has to predict its neighbours
+cannot spend much of itself on `the`, which predicts nothing. The
+embedding models behind lesson 16 are this idea, trained on the web,
+with whole sentences in place of words.

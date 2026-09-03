@@ -30,6 +30,25 @@ def attention(x, w_query, w_key, w_value, mask=None):
     return weights @ values, weights
 ```
 
+The rest of the file is the plumbing a real model wraps around that head,
+each piece small enough to read. `position_vectors` puts order back in,
+because attention on its own cannot tell the first token from the last.
+`multi_head` runs several heads side by side so one layer can hold several
+patterns of who looks at whom. `layer_norm` keeps the numbers in range and
+`feed_forward` is the half of a block where each token thinks alone, and
+`block` puts the two halves together with the residual from `finish_head`.
+`attend_with_cache` is generation one token at a time with the keys and
+values of earlier tokens kept rather than recomputed, which is the KV
+cache, and `key_rows_computed` is the arithmetic that says why it exists.
+
+```python
+def block(x, heads, w_out, w_in, w_ff):
+    """One transformer block. A real model is this, dozens of times, in a stack."""
+    x = x + multi_head(layer_norm(x), heads, w_out)
+    x = x + feed_forward(layer_norm(x), w_in, w_ff)
+    return x
+```
+
 `check.py` pins the claims the chapter makes.
 
 ## Run it
@@ -50,6 +69,16 @@ scores needed for a sequence of
         4 tokens                16
     1,000 tokens         1,000,000
   100,000 tokens    10,000,000,000
+
+without positions, reversing the tokens reverses the output rows and nothing else
+  same rows in the other order: True
+with positions added, the same tokens in the other order give a different output
+  same rows in the other order: False
+
+key and value rows computed to generate, one token at a time
+        4 tokens                10 without the cache          4 with it
+    1,000 tokens           500,500 without the cache      1,000 with it
+  100,000 tokens     5,000,050,000 without the cache    100,000 with it
 ```
 
 ```bash
@@ -63,6 +92,13 @@ OK the mask hides the future completely and the rows still sum to one
 OK the first token has nothing before it and attends to itself
 OK doubling the context quadruples the work, which is why long context costs what it does
 OK a head adjusts a token rather than replacing it, and the adjustment is added on
+OK without positions attention cannot tell the order, reversing tokens reverses the rows
+OK with position vectors added the same tokens in another order give a different output
+OK layer norm gives every token mean zero and spread one, whatever it started as
+OK the feed forward layer works on each token alone, one token changed is one row changed
+OK a block returns tokens the same shape it was given, which is what lets blocks stack
+OK feeding tokens through the cache one at a time gives exactly what masked attention gives
+OK with the cache a thousand tokens cost a thousand key rows instead of half a million
 ```
 
 ## What to notice
@@ -77,7 +113,24 @@ The upper right of the table is all zeros. That is the mask. A model that
 predicts the next token must not be allowed to see it, so every token may
 look only at what came before.
 
-And the last table is the whole reason context windows are priced the way
+The third table is the whole reason context windows are priced the way
 they are. Every token scores against every token. A hundred thousand
 tokens is ten billion scores, per layer, per head, and the models you call
 have dozens of each.
+
+Then two lines that say True and False. Reverse the four tokens and, with
+nothing else changed, the output rows reverse and nothing else moves.
+Attention has no idea which token came first, because nothing in query
+times key knows about order. Add the position vectors and the same four
+tokens backwards give a different answer. Every model you call does one
+of these, adds a position vector or rotates by position, and without it
+`the cat sat down` and `down sat cat the` would be the same sentence.
+
+The last table is why a served model's memory grows with the length of
+the conversation and why a prompt the server already holds is cheaper.
+Generating one token at a time, without a cache, recomputes every earlier
+token's key and value on every step, and that sum is half a million rows
+for a thousand tokens. With the cache each is computed once. `check.py`
+confirms that feeding the tokens through the cache one at a time gives
+exactly the rows the masked attention gives all at once, which is the
+whole point. Same answer, a thousand times less work.

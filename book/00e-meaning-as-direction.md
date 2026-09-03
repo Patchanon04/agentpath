@@ -112,6 +112,66 @@ embedding จริงแก้เรื่องนี้ด้วยการ�
 เห็น 0.854 แล้วสงสัย นั่นคือความสงสัยที่ถูก และมันคือปัญหาแรกที่ทุกระบบ retrieval
 ต้องแก้ครับ
 
+### 4.1 vector ที่เรียนรู้ แทนที่จะนับ
+
+ตารางนับมีปัญหาอีกข้อที่ใหญ่กว่า the แต่ละแถวยาวเท่าจำนวนคำ vocabulary หนึ่งแสนคำ
+แปลว่า vector ยาวหนึ่งแสนตัวเลข และแทบทั้งหมดเป็นศูนย์ embedding จริงยาวไม่กี่ร้อย
+ไม่ว่า vocabulary จะใหญ่แค่ไหน และไม่มีศูนย์เลย มันได้มาจากการเรียนรู้ ไม่ใช่การนับ
+
+โจทย์ที่ใช้ฝึกคือโจทย์เดียวกับที่การนับตอบ แต่กลับด้าน แทนที่จะจดว่าคำนี้มีใครอยู่ข้างๆ
+ให้ model ทายว่าใครอยู่ข้างๆ จาก vector ของคำ ทายผิด ปรับ vector ทำซ้ำ นี่คือบทที่ 4
+ทั้งบท โดยสิ่งที่ถูกปรับคือ embedding เอง วิธีนี้ชื่อ word2vec (เวิร์ดทูเวก คือวิธีฝึก
+vector ของคำด้วยการทายคำข้างเคียง เผยแพร่ปี 2013) และมันคือจุดที่ยุคที่สามของ NLP
+เริ่มต้น
+
+```python
+def train(text, size=8, steps=400, learning_rate=0.5, seed=0):
+    """Learn a vector per word by guessing neighbours. Chapter 4 again, with two grids."""
+    words, index = vocabulary(text)
+    centres, contexts = training_pairs(text, index)
+    rng = np.random.default_rng(seed)
+    embedding = rng.normal(0, 0.1, size=(len(words), size))
+    readout = rng.normal(0, 0.1, size=(size, len(words)))
+    history = []
+    for _ in range(steps):
+        hidden = embedding[centres]
+        guess = softmax(hidden @ readout)
+        history.append(-np.log(guess[np.arange(len(contexts)), contexts]).mean())
+        guess[np.arange(len(contexts)), contexts] -= 1
+        guess /= len(contexts)
+        readout_change = hidden.T @ guess
+        hidden_change = guess @ readout.T
+        readout -= learning_rate * readout_change
+        np.add.at(embedding, centres, -learning_rate * hidden_change)
+    return embedding, index, history
+```
+
+มีตารางสองตาราง ตารางแรกคือ embedding แถวละแปดตัวเลขต่อคำ ตารางที่สองแปลงแถว
+นั้นกลับเป็นการทายทั่วทั้ง vocabulary loss กับ gradient คือของบทที่ 4 ทุกบรรทัด สิ่งเดียว
+ที่ใหม่คือ gradient ไหลผ่านตารางที่สองย้อนเข้าไปถึงตารางแรก ซึ่งคือ backpropagation
+ในรูปที่เล็กที่สุดเท่าที่จะเป็นได้
+
+```text
+25 words, each a vector of 8 numbers, not 25
+loss at the start 3.217, after training 2.173
+
+nearest to 'cat' by the learned vectors
+  dog      0.945
+  sofa     0.825
+  bone     0.789
+
+cosine(cat, dog) 0.945   cosine(cat, file) 0.545
+```
+
+cat ยังใกล้ dog ที่สุด โดยไม่มีบรรทัดไหนนับเพื่อนบ้าน และดูตัวเลขสุดท้าย cat กับ file
+ตกจาก 0.854 เหลือ 0.545 ปัญหา the ในหัวข้อที่แล้วเบาลงเอง เพราะ vector ที่ต้องทายเพื่อน
+บ้านของตัวเองให้ถูก ใช้ตัวเองไปกับคำที่อยู่ข้างทุกอย่างและทายอะไรไม่ได้ ได้ไม่มาก
+ไม่มีใครเขียนกฎเรื่องนี้ มันโผล่มาจากโจทย์
+
+embedding model ที่บทที่ 16 ของหนังสือพูดถึงคือแนวคิดนี้ ฝึกบนข้อความขนาดเว็บ และ
+รับทั้งประโยคแทนที่จะรับคำ ผลลัพธ์คือ vector ไม่กี่ร้อยตัวเลขที่ประโยคความหมายใกล้กันชี้
+ทางเดียวกัน แม้ไม่มีคำร่วมกันเลย ซึ่งคือสิ่งที่การนับคำทำไม่ได้ครับ
+
 ## 5. เอกสารทั้งฉบับก็เป็น vector ได้ และนี่คือวิธีที่ search engine ทำ
 
 ทุกอย่างข้างบนให้ vector กับคำ แต่สิ่งที่คุณค้นหาจริงคือเอกสาร วิธีที่เก่าแก่ที่สุด
@@ -196,6 +256,9 @@ idf of กบ 1.0986, in one document of three
 
 - คำที่อยู่ข้างทุกอย่างดึงทุก vector เข้าหากัน และต้องถูกถ่วงน้ำหนักลง
 
+- embedding จริงถูกเรียนรู้ด้วยการทายเพื่อนบ้าน ไม่ใช่นับ จึงสั้น ไม่มีศูนย์ และเบาปัญหา
+  the ไปเอง
+
 - เอกสารเป็น vector ได้จากถุงคำ มันทิ้งลำดับ และมันเบาบาง
 
 - TF-IDF ให้คะแนนสูงกับคำที่เป็นสัดส่วนมากของเอกสารนี้และหายากที่อื่น คำที่อยู่ทุกที่
@@ -205,5 +268,6 @@ idf of กบ 1.0986, in one document of three
 
 ทั้งหมดอยู่ใน [foundations/05-meaning-as-direction/vectors.py](../foundations/05-meaning-as-direction/vectors.py)
 รัน `python vectors.py` เพื่อดูเพื่อนบ้านของ cat และ agent กับการเทียบ cosine กับ
-euclidean แล้วรัน `python check.py` เพื่อยืนยันทุกข้ออ้าง ลองเพิ่มประโยคที่ให้ dog
-ทำสิ่งที่ agent ทำ แล้วดูว่าสองกลุ่มเริ่มละลายเข้าหากันตอนไหน
+euclidean รัน `python skipgram.py` เพื่อดูกลุ่มเดียวกันโผล่มาจากการเรียนรู้แทนการนับ
+แล้วรัน `python check.py` เพื่อยืนยันทุกข้ออ้าง ลองเพิ่มประโยคที่ให้ dog ทำสิ่งที่ agent
+ทำ แล้วดูว่าสองกลุ่มเริ่มละลายเข้าหากันตอนไหน
