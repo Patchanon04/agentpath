@@ -75,7 +75,10 @@ def is_learner_facing(path, root):
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    files = [p for p in root.rglob("*.md") if ".venv" not in p.parts]
+    # node_modules arrives with the book build and is full of other people's
+    # prose, and build/ holds what the book build produces.
+    skip = {".venv", "node_modules", "build"}
+    files = [p for p in root.rglob("*.md") if not skip & set(p.parts)]
     violations = []
     for path in files:
         violations.extend(

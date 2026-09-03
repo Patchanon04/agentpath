@@ -7,3 +7,7 @@ build/
 .pytest_cache/
 .ruff_cache/
 .env
+book/build/
+book/node_modules/
+book/package.json
+book/package-lock.json
