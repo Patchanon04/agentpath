@@ -11,7 +11,7 @@ which is why it is what most people run now. This file runs it on the
 chapter 4 grid, where a preference is a pair of next words.
 """
 import numpy as np
-from grid import BASE_CORPUS, gradient, pairs, pretrain, softmax, vocabulary
+from grid import BASE_CORPUS, gradient, pretrain, softmax, vocabulary
 
 # After 'the agent', people prefer 'asks' to 'runs'. After 'the tool',
 # they prefer 'returns' to 'and'. The base model has never seen 'asks'
@@ -112,7 +112,8 @@ if __name__ == "__main__":
     print()
     print(f"mean change in every probability of the model {drift(tuned, reference, index):.4f}")
     naive = reference.copy()
-    xs, ys = pairs("the agent asks . the tool returns . the model asks .", index)
+    xs = np.array([index[context] for context, _, _ in PREFERENCES])
+    ys = np.array([index[chosen] for _, chosen, _ in PREFERENCES])
     for _ in range(60):
         naive -= 2.0 * gradient(naive, xs, ys)
     moved = drift(naive, reference, index)

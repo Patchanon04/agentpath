@@ -50,14 +50,15 @@ def main(argv=None):
     )
     # beta is a tenth here where dpo.py used one, because a real model's
     # log probabilities are sums over hundreds of tokens and the margins
-    # are correspondingly larger. The learning rate is lower than chapter
-    # 2's for the same reason preference tuning is the last round. It is
-    # a nudge to a model that already works, not a lesson from scratch.
+    # are correspondingly larger. The learning rate is a quarter of
+    # chapter 2's. The adapters still start at zero, which argues for a
+    # high rate, but this is a nudge to a model that already works, not
+    # a lesson from scratch, and that argues for a lower one.
     settings = DPOConfig(
         output_dir=arguments.output,
         beta=arguments.beta,
         num_train_epochs=arguments.epochs,
-        learning_rate=5e-6,
+        learning_rate=5e-5,
         per_device_train_batch_size=2,
         gradient_accumulation_steps=8,
         logging_steps=10,

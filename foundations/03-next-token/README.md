@@ -111,12 +111,12 @@ between predictions, which is the fact the whole book rests on.
 Top p with the same setting keeps six words after `the` and two after
 `the agent`. Nobody changed the knob. The model was surer in the second
 place, so the same share of probability took fewer words to cover, and
-that is why top p is the default most APIs ship with. Top k would have
-kept the same number in both.
+that is why most APIs offer top p beside temperature and suggest turning
+one knob at a time. Top k would have kept the same number in both.
 
 The last two lines are why chat models sample instead of searching. Beam
 search found a sentence with a higher probability than greedy decoding,
-and the sentence it found says the same six words twice. The most
-probable text in a language is repetitive text. A model that always
+and the sentence it found says the same six words twice. The text a
+model rates most probable is usually repetitive text. A model that always
 picked the most probable continuation would be right more often and
 worth reading less often, which is the trade every chat product has made.

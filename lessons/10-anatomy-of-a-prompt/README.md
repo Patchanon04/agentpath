@@ -237,7 +237,8 @@ before the model does anything.
 
 ## 3. What belongs in the system prompt
 
-Open `prompt.py`. It is thirty five lines and it does two different jobs that
+Open `prompt.py`. It is short, and it does two jobs that are easy to confuse,
+plus a third one this section comes back to. The first two are two different jobs that
 are easy to confuse.
 
 **Job one is behaviour.** How to work. What to prefer. What to do when things
@@ -432,10 +433,9 @@ about why it should stay small.
 
 ### The examples block, and two other techniques with names
 
-There is a third kind of content a prompt can carry, and it has a name you
-will meet in every book on the subject. Showing the model two or three worked
-examples of the answer you want is called few shot prompting, and the reason
-it works is the foundations track in one sentence. A model predicts the next
+Showing the model two or three worked examples of the answer you want is
+called few shot prompting, and it works for the reason the foundations track
+gives in one sentence. A model predicts the next
 token, so it continues a pattern it can see far more faithfully than it
 follows a description of one. Tell it to answer in one line and it might.
 Show it three one line answers and it almost always will.
@@ -476,8 +476,9 @@ The third is the expensive one. Ask the same question several times at a
 temperature above zero and take the answer that comes back most often. That
 is called self consistency, it measurably beats a single answer on questions
 with one right answer, and it costs as many calls as you take samples. It is
-not a prompting technique so much as an evaluation technique, and lesson 22
-is where it belongs, next to the judge, with a bill attached.
+a way of buying accuracy with calls rather than with wording, and the bill is
+the point. This course does not build it. If you need it, it sits naturally
+beside lesson 22's judge, and costs what a judge costs, multiplied.
 
 ## 4. Why the model needs to be told where it is and what platform it is on
 

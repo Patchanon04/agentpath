@@ -89,7 +89,8 @@ def nucleus(counts, p=0.9):
     whether the model is sure or not. Top p keeps as many as it takes to
     cover p of the probability, so a confident distribution keeps one word
     and a flat one keeps many. The cut moves with the model's confidence,
-    which is why it is the default most APIs ship with.
+    which is why most APIs offer it beside temperature and suggest turning
+    one knob at a time. The default is usually one, which cuts nothing.
     """
     ranked = sorted(probabilities(counts).items(), key=lambda pair: -pair[1])
     kept, total = [], 0.0

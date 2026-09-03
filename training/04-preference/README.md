@@ -3,14 +3,14 @@
 This folder is the code behind the fourth chapter of part 4 of the book,
 at [book/20-preference.md](../../book/20-preference.md). The chapter takes
 the third training round from foundations chapter 7, preference tuning,
-and runs it on the chapter 4 grid with DPO, where a preference is a pair
+and runs it on the foundations chapter 4 grid with DPO, where a preference is a pair
 of next words. This file is the short version for running the code.
 
 The numpy files need no GPU. `train_dpo.py` needs one.
 
 ## What is here
 
-`grid.py` is unchanged from the previous folders.
+`grid.py`, the foundations chapter 4 grid, is unchanged from the previous folders.
 
 `dpo.py` holds the loss and its gradient. `dpo_loss` says how far the
 model is from preferring chosen over rejected, relative to a frozen
@@ -55,7 +55,7 @@ after 'the agent'   reference   tuned
   decides           0.371    0.415
 
 mean change in every probability of the model 0.0015
-the same with plain finetuning on the chosen words only 0.0074
+the same with plain finetuning on the chosen words only 0.0043
 ```
 
 ```bash
@@ -87,13 +87,13 @@ there, and a run that does not has a bug in its reference.
 Read the `runs` row. The rejected word fell from 0.121 to 0.015 while the
 chosen word barely rose, because the base model had never seen `asks`
 follow `agent` and there is only so far a sixty step nudge takes a word
-from nothing. Preference tuning pushes rejected down as readily as it
-pulls chosen up, and on a real model that is where most of its effect
+from nothing. Preference tuning pushes rejected down far more easily than
+it pulls chosen up, and on a real model that is where most of its effect
 shows, in what the model stops saying.
 
 The last two lines are the reference term doing its job. DPO moved the
 model's probabilities by 0.0015 on average. Plain fine tuning on the
-chosen words alone, the same steps at the same rate, moved them by five
+chosen words alone, the same steps at the same rate, moved them by three
 times that. The reference is the leash, beta is its length, and it is
 the whole difference between a model that learned a preference and one
 that forgot everything else to satisfy it.

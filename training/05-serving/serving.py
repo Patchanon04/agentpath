@@ -20,7 +20,7 @@ GIGABYTE = 1024**3
 MODELS = {
     "0.5B": {"parameters": 0.5e9, "layers": 24, "hidden": 896, "kv_heads": 2, "head_size": 64},
     "7B": {"parameters": 7.6e9, "layers": 28, "hidden": 3584, "kv_heads": 4, "head_size": 128},
-    "70B": {"parameters": 70e9, "layers": 80, "hidden": 8192, "kv_heads": 8, "head_size": 128},
+    "72B": {"parameters": 72.7e9, "layers": 80, "hidden": 8192, "kv_heads": 8, "head_size": 128},
 }
 
 # Bytes per parameter at each width. Sixteen bit is what training leaves

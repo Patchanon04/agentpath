@@ -5,7 +5,8 @@ Need. The mechanism it names fits in a dozen lines. Every token asks a
 question, every token offers an answer, the questions are matched against
 the offers, and each token becomes a mix of the answers it matched best,
 weighted by how well. That is attention. Everything else in a transformer
-is plumbing around it, and the plumbing is what this file leaves out.
+is plumbing around it, and the second half of this file is that plumbing,
+each piece small enough to read.
 """
 import numpy as np
 

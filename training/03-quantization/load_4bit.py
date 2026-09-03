@@ -6,10 +6,10 @@ quantize.py with a group of sixty four, and reports the memory it takes
 against the sixteen bit figure. With --train it adds LoRA adapters on
 top and runs chapter 2's training, which is QLoRA. The base stays at
 four bits and frozen, the adapters are trained at sixteen, and a model
-that needed a forty gigabyte card fits in ten.
+that needed a twenty gigabyte card fits in ten.
 
-It needs a GPU and the bitsandbytes library, which is Linux only, and
-it is not run in CI.
+It needs an NVIDIA GPU and the bitsandbytes library, which is easier
+to install on Linux than on Windows, and it is not run in CI.
 
     pip install "agentpath-kit[training]" bitsandbytes
     python load_4bit.py --model Qwen/Qwen2.5-7B-Instruct
@@ -44,8 +44,10 @@ def main(argv=None):
     model = AutoModelForCausalLM.from_pretrained(
         arguments.model, quantization_config=four_bit, device_map="auto"
     )
-    used = torch.cuda.memory_allocated() / 1024**3
-    parameters = sum(p.numel() for p in model.parameters())
+    # Params4bit are packed two to a byte, so counting elements of the
+    # parameters would report half the model. transformers knows this.
+    used = model.get_memory_footprint() / 1024**3
+    parameters = model.num_parameters()
     print(f"{parameters / 1e9:.1f} billion parameters using {used:.1f} GB at four bits")
     print(f"the same model at sixteen bits would need {parameters * 2 / 1024**3:.1f} GB")
 
@@ -56,10 +58,10 @@ def main(argv=None):
     from peft import LoraConfig, prepare_model_for_kbit_training
     from trl import SFTConfig, SFTTrainer
 
-    # prepare_model_for_kbit_training freezes the four bit base and casts
-    # the few layers that must stay in full precision, the norms and the
-    # output head, so that gradients flow through the frozen base into
-    # the adapters without the rounding error swallowing them.
+    # prepare_model_for_kbit_training freezes the four bit base, casts the
+    # parameters that were not quantized, the norms and the output head,
+    # to full precision for numerical stability, and turns on gradient
+    # checkpointing, which is where most of the memory saving comes from.
     model = prepare_model_for_kbit_training(model)
     adapters = LoraConfig(
         r=16,

@@ -26,7 +26,7 @@ print("OK at eight bits every number is an integer from minus 127 to 127, one sc
 eight = loss(dequantize(integers, scale), xs, ys)
 if abs(eight - before) > 0.01:
     fail(f"eight bits should cost almost nothing, loss went from {before:.4f} to {eight:.4f}")
-print("OK eight bits costs almost nothing, the loss moves in the third decimal place")
+print("OK eight bits costs almost nothing, the loss moves by less than a hundredth")
 
 four_integers, four_scale = quantize(base, 4)
 four = loss(dequantize(four_integers, four_scale), xs, ys)

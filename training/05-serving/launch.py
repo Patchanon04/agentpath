@@ -30,7 +30,7 @@ from serving import (
 CHECKPOINTS = {
     "0.5B": {"fp16": "Qwen/Qwen2.5-0.5B-Instruct", "int4": "Qwen/Qwen2.5-0.5B-Instruct-AWQ"},
     "7B": {"fp16": "Qwen/Qwen2.5-7B-Instruct", "int4": "Qwen/Qwen2.5-7B-Instruct-AWQ"},
-    "70B": {"fp16": "Qwen/Qwen2.5-72B-Instruct", "int4": "Qwen/Qwen2.5-72B-Instruct-AWQ"},
+    "72B": {"fp16": "Qwen/Qwen2.5-72B-Instruct", "int4": "Qwen/Qwen2.5-72B-Instruct-AWQ"},
 }
 
 

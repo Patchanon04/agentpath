@@ -169,7 +169,8 @@ def compare(provider, question, first, second, criteria):
     the order as much as the answers. Asking twice with the order swapped
     catches it. If the verdicts agree, the preference survived a change of
     position and can be trusted. If they disagree, the judge was reading
-    the position, and the honest answer is a tie.
+    the position, and the honest answer is a tie. A verdict that is not a
+    letter at all comes back as its own value rather than as a tie.
     """
 
     def ask(left, right):
@@ -182,6 +183,10 @@ def compare(provider, question, first, second, criteria):
 
     forwards = ask(first, second)
     backwards = ask(second, first)
+    if forwards not in ("A", "B") or backwards not in ("A", "B"):
+        # Section 6's rule again. A verdict that is neither letter is not a
+        # tie, it is a grader you cannot read, and it must not look like one.
+        return "unreadable"
     if forwards == "A" and backwards == "B":
         return "first"
     if forwards == "B" and backwards == "A":

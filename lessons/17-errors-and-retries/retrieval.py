@@ -118,8 +118,10 @@ def recall_at_k(ranked_sources, relevant, k):
     whether the right passage was on the page the model was shown, which
     is the part retrieval is responsible for.
     """
+    if not relevant:
+        raise ValueError("a question with no relevant passages cannot be scored, leave it out")
     found = set(ranked_sources[:k]) & set(relevant)
-    return len(found) / len(relevant) if relevant else 0.0
+    return len(found) / len(relevant)
 
 
 def search_notes(question, limit=TOP_RESULTS, root=None, pattern=DEFAULT_PATTERN):

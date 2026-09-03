@@ -43,7 +43,7 @@ weights alone, in gigabytes
 model    fp16    int8    int4
 0.5B      0.9     0.5     0.2
 7B       14.2     7.1     3.5
-70B     130.4    65.2    32.6
+72B     135.4    67.7    33.9
 
 the 7B model at fp16 on each card
 card        fits   8k conversations at once   tokens per second, one request
@@ -65,7 +65,7 @@ python check.py
 
 ```text
 OK 7B weights are fourteen gigabytes at sixteen bits and a quarter of that at four bits
-OK a 70B model does not fit one 80 GB card at sixteen bits and does at four
+OK a 72B model does not fit one 80 GB card at sixteen bits and does at four
 OK the cache costs 56 KB per token of context for the 7B model, from its shape alone
 OK fewer conversations fit as they get longer, and none at all if the weights do not fit
 OK decode speed is bandwidth over bytes, so a quarter of the bytes is four times the tokens
@@ -94,10 +94,11 @@ bandwidth by the size of the weights and nothing else, and it is close to
 what the card actually does, because generating one token means reading
 every weight once and the chip's arithmetic is nowhere near the limit.
 That single fact explains three things people pay for. Quantizing to
-four bits makes one request four times faster. Serving many requests at
-once is nearly free, the weights are read once per step either way, which
-is why the int4 row fits forty six conversations and why providers batch.
-And output tokens cost more than input tokens, because input is read in
+four bits raises the ceiling on one request four times. Serving many
+requests at once is nearly free, the weights are read once per step either
+way, which is why providers batch. How many fit is the other number,
+memory, and that is why the int4 row reaches forty six. And output tokens
+cost more than input tokens, because input is read in
 one pass and output is this loop, one token at a time.
 
 The cache is the other number. Fifty six kilobytes per token does not

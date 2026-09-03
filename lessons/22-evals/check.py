@@ -113,6 +113,8 @@ def main():
         fail("a judge that only reads position should have been caught by the swap")
     if compare(Fair(), "q", "short", "a much longer answer", "must be full") != "second":
         fail("a judge with a real preference should keep it when the order is swapped")
+    if compare(Grader("Well, it depends"), "q", "a", "b", "must be full") != "unreadable":
+        fail("an unreadable verdict must not come back as a tie")
     print("OK swapping the order catches a judge that reads position rather than the answers")
 
     text = report(results)

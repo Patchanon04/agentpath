@@ -56,9 +56,11 @@ def main(argv=None):
     )
 
     # The trainer applies the model's own chat template to each messages
-    # list, foundations chapter 7 at full size, and trains on the assistant
-    # turns. The learning rate is a hundred times what full fine tuning
-    # would use, because only the adapters move and they start at zero.
+    # list, foundations chapter 7 at full size. assistant_only_loss masks
+    # the user turns so the loss is on what the model should say, not on
+    # what it was asked. The learning rate is about ten times what full
+    # fine tuning would use, because only the adapters move and they
+    # start at zero.
     settings = SFTConfig(
         output_dir=arguments.output,
         num_train_epochs=arguments.epochs,
@@ -69,6 +71,7 @@ def main(argv=None):
         save_strategy="epoch",
         bf16=True,
         max_length=2048,
+        assistant_only_loss=True,
     )
     trainer = SFTTrainer(
         model=model,

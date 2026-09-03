@@ -1,15 +1,16 @@
 # ภาคฝึกที่ 3 quantization พร้อมวัดความผิดที่จ่าย
 
 โฟลเดอร์นี้คือโค้ดที่อยู่เบื้องหลังบทที่สามของภาค 4 ของหนังสือ ที่
-[book/19-quantization.md](../../book/19-quantization.md) ตัวบทเก็บตารางของบทที่ 4 ด้วย
+[book/19-quantization.md](../../book/19-quantization.md) ตัวบทเก็บตารางของบทพื้นฐานที่ 4 ด้วย
 แปดบิตแล้วสี่บิต และวัดว่าการปัดเศษมีราคาเท่าไหร่ เพื่อให้การแลกระหว่างหน่วยความจำกับ
 คุณภาพเป็นตัวเลข ไฟล์นี้คือฉบับสั้นสำหรับรันโค้ด
 
-ไฟล์ numpy ไม่ต้องใช้ GPU `load_4bit.py` ต้องใช้ และต้องเป็น Linux
+ไฟล์ numpy ไม่ต้องใช้ GPU `load_4bit.py` ต้องใช้ของ NVIDIA และบน Linux ติดตั้งง่ายกว่า
+Windows
 
 ## มีอะไรอยู่ในนี้
 
-`grid.py` ไม่เปลี่ยนจากโฟลเดอร์ก่อน
+`grid.py` ตารางของบทพื้นฐานที่ 4 ไม่เปลี่ยนจากโฟลเดอร์ก่อน
 
 `quantize.py` ปัดเศษ `quantize` แปลงแต่ละแถวเป็นจำนวนเต็มความกว้างที่กำหนดโดยมีตัวคูณ
 หนึ่งตัวต่อแถว `dequantize` แปลงกลับ และ `bytes_for` บอกว่าตารางใช้ที่เท่าไหร่
@@ -56,7 +57,7 @@ python check.py
 
 ```text
 OK at eight bits every number is an integer from minus 127 to 127, one scale per row
-OK eight bits costs almost nothing, the loss moves in the third decimal place
+OK eight bits costs almost nothing, the loss moves by less than a hundredth
 OK four bits costs more, and the cost is a number you can read next to the bytes saved
 OK a scale per small group keeps more detail at four bits than a scale per row
 OK the largest single error is a small fraction of the largest number in the grid
@@ -73,7 +74,7 @@ python load_4bit.py --model Qwen/Qwen2.5-7B-Instruct --train clean.jsonl
 ## สิ่งที่ควรสังเกต
 
 แปดบิตฟรี byte ลดลงเจ็ดเท่าและ loss ไม่ขยับในทศนิยมตำแหน่งที่สี่ นั่นคือเหตุผลที่ทุกการ
-ให้บริการเริ่มที่ตรงนั้น และเหตุผลที่ int8 เป็นค่าเริ่มต้นในเลขคณิตของสองบทถัดไป
+ให้บริการเริ่มที่ตรงนั้น และเหตุผลที่ตารางของบทให้บริการมีคอลัมน์ int8 เสมอ
 
 สี่บิตไม่ฟรี และตารางแสดงการแลกทั้งสองทาง ตัวคูณหนึ่งตัวต่อแถวลด byte ลงอีกครึ่งและมี
 ราคา loss หกในพัน ตัวคูณต่อกลุ่มสิบเจ็ดมีราคาสามในพัน แลกกับ byte ของตัวคูณอีกร้อยสามสิบหก

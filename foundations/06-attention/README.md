@@ -133,4 +133,5 @@ token's key and value on every step, and that sum is half a million rows
 for a thousand tokens. With the cache each is computed once. `check.py`
 confirms that feeding the tokens through the cache one at a time gives
 exactly the rows the masked attention gives all at once, which is the
-whole point. Same answer, a thousand times less work.
+whole point. Same answer, and the work falls by about half the length of the
+sequence, five hundred times at a thousand tokens.

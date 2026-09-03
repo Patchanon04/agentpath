@@ -39,7 +39,7 @@ weights alone, in gigabytes
 model    fp16    int8    int4
 0.5B      0.9     0.5     0.2
 7B       14.2     7.1     3.5
-70B     130.4    65.2    32.6
+72B     135.4    67.7    33.9
 
 the 7B model at fp16 on each card
 card        fits   8k conversations at once   tokens per second, one request
@@ -61,7 +61,7 @@ python check.py
 
 ```text
 OK 7B weights are fourteen gigabytes at sixteen bits and a quarter of that at four bits
-OK a 70B model does not fit one 80 GB card at sixteen bits and does at four
+OK a 72B model does not fit one 80 GB card at sixteen bits and does at four
 OK the cache costs 56 KB per token of context for the 7B model, from its shape alone
 OK fewer conversations fit as they get longer, and none at all if the weights do not fit
 OK decode speed is bandwidth over bytes, so a quarter of the bytes is four times the tokens
@@ -88,9 +88,10 @@ then, on the machine running the course
 หกสิบหก token ต่อวินาที ตัวเลขนั้นมาจากการเอา bandwidth ของการ์ดหารด้วยขนาดของ weight
 และไม่มีอย่างอื่น และมันใกล้กับสิ่งที่การ์ดทำได้จริง เพราะการสร้างหนึ่ง token คือการอ่านทุก
 weight หนึ่งรอบ และเลขคณิตของชิปยังห่างจากขีดจำกัดมาก ข้อเท็จจริงข้อเดียวนี้อธิบายสาม
-อย่างที่คนจ่ายเงิน การ quantize เป็นสี่บิตทำให้หนึ่งคำขอเร็วขึ้นสี่เท่า การให้บริการหลาย
-คำขอพร้อมกันเกือบฟรี เพราะ weight ถูกอ่านหนึ่งรอบต่อก้าวอยู่ดี ซึ่งเป็นเหตุผลที่แถว int4
-รับได้สี่สิบหกบทสนทนาและผู้ให้บริการทำ batch และ token ขาออกแพงกว่าขาเข้า เพราะขาเข้า
+อย่างที่คนจ่ายเงิน การ quantize เป็นสี่บิตยกเพดานของหนึ่งคำขอขึ้นสี่เท่า การให้บริการหลาย
+คำขอพร้อมกันเกือบฟรี เพราะ weight ถูกอ่านหนึ่งรอบต่อก้าวอยู่ดี ซึ่งเป็นเหตุผลที่ผู้ให้บริการทำ
+batch ส่วนจำนวนที่รับได้คืออีกตัวเลข คือหน่วยความจำ และนั่นคือเหตุผลที่แถว int4 ไปถึงสี่สิบหก
+และ token ขาออกแพงกว่าขาเข้า เพราะขาเข้า
 อ่านรอบเดียว ส่วนขาออกคือ loop นี้ ทีละ token
 
 cache คืออีกตัวเลข ห้าสิบหกกิโลไบต์ต่อ token ฟังดูไม่มากจนกระทั่งคูณด้วยแปดพัน token และ

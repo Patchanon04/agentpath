@@ -863,14 +863,12 @@ that most people skip.
 
 ### Reranking, in the cheapest form that still counts
 
-Serious systems do one more thing after the merge, and it has a name worth
-knowing because the shape of it turns up everywhere. The first pass scores
-every passage in the corpus, so it has to be cheap, and cheap scorers ignore
-things. This one scores single words and never sees their order. A passage that
+Reranking is a second, slower look at only the top few candidates, and serious
+systems do it after the merge. The first pass scores every passage in the
+corpus, so it has to be cheap, and cheap scorers ignore things. This one scores single words and never sees their order. A passage that
 mentions every word of the question in unrelated sentences ties with one that
-says the phrase. Reranking is a second, slower look at only the top few
-candidates, where a costlier scorer is affordable because there are few of
-them. In production the costlier scorer is often a small model that reads the
+says the phrase. A costlier scorer is affordable on the shortlist because there
+are few of them. In production it is often a small model that reads the
 question and the passage together. Here it is word pairs, which is enough to
 see the shape.
 
@@ -884,13 +882,15 @@ def rerank(question, entries):
 `search_notes` applies it to the top twenty before slicing to the limit, and
 `RERANK_TOP` is the knob. Two things to notice. It can only reorder what the
 first pass found, so a passage the rarity scoring missed stays missed, and that
-is true of every reranker. And it is a stable sort, so where the pairs tie the
-rarity order is kept. The rest of the lesson does not change, because the
-tool's contract did not.
+is true of every reranker. And pairs are counted, not weighted, so a shared `of
+the` counts as much as a shared `annual leave`. That is the price of a scorer
+this cheap, and the reason the rarity order is kept underneath it, because the
+sort is stable and where the pairs tie the first pass still decides. The rest of
+the lesson does not change, because the tool's contract did not.
 
-### Measuring it, which is the part people skip
+### Measuring it, so the opinion becomes a number
 
-Everything above is an opinion until you can put a number on it, and the
+Everything above is an opinion until you can put a number on it, and the first
 number retrieval is measured by is recall at k. Write down a handful of
 questions and, for each, which passages should have come back. Run the search.
 Recall at k is the share of the right passages that appear in the top k.
@@ -898,8 +898,10 @@ Recall at k is the share of the right passages that appear in the top k.
 ```python
 def recall_at_k(ranked_sources, relevant, k):
     """What share of the passages that should have been found are in the top k."""
+    if not relevant:
+        raise ValueError("a question with no relevant passages cannot be scored, leave it out")
     found = set(ranked_sources[:k]) & set(relevant)
-    return len(found) / len(relevant) if relevant else 0.0
+    return len(found) / len(relevant)
 ```
 
 It is deliberately narrow. It says nothing about whether the model then
@@ -909,8 +911,9 @@ responsible for, and separating the two is how you find out which half of a
 bad answer to fix. The cost is the test set. Somebody has to write the
 questions and mark the right passages, keep them current as the documents
 change, and resist the temptation to write questions in the documents' own
-words, which is the case where retrieval always looks good. Exercise four of
-lesson 22 is the same discipline aimed at the whole agent.
+words, which is the case where retrieval always looks good. Lesson 22 applies
+the same discipline to the whole agent, a task list with known right answers
+that somebody keeps current.
 
 ## 8. Retrieval is a tool, not a system
 

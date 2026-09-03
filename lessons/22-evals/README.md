@@ -481,8 +481,8 @@ consults, and implements nothing.
 
 ### What a judge gets wrong, and the swap that catches one of them
 
-The table above said a judge can be wrong. It is worth being specific, because
-the ways it is wrong are known and two of them are cheap to defend against.
+A judge is wrong in three known ways, and two of them are cheap to defend
+against.
 
 A judge prefers longer answers. Shown a complete answer and a complete answer
 with three more paragraphs, it leans toward the second, whether or not the
@@ -490,12 +490,13 @@ paragraphs help. A judge prefers its own family. A model grading answers from
 the same model, or one trained the same way, scores them higher than an
 outside grader would, which is the reason the provider is a parameter. And a
 judge has a position bias. Shown two answers and asked which is better, it
-picks the first more often than the first deserves, by an amount that depends
-on the model and the wording and that you cannot know in advance.
+favours one position more often than that position deserves, usually the first,
+by an amount and in a direction that depend on the model and the wording.
 
-The first two are handled by how you use it. Write criteria that say what a
-good answer contains rather than how much of it there is, and grade with a
-model that did not produce the answers. The third one is handled by code.
+The first two are reduced by how you use it, not removed. Criteria that name
+what a good answer contains help, and so does comparing answers of similar
+length, and grading with a model that did not produce the answers. The third
+one is handled by code.
 
 ```python
 def compare(provider, question, first, second, criteria):
@@ -511,6 +512,10 @@ def compare(provider, question, first, second, criteria):
 
     forwards = ask(first, second)
     backwards = ask(second, first)
+    if forwards not in ("A", "B") or backwards not in ("A", "B"):
+        # Section 6's rule again. A verdict that is neither letter is not a
+        # tie, it is a grader you cannot read, and it must not look like one.
+        return "unreadable"
     if forwards == "A" and backwards == "B":
         return "first"
     if forwards == "B" and backwards == "A":
@@ -521,10 +526,13 @@ def compare(provider, question, first, second, criteria):
 Ask twice, with the answers in the other order the second time. A preference
 that survives the swap is a preference about the answers. One that flips with
 the order was a preference about the position, and the honest verdict is a
-tie. This costs two calls instead of one, which is the usual price of not
+tie. A verdict that is neither letter is not a tie, it is a grader you cannot
+read, and it comes back as its own value, which is section 6's rule applied
+twice. This costs two calls instead of one, which is the usual price of not
 being fooled, and `check.py` proves it with two fake graders, one that only
-ever picks the first answer and one that has a real opinion. The swap turns
-the first into a tie and leaves the second alone.
+ever reads position and one that reads the answers, crudely, by length, which
+is enough to show a preference that survives the swap. The swap turns the
+first into a tie and leaves the second alone.
 
 Pairwise comparison is also the form that model selection in section 9
 quietly wants. Grading two models against a standard gives two pass rates.

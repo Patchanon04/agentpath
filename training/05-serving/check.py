@@ -24,11 +24,11 @@ if weight_bytes("7B", "int4") != weight_bytes("7B", "fp16") / 4:
     fail("four bits should be a quarter of sixteen")
 print("OK 7B weights are fourteen gigabytes at sixteen bits and a quarter of that at four bits")
 
-if fits("70B", "fp16", "H100 80GB"):
-    fail("a 70B model at sixteen bits is 130 GB and should not fit an 80 GB card")
-if not fits("70B", "int4", "H100 80GB"):
-    fail("the same model at four bits is 33 GB and should fit")
-print("OK a 70B model does not fit one 80 GB card at sixteen bits and does at four")
+if fits("72B", "fp16", "H100 80GB"):
+    fail("a 72B model at sixteen bits is 135 GB and should not fit an 80 GB card")
+if not fits("72B", "int4", "H100 80GB"):
+    fail("the same model at four bits is 34 GB and should fit")
+print("OK a 72B model does not fit one 80 GB card at sixteen bits and does at four")
 
 per_token = kv_bytes_per_token("7B")
 expected = 2 * 28 * 4 * 128 * 2
@@ -40,7 +40,7 @@ at_8k = concurrent_requests("7B", "fp16", "RTX 4090", 8192)
 at_32k = concurrent_requests("7B", "fp16", "RTX 4090", 32768)
 if not at_8k > 0 or at_32k >= at_8k:
     fail(f"longer conversations should mean fewer of them at once, got {at_8k} and {at_32k}")
-if concurrent_requests("70B", "fp16", "RTX 4090", 8192) != 0:
+if concurrent_requests("72B", "fp16", "RTX 4090", 8192) != 0:
     fail("a model that does not fit serves nobody")
 print("OK fewer conversations fit as they get longer, and none at all if the weights do not fit")
 

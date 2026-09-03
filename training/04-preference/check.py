@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 from dpo import PREFERENCES, dpo_loss, drift, log_probability, train_dpo
-from grid import BASE_CORPUS, gradient, pairs, pretrain, vocabulary
+from grid import BASE_CORPUS, gradient, pretrain, vocabulary
 
 
 def fail(message):
@@ -35,7 +35,8 @@ for context, chosen, rejected in PREFERENCES:
 print("OK every chosen word gains on its rejected word, relative to where the reference was")
 
 naive = reference.copy()
-xs, ys = pairs("the agent asks . the tool returns . the model asks .", index)
+xs = np.array([index[context] for context, _, _ in PREFERENCES])
+ys = np.array([index[chosen] for _, chosen, _ in PREFERENCES])
 for _ in range(60):
     naive -= 2.0 * gradient(naive, xs, ys)
 if not drift(tuned, reference, index) < drift(naive, reference, index):

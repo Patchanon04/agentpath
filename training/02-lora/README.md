@@ -10,7 +10,7 @@ The numpy files need no GPU. `train_lora.py` needs one.
 
 ## What is here
 
-`grid.py` is the chapter 4 model, carried into part 4 so every demo here
+`grid.py` is the foundations chapter 4 model, carried into part 4 so every demo here
 trains the same thing. Two corpora, the base text and the new text, and
 the training functions from foundations. It is also in the next two
 folders unchanged.
@@ -38,7 +38,7 @@ def lora_finetune(weights, xs, ys, rank=2, steps=300, learning_rate=2.0, seed=0)
 
 `train_lora.py` is the same idea on an open model, with peft adding the
 thin pairs beside every attention and feed forward grid and trl running
-the loop, on the chat file chapter 1 wrote. It is not run in CI.
+the loop, on the chat file the previous folder wrote. It is not run in CI.
 
 `check.py` pins the claims the chapter makes.
 
@@ -83,8 +83,8 @@ python train_lora.py clean.jsonl --output adapter --merge
 ## What to notice
 
 Read the table by columns. The new text column is what fine tuning is
-for, and LoRA gets within a fifth of full fine tuning there while
-training 164 numbers instead of 1681. That ratio is the whole reason the
+for, and LoRA lands about a fifth of a loss unit behind full fine tuning
+there while training 164 numbers instead of 1681. That ratio is the whole reason the
 method exists. On a real model the thin pairs are a fraction of a percent
 of the weights, and the memory that full fine tuning needs for gradients
 and optimiser state, three times the model, shrinks with them.

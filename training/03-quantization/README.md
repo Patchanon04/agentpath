@@ -2,15 +2,16 @@
 
 This folder is the code behind the third chapter of part 4 of the book,
 at [book/19-quantization.md](../../book/19-quantization.md). The chapter
-stores the chapter 4 grid in eight bits and then four, and measures what
+stores the foundations chapter 4 grid in eight bits and then four, and measures what
 the rounding costs, so that the trade between memory and quality is a
 number. This file is the short version for running the code.
 
-The numpy files need no GPU. `load_4bit.py` needs one, and Linux.
+The numpy files need no GPU. `load_4bit.py` needs an NVIDIA one, and is
+easier on Linux than on Windows.
 
 ## What is here
 
-`grid.py` is unchanged from the previous folder.
+`grid.py`, the foundations chapter 4 grid, is unchanged from the previous folder.
 
 `quantize.py` rounds. `quantize` turns each row into integers of a given
 width with one scale per row, `dequantize` turns them back, and
@@ -59,7 +60,7 @@ python check.py
 
 ```text
 OK at eight bits every number is an integer from minus 127 to 127, one scale per row
-OK eight bits costs almost nothing, the loss moves in the third decimal place
+OK eight bits costs almost nothing, the loss moves by less than a hundredth
 OK four bits costs more, and the cost is a number you can read next to the bytes saved
 OK a scale per small group keeps more detail at four bits than a scale per row
 OK the largest single error is a small fraction of the largest number in the grid
@@ -77,7 +78,7 @@ python load_4bit.py --model Qwen/Qwen2.5-7B-Instruct --train clean.jsonl
 
 Eight bits is free. The bytes fall by seven times and the loss does not
 move in the fourth decimal place. That is why every serving setup starts
-there and why int8 is the default in the next two chapters' arithmetic.
+there and why the serving chapter's tables always carry an int8 column.
 
 Four bits is not free, and the table shows the trade in both directions.
 One scale per row halves the bytes again and costs six thousandths of
