@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+A foundations track, for the reader who does not yet know what a token
+is. Seven folders in foundations/ and seven chapters as part 0 of the
+book. Text to bytes and why Thai costs three, a byte pair tokenizer from
+nothing and the two corpus experiment that shows the price of a language
+is a property of what the tokenizer saw, a language model that counts and
+loops at temperature zero, the same model that learns by gradient descent
+in eighty lines, word vectors and why cosine ignores length, one head of
+attention on four tokens with the quadratic cost as a table, and the chat
+template built by hand with a prompt injection at the marker level. Every
+folder runs without an API key and has a check.py that pins the numbers
+its chapter quotes. numpy is an optional group used only here.
+
+The book has a rhythm. The first draft opened three hundred and sixty
+eight paragraphs with a bold label and all sixteen chapters with the same
+sentence, and read like a reference card. STYLE.md gains a section of
+rhythm rules that can be checked by reading. Chapter 6 is rewritten to
+them as the sample, and every foundations chapter is written to them from
+the start. The remaining fifteen chapters follow.
+
+None of this is in the package. The wheel on PyPI is unchanged.
+
 ## 1.0.6
 
 The package has a front door. An import of agentpath gave you a version

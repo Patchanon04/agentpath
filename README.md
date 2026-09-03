@@ -36,6 +36,11 @@ Every chapter also has a Thai version, which is rare for material at this depth.
 
 All four parts are finished, so the course is complete at 24 chapters.
 
+If you do not yet know what a token is, there is a foundations track that comes
+before lesson 01. Seven short chapters, from text as bytes to the chat template,
+each with code you can run without an API key. It lives in
+[foundations/](foundations/) and in part 0 of the book.
+
 ## Quickstart
 
 Install uv, which is the Python installer and environment manager this course
@@ -172,6 +177,13 @@ can open any chapter and run its code without having done the others. The code
 is duplicated between chapters on purpose, because a course where chapter four
 silently depends on an edit you made in chapter two is a course people abandon.
 
+`foundations/` holds seven folders of code for the reader who does not yet know
+what a token is. They come before lesson 01 and need no API key. Text to bytes,
+a tokenizer from nothing, a language model that counts, one that learns, word
+vectors, attention on four tokens, and the chat template. Each folder has a
+short README in both languages and the full chapter is in the book, in Thai.
+This is the one place in the course that uses numpy.
+
 `src/agentpath/` holds the finished framework, which is the same ideas written
 once and properly, with tests.
 
@@ -201,7 +213,9 @@ Issues and pull requests are welcome. Two rules matter more than the rest.
 
 The course is frozen at 24 chapters. New topic ideas belong in
 [docs/v2-ideas.md](docs/v2-ideas.md), not in a new chapter. If you want to add a
-chapter you have to argue for removing one.
+chapter you have to argue for removing one. The foundations track is the one
+exception, because it sits before the course rather than after it, and it is
+frozen at seven by the same rule.
 
 Prose has a house style. No em dash, no emoji, and no colon in ordinary
 sentences. A check in continuous integration enforces the first two.

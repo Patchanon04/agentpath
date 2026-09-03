@@ -5,7 +5,22 @@
 บทเรียนสอนให้คุณสร้าง หนังสือเล่มนี้อธิบายว่าทำไมมันถึงเป็นแบบนั้น ถ้าคุณอ่านบทเรียนแล้ว
 ทำตามได้แต่ยังไม่แน่ใจว่าจะออกแบบของตัวเองยังไง เล่มนี้เขียนมาเพื่อคุณ
 
+ถ้าคุณยังไม่รู้ว่า token คืออะไร เริ่มที่ภาค 0 มันสร้างทุกอย่างตั้งแต่ตัวอักษรจนถึง chatbot
+ด้วยโค้ดที่รันได้โดยไม่ต้องมี model และจบตรงที่บทเรียนที่ 01 เริ่ม
+
 ## สารบัญ
+
+### ภาค 0 พื้นฐานจากศูนย์
+
+| บท | เรื่อง | โค้ด |
+|----|--------|------|
+| [พ.1](00a-text-is-numbers.md) | ข้อความคือตัวเลข และ NLP คืออะไร | [foundations/01](../foundations/01-text-is-numbers/) |
+| [พ.2](00b-tokens.md) | token คือหน่วยที่คิดเงิน สร้าง tokenizer จากศูนย์ | [foundations/02](../foundations/02-tokens/) |
+| [พ.3](00c-next-token.md) | model ทำอย่างเดียว คือทายคำถัดไป | [foundations/03](../foundations/03-next-token/) |
+| [พ.4](00d-learning.md) | การเรียนรู้คือการขยับตัวเลขให้ผิดน้อยลง | [foundations/04](../foundations/04-learning/) |
+| [พ.5](00e-meaning-as-direction.md) | ความหมายคือเพื่อนที่คำคบ เขียนเป็นทิศทาง | [foundations/05](../foundations/05-meaning-as-direction/) |
+| [พ.6](00f-attention.md) | attention คือการที่ทุก token มองทุก token | [foundations/06](../foundations/06-attention/) |
+| [พ.7](00g-from-model-to-chatbot.md) | chatbot คือ model บวกกลเม็ดเดียว | [foundations/07](../foundations/07-chat/) |
 
 ### ภาค 1 ทฤษฎี
 
