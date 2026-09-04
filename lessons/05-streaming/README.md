@@ -85,6 +85,13 @@ it, scan it for a stop phrase, or cut the connection when the model starts
 going somewhere useless. None of that is possible when the first thing you
 learn about the answer is that it is finished.
 
+Someone put that second reason to work in an hour. Their agent answered a
+yes or no question with an 800 word essay about a third of the time, and the
+essay always opened the same way, so they matched the first fragment against a
+short list of opening phrases and closed the connection. The tell arrived
+about 300 milliseconds in, and the run that used to cost 800 output tokens
+cost 6.
+
 ## 2. What server sent events are and how to read one by eye
 
 Server sent events, usually shortened to SSE, is the format providers use to
@@ -212,6 +219,14 @@ implement to consume it. Split on newlines, keep lines starting with a
 prefix, stop on a sentinel. That is a dozen lines of code with no dependency.
 A websocket client is a dependency, a handshake, a framing layer, a ping and
 pong keepalive, and a reconnection story.
+
+The second reason is the one people find out about the hard way. A developer
+had a streaming demo that worked at home and showed nothing at all from a desk
+in the office. The office proxy allowed the POST, returned 200, and then held
+the entire body until generation finished, so every fragment arrived in one
+lump 14 seconds later. That was the friendly failure. The websocket version of
+the same demo did not get past the upgrade handshake at all, and the error it
+gave named neither the proxy nor the reason.
 
 The trade is that you cannot send anything to the server once the request is
 in flight. Since you have nothing to send, that trade costs you nothing.
@@ -678,6 +693,16 @@ Index 0 accumulates into its own slot, index 1 into its own, and neither one
 ever sees the other's characters. At the end you have two complete strings
 that each parse cleanly.
 
+```mermaid
+flowchart LR
+    S["fragment arrives"] --> R{"read its index"}
+    R -->|index 0| B0["slot 0<br/>keep concatenating"]
+    R -->|index 1| B1["slot 1<br/>keep concatenating"]
+    B0 --> D["DONE<br/>the stream is over"]
+    B1 --> D
+    D --> P["json.loads once per slot"]
+```
+
 There is a wider lesson here that outlives this file. When a protocol hands
 you an identifier alongside a fragment, the identifier is not decoration. It
 is there because the fragments can arrive out of order, and the protocol
@@ -755,6 +780,14 @@ recipient. `transfer(amount)` where the amount defaulted to something. A
 truncated argument list turns a specific instruction into a general one, and
 general instructions to destructive tools are how disasters read in the
 incident report.
+
+One team met the mild version of this and it was still a bad afternoon. Their
+`archive_records` tool took a date cutoff, the stream was cut inside the
+arguments on a long turn, and the swallowed error turned the call into
+`archive_records()`, which their function read as no cutoff at all. It moved
+every record in the table into cold storage, 41,000 rows, and nothing raised
+anywhere. They found it the next morning from a support ticket, not from a
+log line.
 
 The model never learns it made a mistake. This one is subtler and, in
 practice, worse. The model asked for `add` with two arguments. Something
@@ -960,6 +993,13 @@ redraws. You would be rewriting the printing, the logging, the confirmation
 prompt, and the tests all at once, in a codebase where you can no longer see
 the whole path in one screen. That is a week of work and a large diff instead
 of an afternoon and a small one.
+
+Somebody did keep the numbers. Adding streaming to this lesson's agent changes
+two files and about 60 lines. The same team added it to a product that already
+had a confirmation gate, a logger and a session store, and the branch touched
+14 files and 900 lines, mostly because every place that had been written
+against "the answer is a string you now have" had to be written against "the
+answer is a string you are still receiving".
 
 The general principle is that changes to the shape of your data flow should
 be made when the program is small. Cost grows with the amount of code built

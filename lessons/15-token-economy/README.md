@@ -512,6 +512,18 @@ The match is a prefix match on bytes. Not a similarity score, not a fuzzy match.
 The first byte that differs ends the reusable region, and everything after that
 byte is processed from scratch, however much of it was identical.
 
+```mermaid
+flowchart TB
+    subgraph GOOD["the varying part last"]
+        direction LR
+        A1["tool schemas"] --> A2["system prompt"] --> A3["old messages"] --> A4["newest message<br/>first difference here"]
+    end
+    subgraph BAD["the varying part first"]
+        direction LR
+        B1["tool schemas"] --> B2["session id and time<br/>first difference here"] --> B3["system prompt"] --> B4["old messages"] --> B5["newest message"]
+    end
+```
+
 ### The failure, measured
 
 Here is the experiment. It uses the real tool schemas and the real system prompt

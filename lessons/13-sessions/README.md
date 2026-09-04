@@ -339,6 +339,17 @@ a rendering thread reads, so the transcript updates as the agent works.
 Five callers, five completely different destinations, and the loop is identical
 for all of them because it does not have a destination. It has a report.
 
+```mermaid
+flowchart LR
+    L["the loop"] --> R["remember"]
+    R --> M["messages<br/>the list in run"]
+    R --> C["on_message"]
+    C --> F["Session.append<br/>a file you can resume"]
+    C --> T["a plain list<br/>inside a test"]
+    C --> E["one row per task<br/>in an eval table"]
+    C --> Q["a queue<br/>a window redraws from"]
+```
+
 Consider the alternative and watch it decay. Suppose the loop took a `session_path`
 and wrote to it. Day one that is fine and shorter. Then the test wants to run
 without touching the disk, so `session_path=None` gets a meaning. Then the eval
@@ -357,6 +368,12 @@ raises, the run dies. `Session.append` opens the file, writes one line and close
 it, which is fast enough to be invisible next to an HTTP request to a model, so
 this does not bite here. It would bite if you passed a callback that posted to a
 web service on every message. Keep callbacks cheap.
+
+A number makes the size of that clear. Forty messages, with a callback that
+posts each one to an internal service at two hundred milliseconds a call, adds
+eight seconds to the run, and the agent sits idle for every one of them.
+`Session.append` on the same forty messages is under a millisecond each. The
+cost is never the callback existing. It is what you hang behind it.
 
 ## 5. Writing session.py line by line
 
@@ -695,6 +712,12 @@ problem, and agent problems are frequently not reproducible because models are
 not deterministic. The bug you are chasing happened once, yesterday, on a
 conversation that no longer exists.
 
+Picture the hour that costs you. The agent edits the wrong file, so you add two
+log lines recording the path `edit_file` was handed, restart, and run the same
+task eleven times over the next hour. It behaves perfectly every time. The run
+that mattered is gone, the two log lines are permanent now, and you know nothing
+you did not know when you started.
+
 A session file records the input to the decision, in full, with no selection
 applied. Everything is in there because the whole thing is in there. You do not
 have to have anticipated the question.
@@ -779,6 +802,13 @@ was there.
 
 None of that would be possible if the model held the conversation. You would be
 asking a vendor for an export feature.
+
+That last one has a price on it. A session where the agent spent four turns
+reading the wrong package is carrying nine thousand tokens of dead end, and
+those tokens are resent on every turn that follows and on every resume after
+that. Open the file, delete the four lines, and tomorrow's first request is nine
+thousand tokens lighter for as long as the session lives. No provider sells you
+that button.
 
 Statelessness looked like the expensive property in lesson 02. It is the one that
 makes every chapter of part 3 possible. Sessions here, and in lesson 14 the fact
@@ -957,6 +987,13 @@ mid task, with no way to continue. And the session file makes it worse in one
 specific way, because a conversation that has grown too large to send is now
 saved, so resuming it fails immediately and permanently. You have a file you
 cannot use.
+
+That point arrives sooner than it feels like it should. A day of real work on
+one project leaves a session file of about two hundred and sixty kilobytes,
+which is roughly sixty five thousand tokens. A model that accepts thirty two
+thousand rejects the request without reading a word of it, and it rejects the
+same file tomorrow and next week, because the file only ever grows. The session
+that was your best debugging tool is the one you can no longer hand to an agent.
 
 The obvious fix is to drop the oldest messages, and it is wrong in a way that is
 worth knowing before you write it. Look at the excerpt in section 6 again. Line 2

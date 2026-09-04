@@ -87,6 +87,13 @@ if you want to support both, you now need an `if` statement inside every one of
 those places, which is the beginning of a mess that grows every time a fifth
 provider appears.
 
+That mess does not announce itself. Picture `llm.py` six weeks after the flag
+went in, with one branch in the payload builder, one in the URL, and two parse
+loops sharing the same `partial` dictionary. Somebody fixes a bug where the
+second tool call in a two tool turn lost its arguments, checks it against the
+provider they happen to be using, and ships. The other branch still has the bug
+and no check ever calls it, so the first person to find it is a user.
+
 The point of this lesson is to move that difference out of the loop and into a
 place where it can be swapped, and to do it while the codebase is still small
 enough that the surgery takes twenty minutes.
@@ -480,6 +487,14 @@ conversation that worked perfectly the turn before, pointing at a message you
 did not think you had touched, from code that has been correct since the day
 you wrote it.
 
+Here is the shape that takes in practice. A harness folds every assistant
+message into an internal record with three fields, a role, a text string and a
+list of tool calls, and runs that way for four months and some sixty thousand
+turns without a complaint. Then thinking is switched on for one account, and
+every turn after the first comes back 400 with `messages.1.content.0.signature`
+named in the error body. The line that dropped the field was written before
+anybody on that team had heard of a thinking block.
+
 That is why it is worth knowing before you meet it. Everything else in this
 chapter you could rediscover in ten minutes from an error message and a schema.
 This one presents as a request that used to work and now does not, over a field
@@ -539,6 +554,13 @@ pays full price for tokens that were nearly free the turn before. Nothing
 fails. Nothing logs a warning. The only place it appears is the bill, and by
 then nobody remembers which afternoon somebody nudged a budget from one number
 to another.
+
+Put numbers on it. A session with a twelve thousand token prefix that runs forty
+turns resends that prefix forty times, and a cached read is commonly billed at
+about a tenth of a fresh one. Nudge the budget on turn five and the remaining
+thirty five turns pay full price on those twelve thousand tokens, so the same
+prefix costs roughly ten times what it cost the turn before. No request failed
+and nothing in the logs looks different.
 
 So the practical rule is to choose the thinking setting when a session starts
 and leave it alone for the life of that session. If you need a different
@@ -682,6 +704,13 @@ parent class in exchange for making the reader jump between two files is a bad
 trade. Both classes in `providers.py` are written flat, top to bottom, and
 duplicate a little on purpose so that each one can be read on its own.
 
+The trade gets worse the moment the shared line has to change. Say the parent
+grows a `_send` helper that opens the client and calls `raise_for_status`, and
+six months later one provider needs to read the body of a 429 before it raises,
+because the retry delay is in there. The fix goes into the parent, and the other
+provider now raises a different exception than it did yesterday, for a reason
+you cannot see from its own file.
+
 That last decision is worth stating as a rule, because it goes against the
 instinct most people are taught. Duplication is cheap. Wrong shared code is
 expensive. Two hundred lines you can read straight through beat a hundred
@@ -735,6 +764,13 @@ Capabilities that change the shape of control flow are the ones that cannot be
 retrofitted. Streaming is the classic example, because it turns one return
 value into a sequence of events over time. Asynchrony is another. Cancellation
 is a third.
+
+Cancellation is the one people meet last and regret most. An agreement that
+promises one return value has nowhere to say stop, so the only way out of a call
+that is going to take ninety seconds is to kill the thread or wait it out. Teams
+find that out on the day a user presses escape and the meter keeps running for
+another minute and a half. Adding it later means changing the signature, both
+providers and every caller, which is the five edit column above.
 
 There is a second reason streaming first is the right way round, and it is
 about what fits inside what. A streaming call can pretend to be a batch call
@@ -1258,6 +1294,24 @@ oversight. The loop keeps the conversation in one internal shape and the
 provider translates on the way out, which is `_to_wire` doing its job. If the
 loop had to know which shape to record, the abstraction would have failed at
 the last step, which is a common way for this kind of refactor to go wrong.
+
+One turn crossing the seam looks like this. The wire shape exists only inside
+the middle box.
+
+```mermaid
+sequenceDiagram
+    participant L as agent loop
+    participant P as provider
+    participant S as server
+    Note over L: history in the OpenAI shape<br/>role tool and tool_call_id
+    L->>P: stream(messages schemas on_text)
+    Note over P: _to_wire builds this dialect's shape
+    P->>S: POST with that dialect's payload
+    S-->>P: data lines one at a time
+    Note over P: glue the fragments<br/>parse once
+    P-->>L: text and calls
+    Note over L: append role tool<br/>to the same history
+```
 
 One more difference is easy to miss. Lesson 05's `agent.py` ended with this.
 

@@ -94,6 +94,13 @@ more beginner projects than any concept in this course. `uv` sidesteps it becaus
 `uv pip install` always targets the environment `uv` itself created, and
 `uv run` always uses that same environment.
 
+A learner on Windows hit this on her first evening. She ran `pip install httpx`,
+watched it print `Successfully installed httpx-0.28.1`, ran `python check.py`,
+and got `ModuleNotFoundError` for the package she had just installed. The `pip`
+first on her `PATH` belonged to a 3.11 from python.org and the `python` first on
+her `PATH` was a 3.13 from the Microsoft Store. Two correct installations, one
+correct script, and an error message that blames neither.
+
 ### Why uv and not conda
 
 `conda` can install Python versions, so it solves the bootstrap problem, but it
@@ -255,6 +262,16 @@ talk to many different providers. What you are choosing right now is simply whic
 machine answers that request. Your own computer, somebody's free service, or
 somebody's paid service.
 
+```mermaid
+flowchart LR
+    C["your code<br/>POST /chat/completions"] --> A["Ollama on your machine"]
+    C --> B["free tier such as Groq"]
+    C --> D["paid API such as OpenAI"]
+    A --> R["one reply shape<br/>all three answer the same way"]
+    B --> R
+    D --> R
+```
+
 There are three honest options. The course works with all three, and you can
 switch later by changing environment variables and nothing else. That portability
 is the entire reason the course is built this way.
@@ -320,6 +337,13 @@ into the provider's billing settings and set a hard monthly spend limit. Lesson
 04 introduces a loop that calls the model repeatedly, and a bug in your own loop
 code is the classic way a beginner discovers billing.
 
+Here is what that looks like in practice. A reader wrote lesson 04's loop with
+the stop condition inverted, so it never broke out, and it made 214 calls in
+about four minutes before he closed the terminal, each call re-sending a
+conversation that had grown to roughly 9,000 tokens. The bill came to $1.80,
+survivable only because he happened to be on a cheap model. Setting the limit
+first costs nothing and takes one minute.
+
 One wrinkle worth knowing early. Lessons 00 through 05 speak the OpenAI
 compatible request shape described above. OpenAI serves that shape natively.
 Anthropic's own API uses a different message format, which this course adds
@@ -380,6 +404,13 @@ people abandon a course like this one. **If that happens to you, it is not your
 fault and your code is probably correct.** You have hit a limitation of the model,
 not a bug in your work. The fix is to change models, not to rewrite your code for
 three hours.
+
+Somebody spent an evening proving that. Lesson 03 kept failing, so he rewrote his
+argument parsing three times, and on the fourth attempt he printed the raw reply
+instead and found the model had answered `I will now call add with a=2 and b=3.`
+as ordinary prose, with no structured call anywhere in the response. The model
+was a 3 billion parameter one. Pointing `AGENTPATH_MODEL` at an 8b and rerunning
+the very first version of his code passed on the first try.
 
 ### What to use instead
 
@@ -459,6 +490,12 @@ key on a paid account is somebody else's bill charged to you. Keeping the key in
 your environment means it lives in your shell session or your profile, not in a
 file that `git add .` can sweep up. This is not a rule invented for teaching. It
 is the normal professional practice.
+
+The window is far shorter than people assume. A developer pasted a key straight
+into a file to test one call, pushed the branch, saw the mistake within the
+minute, and force pushed a clean history nine minutes later. The provider's leak
+notice was already in his inbox by then, which means something had read that
+commit and tried the key while he was still typing the fix.
 
 ### Setting the variables in PowerShell on Windows
 

@@ -182,6 +182,26 @@ class Permissions:
 
 Nine lines of logic. Read them in order, because the order is the design.
 
+The order those five checks run in is the shape of the gate, and every tool call
+in the rest of this course goes through it.
+
+```mermaid
+flowchart TD
+    A["a tool call arrives"] --> B{"on the safe list"}
+    B -->|yes| RUN["run it"]
+    B -->|no| C{"auto approve on"}
+    C -->|yes| RUN
+    C -->|no| D{"signature remembered"}
+    D -->|yes| RUN
+    D -->|no| E{"anyone there to ask"}
+    E -->|no| NO["refuse"]
+    E -->|yes| F["ask the person"]
+    F -->|always| G["remember the signature"]
+    G --> RUN
+    F -->|once| RUN
+    F -->|no| NO
+```
+
 ### Change one. Reading is not writing, so safe tools never ask
 
 ```python
@@ -199,6 +219,13 @@ place is most of the work. An agent exploring an unfamiliar codebase will read
 twenty files before it changes one. If every one of those reads asked you a
 question, the agent would be slower than doing the job yourself, and you would
 be habituated before it found anything.
+
+Count a real run and the shape is obvious. Ask the agent to fix one failing test
+in a project you have never opened, and the trace comes back with thirty one
+tool calls, of which twenty four are reads, globs and greps, four are edits and
+three are shell commands. Gate all of them and you answer thirty one questions
+to change four lines. Gate only the seven that touch something and you answer
+seven, and those seven are the ones you would have wanted to see anyway.
 
 We keep the safe list in a set rather than a flag on each tool. The alternative
 is to mark each tool as safe or unsafe in its schema, next to its description.
@@ -501,6 +528,14 @@ compromise rather than a recommendation. Lesson 18 builds the real command line,
 and there the permissions object is constructed explicitly at the top of `main`
 so that no call site can get it by forgetting.
 
+Picture the mistake that default makes possible. Somebody lifts four lines out
+of lesson 11 into a script that summarises the repository every night, calls
+`agent.run(task)` with nothing in the third argument, and schedules it for three
+in the morning. Nothing ever prompts, because there is nobody awake to prompt,
+and the permissive default is what they were handed for not typing anything. It
+works for thirty nights. The thirty first run is the one you would have refused,
+and on your screen it looks exactly like the thirty before it.
+
 ## 6. Telling the model it was refused
 
 Here is the one branch that the loop grew.
@@ -641,6 +676,13 @@ claim that prompting cannot be the control, because a control that fails some
 percentage of the time against an adversary who can retry is not a control. It
 is a filter.
 
+Put a number on the difference and you can see why the word matters. Say your
+new paragraph in `BEHAVIOUR` takes the model from following an injected line one
+time in three down to one time in forty. That is a real improvement and you
+should keep it. Then count the files an agent actually reads for one person on
+one project in a week, which is a few hundred, and one in forty stops sounding
+like a defence and starts sounding like a schedule.
+
 ### What actually stops it
 
 Go back to the run where the model did take the bait. Something stopped the
@@ -686,6 +728,13 @@ running `pytest` executes their code and your approval covers it. This is why
 less dramatic than running a command. In this session the set dies with the
 process, which limits the blast radius. Lesson 13 makes the conversation persist, and once a decision outlives a
 process that is the question to ask again.
+
+That lifetime runs out even when nobody is attacking you. You answer `a` to
+`python -m pytest -q` on Monday. On Thursday you pull a colleague's branch that
+adds a `conftest.py` fixture starting a database container before the first
+test. Friday's run pulls an image and opens a port on your laptop without
+printing a word, because the string you approved has not changed by one
+character and the gate has nothing else to compare.
 
 ## 8. A detail worth knowing about streaming and approval
 

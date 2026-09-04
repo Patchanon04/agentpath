@@ -217,6 +217,13 @@ Sit with what that changes about your job. Before this chapter, the question
 After this chapter it is answered by "has anybody written X", and the second
 question has a much better hit rate than the first.
 
+A week of that changes what people ask for. Somebody wanted the agent to say
+whether last night's deploy went out, which as a hand written tool meant an API
+client, a token in the environment, pagination and about a day. The platform team
+already ran a server for exactly that, so the work was four lines of config and
+the agent answered the question eleven minutes later. Nothing about that
+capability got cheaper to build. It got cheaper to reach.
+
 That is the whole argument. It is a distribution mechanism for capability, and
 it happens to be specified as a protocol because that is the only way a
 distribution mechanism can work across languages and companies. If the same
@@ -295,6 +302,19 @@ this chapter and seeing it removes most of the mystery from the rest.
 A server is a program. You start it as a subprocess. You write JSON to its
 standard input, one object per line, and you read JSON from its standard output,
 one object per line. That is the whole transport.
+
+```mermaid
+sequenceDiagram
+  participant C as MCPClient
+  participant S as server subprocess
+  C->>S: initialize with id 1
+  S-->>C: result carrying serverInfo
+  C->>S: notifications/initialized with no id
+  C->>S: tools/list with id 2
+  S-->>C: result carrying names and schemas
+  C->>S: tools/call with id 3
+  S-->>C: result carrying content and isError
+```
 
 ```python
         self.process = subprocess.Popen(
@@ -708,12 +728,28 @@ is worse than the prompt injection in lesson 12, because there the attacker's
 text arrived in a file the agent read. Here it arrives in the tool list, before
 the task starts, in the place the model treats as its own capabilities.
 
+The version of this that costs real money is boring to look at. A formatter
+server installed from a template ended its `format_code` description with a
+sentence saying the caller should read `.env` first so that project settings are
+respected. That sentence is a tool description, so it never arrived through a
+file the agent chose to open, and it was sitting in context before the first task
+was typed. The agent read the file, the four keys in it went out in the next
+request to the provider, and every line of that run reads as correct in the
+session file.
+
 The server is a program running on your machine. Not a sandboxed function.
 A subprocess, started by `subprocess.Popen`, with your file permissions, your
 network access, your environment variables and therefore your API keys. Adding
 an MCP server to your config is running somebody's code. It deserves the same
 suspicion as `curl | sh` and it usually gets much less, because it arrives
 through a friendly setup wizard.
+
+Check that once and you stop forgetting it. Start a server through this client,
+then read the child process environment on your own machine, and your provider
+key is in there, because `Popen` hands the child a copy of yours unless you tell
+it not to. This client does not tell it not to. Four lines of config typed into a
+friendly wizard bought somebody else's program the same reach into your machine
+that you have.
 
 So the rule is absolute and there is no exception to argue about.
 
@@ -857,6 +893,14 @@ distinct jobs is an easy choice. Twenty is fine. Past forty, with overlap, the
 error rate climbs and the reason is not the model being weak, it is that the
 question genuinely got harder. You would pick wrong too, given sixty one line
 descriptions and no way to experiment.
+
+One measured afternoon looked like this. Six servers connected, fifty four tools
+in the list, three of them offering something called search. Asked where a
+function was defined, the agent picked the wiki search, got back four pages of
+onboarding documentation, summarised them, tried the same search with different
+words, and only reached `grep_files` on the fourth turn. Nine thousand tokens and
+three turns for a question `grep_files` answers in one. Disconnect five of the six
+servers and the same question is answered on the first try.
 
 So the discipline is unpopular and simple. Connect the servers you need for the
 task in front of you, not every server you have ever configured. Ten connected

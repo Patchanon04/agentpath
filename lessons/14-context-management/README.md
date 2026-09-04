@@ -129,6 +129,14 @@ log. The agent simply becomes confused about what you asked it, and you spend
 half an hour wondering why it forgot the task. An error is a gift compared to
 that.
 
+Picture it once so you recognise it. A local server started with a context
+length of 4096 is handed a conversation of about nine thousand tokens. It keeps
+the last 4096 of them, which begins somewhere inside a `grep_files` result, and
+answers. Your question from twelve minutes ago is not in the prompt any more,
+and neither is the sentence telling it what directory it works in, so it
+cheerfully summarises the fragment of grep output it can see. Nothing anywhere
+reports that half the conversation was thrown away.
+
 ## 2. The obvious approach, and why it is a disaster
 
 The instinct is immediate and it is the right shape. The conversation is too
@@ -351,6 +359,13 @@ the kind of thing a number gets applied to. Nothing in the shape of the problem
 suggests the elements are not independent. The list is a list. It has no marker
 in it saying that indices 2 and 3 are one thing.
 
+The diff that introduces it is eleven lines and gets approved in four minutes.
+Everything in it is local and obviously right. It walks a list backwards, adds
+up sizes, stops at a number, and it says nothing about tool calls anywhere,
+because there is nothing about tool calls in it to say. Two people read it
+carefully. Neither of them was thinking about the pairing rule, because nothing
+on the screen was.
+
 Three properties then conspire to keep the bug alive. It only appears when a
 conversation is long enough to need trimming, so it never shows up in
 development on short examples. It only appears at some budgets and not others,
@@ -468,6 +483,20 @@ block is kept whole or dropped whole. Therefore no sequence of trims can
 separate them. You are not being careful about the invariant, you have made it
 impossible to violate.
 
+```mermaid
+flowchart LR
+    S["system<br/>never a candidate"] --> B1
+    B1 -->|"the only line a trim may cut"| B2
+    subgraph B1["block 1 costs 43"]
+        direction TB
+        U1["user<br/>first question"] --> A1["assistant<br/>calls c1"] --> T1["tool<br/>result of c1"] --> A2["assistant<br/>first answer"]
+    end
+    subgraph B2["block 2 costs 14"]
+        direction TB
+        U2["user<br/>second question"] --> A3["assistant<br/>second answer"]
+    end
+```
+
 ## 5. What must never be dropped
 
 Two things are exempt, and each has a reason that only shows itself when you
@@ -499,6 +528,13 @@ run shell commands, and no statement anywhere about what it is supposed to be
 doing or how it is supposed to behave. It does not announce that it has lost
 its instructions, because it has no memory of ever having had them. It just
 starts behaving differently, mid task, with your files in reach.
+
+The way it shows up is quiet. Around turn twelve the system message goes over
+the line, and the next answer is three paragraphs of friendly explanation where
+the last eleven were one line of diff. Two turns later it writes a file at the
+repository root, because the sentence saying it works only inside `workspace`
+was in the prompt and the prompt is no longer in the request. Nothing failed.
+The agent is simply a different agent from turn twelve onwards.
 
 The two failures are not comparable, so the cheap one is chosen every time.
 
@@ -600,6 +636,13 @@ frequently approaching one token per character, so an estimate that is roughly
 right for an English conversation can be off by a factor of three for a Thai
 one. Since the tool results in this agent are mostly source code and JSON, the
 estimate here leans towards undercounting.
+
+Put the Thai case in numbers, because a factor of three is easy to nod at and
+hard to feel. A design note of six thousand Thai characters estimates at fifteen
+hundred tokens and is nearer four thousand five hundred once a tokeniser has cut
+the script into pieces. Read three such files and your estimate says four
+thousand five hundred while the request carries thirteen thousand five hundred.
+The budget that exists to protect you has not noticed anything at all.
 
 And it does not count everything that is sent. This is the biggest gap and
 it is not in the function at all. `estimate_tokens` measures messages. The

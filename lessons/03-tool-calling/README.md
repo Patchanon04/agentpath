@@ -97,6 +97,15 @@ and an `if` statement that you wrote.
 Step 6 is yours. It is the only step that touches the real world, and it lives
 entirely in code you wrote and can read.
 
+```mermaid
+flowchart LR
+    S["SCHEMAS<br/>name description parameters"] --> Q["one request<br/>messages plus tools"]
+    Q --> M["the model on the far end"]
+    M --> J["structured message<br/>name plus arguments"]
+    J --> D["your dispatcher<br/>nothing has happened yet"]
+    D --> R["run it<br/>or refuse<br/>or ask a person first"]
+```
+
 ### Why this design and not another one
 
 You could imagine other designs. A model that returns Python source for you to
@@ -140,6 +149,13 @@ trivial once execution is a function call in your own program. Part 2 of this
 course adds a real file reader and a real shell runner, and it adds a
 confirmation prompt in exactly this gap. The safety story is not a feature
 bolted on later. It is a consequence of the shape you are learning right now.
+
+A demo built the other way makes the point faster than any argument. Someone
+wired a model straight to `exec` and asked it to tidy up a build folder. It
+wrote four correct lines and one that resolved `..` one level higher than the
+author meant, and eleven minutes of uncommitted work went with it. Nothing in
+that program was in a position to look at the string first, because by the time
+the string existed it was already running.
 
 One more thing to notice before we look at code. The model choosing to emit a
 tool call is still just prediction. It is not a decision in the sense a person
@@ -475,6 +491,12 @@ enum cannot be produced. Tool calling asks nicely and checks afterwards. A
 constrained decoder makes the invalid answer unreachable. In production that
 difference shows up as fewer retries.
 
+The gap is small until the volume is large. A team classifying 5,000 support
+tickets through a never run tool got 41 answers back with a label outside the
+enum, mostly `mixed` and `Negative` with a capital letter, plus 6 where the
+JSON did not parse at all. Every one of those was a second call and a second
+bill. The same 5,000 through the provider's constrained mode needed none.
+
 The reason to know the tool calling route anyway is coverage. It works on every
 endpoint that supports tools at all, including small local models and older
 gateways where the dedicated mode is missing, ignored, or accepted and then
@@ -576,6 +598,13 @@ guessing.
 A second rule. When a model behaves badly with tools, edit the description
 before you touch anything else. It is the cheapest experiment you have, and it
 fixes the problem more often than any other change.
+
+Worth seeing the size of the effect. A support agent with a `search_orders`
+tool answered from memory instead of calling it on 18 of 20 test questions, and
+the author was halfway through swapping models when he tried the cheap thing
+first. He added one sentence, "use this whenever the user asks about the status
+or history of an order", and the same model on the same 20 questions called the
+tool 19 times. The edit took a minute.
 
 ## 6. Why the tools here are toys
 
@@ -720,6 +749,13 @@ mid-turn. If they come back as strings, the loop you build in lesson 04 can
 hand the error text back to the model, which can then try something else. An
 agent that reads its own error messages is far more capable than one that
 crashes, and this one line is what makes that possible.
+
+You can watch the difference in one turn. An agent asked to summarise
+`notes/todo.md` called `read_file` on `todo.md`, got back the string
+`Error: FileNotFoundError: todo.md`, called `list_files` on its own initiative,
+saw the `notes` folder, and read the right path on the third turn. With a raised
+exception instead of a returned string, that run ends at turn one with a
+traceback and a user who has to work out the path themselves.
 
 Notice also that everything is converted with `str()`. Tool results travel
 back to the model as text, because messages are text. Returning an `int` here
@@ -1036,6 +1072,13 @@ directive, and point your test suite at it. You then test your own code, which
 is the part you can actually fix, and your suite runs in milliseconds for free.
 Keep a separate and much smaller set of tests that hit a real model, and run
 those on demand rather than on every commit.
+
+The arithmetic is what convinces people. A team with 40 tests against a real
+model watched three of them fail on a good day for no reason anybody could
+reproduce, so the build went red about once every two days and everyone learned
+to rerun it without reading it. Moving 37 of the 40 behind a fake took the suite
+from 90 seconds and a bill to 1.2 seconds and nothing, and the red builds that
+remained meant something again.
 
 ## 10. Troubleshooting when the model refuses to call a tool
 

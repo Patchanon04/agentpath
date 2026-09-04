@@ -254,6 +254,14 @@ same relative path means to `read_file`, and the model would have no way to
 notice. With `cwd` set, `pytest tests/` and `read_file("tests/test_a.py")` agree
 about which `tests` they mean. That consistency is worth more than it sounds.
 
+Take it away and watch what the model concludes. You launched the agent from
+your home directory with the workspace pointed at a project. `read_file` returns
+forty lines of `tests/test_auth.py`, so the file is plainly there. Then
+`pytest tests/` runs in your home directory, finds no such folder, and prints
+`no tests ran in 0.01s` with exit code 5. The model has one fact that says the
+tests exist and one that says they do not, and the likeliest thing it does next
+is write them again.
+
 You can see it work. This is a real result from running the command `cd`, with
 no arguments, through the tool on Windows.
 
@@ -774,6 +782,13 @@ ask me", permanently, on the machine that has your credentials on it. You will
 forget you did it. Six months later you will run an agent on a repository you
 did not write and it will not ask.
 
+That one has a very ordinary beginning. You spend a Friday afternoon getting
+`ci/run_lessons.py` green, get tired of exporting the variable in each new
+terminal, and put the line in `.bashrc` because it is one line and it is your
+own machine. Nothing bad happens for three months. Then you clone somebody's
+project to look at a bug, start the agent in the same shell, and the first
+command it chooses runs without a word.
+
 The second is committing it to a repository, in a `.env` file, a devcontainer
 definition, a Makefile, or a task runner config. Now it turns on for everyone
 who clones, including people who never made the decision and do not know it was
@@ -799,6 +814,13 @@ It does not remember. Approve `pytest -q` and the next `pytest -q` asks again,
 and so does the one after that. On a long session you will answer the same
 question a dozen times, and answering the same question a dozen times is how
 people learn to press `y` without reading, which defeats the entire mechanism.
+
+Count it on a real morning. An agent working through a refactor runs the linter
+after each edit, so twenty minutes of work asks you fourteen questions and
+thirteen of them are the same `ruff check .`. By the eleventh you are pressing
+`y` on the shape of the box rather than on the command in it. The fourteenth is
+`rm -rf build`, in a project where `build` holds the templates and is checked
+into git.
 
 It does not understand. `ls` and `rm -rf ~` are both strings and it treats them
 identically. There is no notion of a safe command.
@@ -1016,6 +1038,15 @@ slow command is the shell's child. Killing the shell leaves that grandchild
 alive, still holding the write end of both pipes. `communicate` is reading those
 pipes until they close, and they do not close while somebody still holds them.
 So the call sat there waiting for the whole command, and then reported a timeout.
+
+```mermaid
+flowchart LR
+    A["agent<br/>communicate waits<br/>for the pipes to close"] --> B["shell<br/>started by shell=True"]
+    B --> C["the slow command<br/>still holding both pipes"]
+    C -->|"pipes stay open"| A
+    K["process.kill()"] -.->|"reaches only this"| B
+    T["killpg or taskkill /T"] -.->|"reaches the whole group"| C
+```
 
 Here is the measurement, run on the machine this chapter was written on. Both
 halves ask for a two second limit on a command that sleeps for twenty.
@@ -1236,6 +1267,13 @@ The cost is that the interleaving is lost. Two pipes means two separate
 buffers, so a warning printed to stderr in the middle of a test run
 appears after all the stdout, not where it happened. For a long build log that
 is genuinely confusing.
+
+Here is that confusion with a shape. A build compiles forty files, printing one
+line each to stdout, and file three emits a deprecation warning to stderr. In
+the tool result the forty lines come first and the warning comes last, directly
+under the line for file forty. The model reads it as a complaint about file
+forty and goes and edits the wrong file. Nothing lied to it. The ordering was
+simply thrown away by the two buffers.
 
 You could fix it with `stderr=subprocess.STDOUT`, which merges the two into one
 pipe and preserves the true order. Then you lose the ability to tell them apart,

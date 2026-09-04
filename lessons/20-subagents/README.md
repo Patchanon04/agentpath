@@ -225,6 +225,14 @@ designed for subagents. All of it applies to subagents because a subagent is
 shaped like a tool, and a special mechanism would have had to earn every one of
 those properties separately.
 
+That inheritance is worth more than it sounds on the day something goes wrong. A
+delegation that came back with nonsense was traced by opening the session file
+and reading the two lines the parent had written, a `run_subagent` call with the
+task string in it and the result that came back, which was enough to see the task
+had named the wrong directory. Nobody wrote a logger for subagents. The child was
+invisible in that file and the task string was not, and the task string was the
+bug.
+
 ## 3. Why that matters more than the code
 
 Go back to the `diff -qs` output at the top of the file and read the first line
@@ -337,6 +345,19 @@ uncounted.
 
 Four and two. Those two numbers are the chapter.
 
+```mermaid
+sequenceDiagram
+  participant P as parent messages
+  participant T as run_subagent
+  participant C as child messages
+  P->>T: the task written as one string
+  T->>C: a fresh conversation starting empty
+  C->>C: fifteen reads and nine searches
+  C-->>T: two sentences
+  T-->>P: the same two sentences
+  Note over C: the list is freed when the call returns
+```
+
 Now scale them back up to the retry question from section 1. Fifteen file reads
 and a handful of searches happen inside the child, which means they land in the
 child's `messages` list, which is a local variable inside a function call that
@@ -418,6 +439,13 @@ That is the entire mechanism. So the answer to the second question is now shaped
 by the first, and there is no error, no warning, and no way to tell from the
 outside. You get a plausible answer that was contaminated by a question nobody
 asked.
+
+It shows up as a good answer to the wrong question. A parent kept one child and
+sent it three jobs in a row, and the third one asked which files write to the
+session. The child had just spent four turns proving the retry delay is hardcoded
+in `retry.py`, and it came back naming `retry.py` first, with a sentence about
+the delay being written on each attempt. Nothing in that answer is a lie. It is
+an answer to a blend of two questions and only one of them was asked.
 
 The same argument produces a property worth naming. Every delegation is
 independent of every other. Call the tool three times with the same task and you
@@ -515,6 +543,13 @@ a plausible answer to a question it had to guess. **A parent that writes a vague
 task gets a vague answer back**, and it gets it in the confident tone of a
 finished investigation, which is worse than an error because it looks like a
 result.
+
+One of those cost half a day. The parent delegated the words `check the other one
+too` while it was holding two providers in mind, the child had heard of neither,
+guessed the one named in its own system prompt, and returned four confident
+sentences about it. The parent then wrote a summary saying both providers agreed.
+Both providers had not been looked at. The parent's own transcript shows one tool
+call and one clean result.
 
 Told about the isolation, the parent writes this instead.
 
@@ -769,6 +804,14 @@ For a job of two or three steps, a subagent is more expensive and slower than
 doing it yourself. Not marginally. The fixed cost of starting a conversation
 dominates completely at that size, and you have added latency on top, because
 the parent sits blocked while the child does its round trips one after another.
+
+Put a number on that. A three step job done in the parent was three tool calls on
+a conversation already carrying its system prompt and its schemas, and it
+finished in about eleven seconds. The same job delegated sent the system prompt
+and forty schemas again for the child, took five round trips instead of three,
+and finished in thirty four. It saved the parent about nine hundred tokens of
+tool results. Nine hundred tokens against a budget of a hundred thousand is not a
+saving. It is a rounding error bought with three times the wait.
 
 There is a second cost that does not show up in tokens. Everything the parent
 knows has to be written into the task string by hand. On a small job that

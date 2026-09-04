@@ -184,6 +184,12 @@ state is hidden in the call stack instead of sitting in a variable you can
 print, and because Python's recursion limit becomes a second failure mode you
 have to reason about on top of the one you already have.
 
+A reader did write it recursively, and it ran fine until a tool started
+failing. He then wanted to see the transcript at the moment things went wrong,
+and there was no transcript to print, because at depth eight it existed as
+eight partially built lists in eight stack frames. He attached a debugger to
+answer a question that `print(messages)` answers in one line.
+
 A state machine or a graph is what several popular frameworks give you.
 Nodes, edges, conditional transitions. Those become genuinely useful when you
 have branching workflows, human approval steps, and parallel sub agents, which
@@ -384,6 +390,15 @@ messages stay. Now you have exactly the orphan from the start of this section,
 except you did not write it deliberately, and the agent that worked perfectly
 for twenty turns starts throwing 400 errors on turn twenty one.
 
+```mermaid
+flowchart TB
+    U["user<br/>What is 2 plus 3"] --> A
+    subgraph PAIR["one unit that trimming must not split"]
+        A["assistant<br/>tool_calls with id call_1"] --> T["tool<br/>tool_call_id call_1<br/>content 5"]
+    end
+    T --> F["assistant<br/>2 plus 3 is 5"]
+```
+
 The correct approach is to treat a tool call and its results as one indivisible
 unit when trimming, and to summarise old sections rather than slicing them.
 That is a chapter of its own. It is the context management lesson in part 3,
@@ -442,6 +457,13 @@ one sends a short message list. Pass fifty sends fifty rounds of accumulated
 tool calls and error strings. So the spend per turn climbs while the loop makes
 no progress at all. This pattern has produced a lot of memorable invoices, and
 the people who received them were mostly running code that looked correct.
+
+Do the arithmetic on the dice trace above. Pass one sends about 800 tokens,
+mostly schemas. Each stuck pass adds the repeated call and its error string, so
+by pass fifty the request is around 41,000 tokens, and the fifty passes
+together send roughly a million input tokens to produce nothing. That is one
+question, asked once, by a program with no bug in it that a reviewer would
+catch.
 
 The `for` over `range(max_turns)` makes the worst case bounded and knowable
 before you press enter. Ten turns is ten model calls. You can put a number on
@@ -787,6 +809,13 @@ strangely, this output is the first thing you read, because it shows you the
 exact arguments the model chose and the exact string it got back. Print
 generously in agents. The interesting failures are all in the gap between what
 you assumed the model asked for and what it actually asked for.
+
+Here is one of those gaps. An agent kept reporting that a config file did not
+exist, on a machine where the file plainly did exist, and two people read the
+file tool looking for the bug. The trace settled it in one line. The model had
+copied the path out of the user's message along with the newline that ended it,
+so it was asking for `config.yaml\n`, and the file tool was answering that
+question correctly.
 
 `tools.run` is unchanged from lesson 03. It looks the name up in `FUNCTIONS`,
 returns an error string for a name it does not recognise, calls the function
@@ -1149,6 +1178,13 @@ Consider the failure shapes.
 - A tool with a confirmation prompt runs beside another that also wants the
   terminal, and the user is asked two questions at once with no way to tell
   which is which.
+
+The second shape is not theoretical. A harness that ran independent looking
+tools together let a write and a read of the same file overlap, and the reader
+opened the file about 40 milliseconds before the writer flushed. The agent then
+told its user that the change had not been applied, and offered to apply it
+again. It showed up twice in 200 runs, which is the worst possible rate,
+because it is often enough to matter and rare enough that nobody believes you.
 
 Every one of those is a race condition, and race conditions are the class of
 bug that appears once in fifty runs, never reproduces while you are watching,

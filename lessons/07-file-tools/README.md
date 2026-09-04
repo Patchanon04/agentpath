@@ -233,6 +233,16 @@ There are exactly two ways out of that function. A safe path, or an exception.
 There is no third branch where a slightly questionable path gets through with a
 warning printed somewhere.
 
+```mermaid
+flowchart LR
+    RF["read_file"] --> G
+    WF["write_file"] --> G
+    EF["edit_file"] --> G
+    LF["list_files"] --> G
+    G["resolve_inside"] -->|"outside the root<br/>or a credential name"| X["WorkspaceError<br/>the tool never runs"]
+    G -->|"a real Path"| OK["the tool does its work"]
+```
+
 `WORKSPACE` is the root of everything the agent is permitted to touch. It comes
 from the `AGENTPATH_WORKSPACE` environment variable, defaulting to `.`, and it
 is resolved to an absolute path once when the module is imported. That last
@@ -303,6 +313,13 @@ rename with a source and a destination, and only the first one gets checked.
 The failure mode of duplicated security is never that all the copies are wrong.
 It is that one of them is, and the other three keep working perfectly and make
 the whole thing look fine.
+
+Picture the shape of it. Somebody adds `move_file(source, destination)` by
+copying `read_file` and adjusting, which means the four line check at the top
+gets copied too, and it runs on `source`. Nobody notices that this tool is the
+first one with two paths in it. The agent moves `notes.txt` to
+`../../../tmp/notes.txt` and the tool reports `Moved notes.txt`. Every review of
+`read_file` still passes, because `read_file` was never the problem.
 
 A security rule you cannot review in one sitting is not a security rule.
 This is the sharper half of the argument. Ask what it takes to answer the
@@ -641,6 +658,13 @@ It does not act on the ask, because it is not present at the point where the
 ask is answered. Those are different positions in the pipeline and only one of
 them is a gate.
 
+Watch how thin the margin is. The prompt says never read `.env`. The agent is
+asked why the staging deploy fails, lists the directory, sees `.env`,
+`.env.local` and `.env.production`, and reads `.env.production`, which is not
+the file the instruction named. The instruction was followed. The key is in the
+conversation. `looks_like_a_secret` matches on the `.env.` prefix precisely
+because a rule stated once in English does not stretch to the neighbours.
+
 There is a second reason, and it is the one that generalises. A prompt is text
 in a conversation, and by the end of part two the conversation will be full of
 other text that arrived from files, command output, and search results, none of
@@ -835,8 +859,12 @@ there. Now the tool is exact, and the model is required to track line numbers
 across a conversation while the file changes underneath it. Every previous edit
 shifts the numbers below it. Models are poor at this arithmetic, and worse, the
 resulting error mode is an off by one that lands in the wrong place and
-succeeds. Matching on text has the enormous advantage that the model's
-identifier for a location is checkable against the file. A line number is not.
+succeeds. Picture a file where the model read line 42 near the top of
+`summarise`, then made two earlier edits that added five lines between them.
+Line 42 is now line 47, and line 42 belongs to the function above. The tool edits
+exactly where it was told, reports success, and the model has no way to find
+out. Matching on text has the enormous advantage that the model's identifier for
+a location is checkable against the file. A line number is not.
 
 The third asks the user which occurrence. Prompt a human every time a match is
 ambiguous. This is not wrong, and lesson 08 introduces confirmation for shell
@@ -1386,6 +1414,13 @@ instruction. The agent cannot notice a typo it introduced, cannot discover that
 its fix broke a different test, and cannot try a second approach when the first
 one did not work, because it has no way to learn that the first one did not
 work.
+
+The cost of that gap is easy to put a number on. Suppose `add` really was meant
+to subtract and something two files away depends on it. The change lands, the
+trace says `Edited calc.py`, and the agent stops. A test run that would have
+printed one failing assertion in under a second never happens, because there is
+no tool that can start it. You find out when you run the suite yourself, some
+number of instructions later, with no idea which of them caused it.
 
 The thing that closes that loop is a tool that runs commands, and it is lesson
 08. Once the agent can run the test suite, read the failure output, edit again,

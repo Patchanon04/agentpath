@@ -89,6 +89,8 @@ its first exercise.
 
 The role matters more than it looks. The model was trained on conversations in this format, so it has learned that text marked `user` is a request to respond to and text marked `assistant` is its own previous speech. If you put everything under one role, quality drops noticeably.
 
+Someone testing this took a six turn support conversation and flattened it into one `user` message, keeping every word and just dropping the role labels. The model answered a question the customer had already answered three turns earlier, and then apologised to itself. Same text, same model, same 380 tokens. The only thing removed was who said what.
+
 `content` is the text of that message. In later lessons content can also be a list of parts so you can send images, but a plain string is the common case and it is what we use here.
 
 That is the whole request. Two keys, one of which is a list of two-key objects. There is nothing else hiding in there.
@@ -163,6 +165,15 @@ Our function in this lesson ignores `finish_reason`, which is fine for one hello
 
 Now compare the two documents. You sent a list of messages. You got back one message, in the same shape, plus bookkeeping. That is the entire protocol.
 
+```mermaid
+flowchart LR
+    L["your list of messages<br/>role and content"] --> P["POST /chat/completions<br/>model plus messages"]
+    P --> S["the provider's machine"]
+    S --> J["response JSON<br/>choices usage id"]
+    J --> M["choices 0 message<br/>role and content again"]
+    M --> L
+```
+
 ## 3. Why we use httpx directly instead of an official SDK
 
 Every provider ships an **SDK**, a software development kit, which is a library that wraps their API in ready made functions. OpenAI's is `openai`, and with it the code for this lesson would be about four lines.
@@ -170,6 +181,8 @@ Every provider ships an **SDK**, a software development kit, which is a library 
 We are not going to use one, and the reason is the point of this chapter.
 
 An SDK's job is to hide the HTTP request. That is a genuinely good thing when you are shipping a product and a bad thing when you are trying to understand what a language model is. If you learn `client.chat.completions.create(...)` without ever seeing the JSON underneath, then the model stays a magic box, and every problem you hit later becomes unexplainable. Why does the model forget things. What is a system prompt really. How does a tool call arrive. Every one of those questions has an obvious answer once you have seen the wire format, and no answer at all if you have not.
+
+A developer who had shipped against an SDK for a year hit this the week her agent started dropping tool calls. The SDK object exposed `tool_calls` as an empty list, so she read it as the model refusing to call anything, and she spent two days rewriting her tool descriptions. The raw body had the call in it the whole time, split across streaming chunks the SDK version she was pinned to reassembled wrongly. She could not see that, because she had never once looked at the body.
 
 This course has a rule. No magic. You should be able to see every layer, all the way down, and be able to rebuild it. Later lessons add streaming, tool calls, retries, and multiple providers, and each one is a change to this same request that you will be able to see and reason about.
 
@@ -242,6 +255,8 @@ environment["AGENTPATH_API_KEY"] = "mock-key"
 The lesson code is not aware that it is being tested and contains no test-only branch. Being able to redirect a program from the outside, without touching it, is the practical payoff of configuration by environment variable, and it is a habit worth forming now.
 
 ### Why three variables and not one
+
+One variable is not a hypothetical alternative. An early draft of this course used a single `AGENTPATH_URL`, and a reader pasted an Anthropic endpoint into it. The request went out, came back 200, `response.json()` parsed fine, and the code died on `body["choices"]` because Anthropic's body puts the text under `content` instead. A 200 with the wrong shape is a much worse day than a 404.
 
 We could have used one variable holding the full URL. We split it into three because they change independently. You swap `AGENTPATH_MODEL` constantly while keeping the same provider. You set `AGENTPATH_API_KEY` once and then leave it alone. And the base URL is the only piece the provider actually controls. Keeping the path `/chat/completions` in the code, rather than in the variable, also means you cannot accidentally point the function at an endpoint that returns a different shape of JSON than the code knows how to read.
 
@@ -398,6 +413,8 @@ The timeout is how many seconds `httpx` will wait before giving up and raising a
 `httpx` has a default timeout of five seconds. That is a sensible default for ordinary web APIs and a bad one for language models. A model generating a long answer routinely takes twenty, forty, sometimes ninety seconds, because it produces the reply one token at a time and only sends it when the whole thing is done. With the default you would see random failures on exactly the requests that were working hardest.
 
 So we raise it to 120 seconds. And the reason we set a number at all, rather than disabling the timeout, is the opposite failure. If the network drops or the server hangs, a request with no timeout waits forever, and your program simply stops with no error and no output. That is much worse to debug than a clear timeout error after two minutes. A generous limit that still exists is the right answer for both problems.
+
+A nightly summarising job at one shop ran with `timeout=None` because a five second default had bitten the author once. A router dropped the connection mid answer without sending a reset, so the socket stayed half open and the job sat on that one call for eleven hours. It was still listed as running when someone checked the next afternoon, and there was nothing in the log because nothing had failed.
 
 ### Checking the status
 

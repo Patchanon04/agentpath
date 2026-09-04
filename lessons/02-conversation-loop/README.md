@@ -83,6 +83,8 @@ You might reasonably ask why the API does not just keep the conversation for us 
 - You keep full control of the history. You can edit it, trim it, replay it, save it to disk, or fabricate parts of it. In lesson 03 you will absolutely be fabricating parts of it, and that is only possible because the history lives in your process, not theirs.
 - Debugging is honest. Whatever you can see in your list is exactly what the model sees. There is no hidden state to blame.
 
+The third one sounds like a small thing until you lose it. A team using a hosted API that stored threads on the server spent a day on an assistant that kept quoting a document their user had deleted two weeks earlier. Their own code had no copy of the thread, so the only way to see what the model was reading was to ask the model, and it answered confidently either way. With a list in your process you print it and the argument is over in ten seconds.
+
 ### What it costs you
 
 Statelessness is not free, and this is the part beginners usually discover the painful way.
@@ -120,6 +122,8 @@ There are four roles you will meet in this course.
 Standing instructions that apply to the whole conversation. Tone, persona, rules, output format, what the assistant is allowed to refuse. It normally sits first in the list and stays there for the life of the conversation.
 
 Use it for things that are true for every turn. Do not use it for the current question. A rough test is whether the sentence would still make sense on turn fifty. "You are a helpful Python tutor" would. "Explain decorators" would not, and that belongs in a user message.
+
+A reader put his opening question into the system message because it felt like setup. Nine turns later he asked about list comprehensions and got a paragraph on decorators wrapped around the answer. The instruction had never gone away, because the system message is resent unchanged on every call, and the model was doing what it was told each of the nine times.
 
 Our `chat.py` does not add a system message yet, deliberately, so you can see the bare mechanism first. Adding one is the first exercise at the end of this lesson.
 
@@ -256,6 +260,15 @@ Line by line.
 - `messages.append({"role": "user", "content": user_input})` puts your line into the transcript before the call, so that the request includes it.
 - `reply = complete(messages)` sends the whole list. Everything from the beginning of the session, not just the newest line.
 - `messages.append({"role": "assistant", "content": reply})` is the line to understand.
+
+```mermaid
+flowchart LR
+    I["input from you"] --> AU["append role user"]
+    AU --> C["complete<br/>sends the whole list"]
+    C --> AA["append role assistant"]
+    AA --> P["print the reply"]
+    P --> I
+```
 
 ### Why the assistant reply must be appended back
 
@@ -417,7 +430,11 @@ Your chat works fine, and works fine, and works fine, and then at some unpredict
 
 The second wall is the bill. Long before you reach the first one you are paying for the same early messages over and over. A hundred turn conversation re-sends turn one a hundred times. In the response envelope above, watch `prompt_tokens` climb while `completion_tokens` stays roughly flat. That gap is your money.
 
+Put numbers on it. A forty turn chat where each side writes about 150 tokens ends with a request of roughly 12,000 input tokens, and the forty requests add up to around 240,000 input tokens for 6,000 tokens of actual output. The same forty questions asked in forty fresh sessions would have sent about 6,000 input tokens in total. Forty times the input for the same conversation is the price of the model remembering anything.
+
 We are not fixing this yet, and that is on purpose. Part 3 of this course deals with it properly, in the chapters on context management and token economy, where you will build trimming, summarising and pruning strategies and learn when each one is appropriate. Every one of those strategies involves deciding what to throw away, and you cannot make that decision well until you have a real agent whose transcripts you understand. Bolting a truncation rule onto lesson 02 would teach you a line of code and hide the actual problem.
+
+The obvious rule is the one that hurts. A team shipped `messages[-10:]` and it worked for a week, until an agent whose workspace path had been set on turn two started writing files into the wrong directory on turn thirty. Keeping the last ten messages is not a memory policy, it is a promise that nothing said early ever matters, and almost every real conversation breaks that promise somewhere.
 
 For now, if a conversation gets long, restart the program. Feel the annoyance. It is the motivation for part 3.
 

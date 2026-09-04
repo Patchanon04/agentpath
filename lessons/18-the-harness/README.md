@@ -91,6 +91,15 @@ Those five sentences are the definition. **A harness is everything that stands
 around the agent so the agent can be run more than once, on work that matters,
 by somebody who is not the person who wrote it.**
 
+Put a number on the last of the five. A colleague ran the part 2 agent on a
+failing test suite, watched it read four files, edit two and run the suite twice,
+and pressed the interrupt key at minute nineteen because it was editing the wrong
+module. What came back was a `KeyboardInterrupt` out of the middle of the
+streaming parser, a half written line on the terminal, and one file already
+changed on disk with no record anywhere of which one. The agent did the work for
+all nineteen of those minutes. Nothing around it was ready for a person to be in
+the room.
+
 Now name the parts of the one you built, because that is the definition made
 concrete.
 
@@ -132,7 +141,22 @@ loop, which was nothing at all.
 
 Look at where the responsibilities sit, one at a time. Each of these is a
 sentence about a boundary, and each boundary was a decision that could have gone
-the other way.
+the other way. One turn passes through every one of them in a fixed order.
+
+```mermaid
+flowchart TD
+  A[main.py wires the parts] --> B[agent.py one turn]
+  B --> C{permissions.check}
+  C -- no --> D[refusal text back to the model]
+  C -- yes --> E[tools.run]
+  E --> F[session.append]
+  D --> F
+  F --> G[fit_to_budget picks what is sent]
+  G --> H[with_retries wraps the call]
+  H --> I[provider.stream]
+  I --> J[usage.add counts what came back]
+  J --> B
+```
 
 ### Permissions decide, and do not run
 
@@ -357,6 +381,14 @@ Six chapters later the loop is four hundred lines, every subsystem has a branch
 in it, and the one file every feature must pass through is the file nobody dares
 edit. Adding the seventh subsystem now means changing the most dangerous code in
 the program, and every change risks the six that already work.
+
+That version has a bill you can read. Adding cancellation to it means putting a
+`stop_requested` check inside a function with nine branches, and the check lands
+in eight of them, because the ninth is the retry sleep somebody wrote three
+chapters earlier and nobody reread. Press the interrupt key during a backoff and
+the run carries on for thirty two more seconds. The bug is not in the
+cancellation code. It is in cancellation having nowhere to live except inside
+somebody else's branch.
 
 Both designs run the same agent on the day you finish them. They diverge on day
 thirty, and the next section measures exactly how far.
@@ -1429,6 +1461,15 @@ functions, so anything that is not a Python function in that dictionary does not
 exist as far as the agent is concerned. The world is full of capability that
 this design cannot reach.
 
+The arithmetic on the ninth tool is worse than it looks. A read only query tool
+for one Postgres database came to about a hundred and twenty lines once the
+schema, the dispatch entry, the timeout, the error text and the check were all
+written, and it took an afternoon. A week later the database team pointed at a
+server they already ran that exposed the same query over a pipe, tested, with the
+connection string handled on their side. The afternoon did not go on the hard
+part. It went on rebuilding something that could not be borrowed, because the
+design had no way to borrow.
+
 Lesson 19 builds the MCP client, a protocol where tools live in a separate
 process and are described over a pipe, so a tool becomes something you connect
 to rather than something you write. You write the client yourself,
@@ -1455,6 +1496,14 @@ worse. The agent gets slowly stupider as the run goes on, forgetting the earlies
 and most load bearing parts of its own reasoning, and there is no error anywhere
 because trimming worked exactly as designed. It just quietly threw away the
 instructions.
+
+Here is what that looks like on a real afternoon. A run to strip a deprecated
+flag out of a service reached turn thirty one against a budget of a hundred and
+twenty thousand tokens, and `fit_to_budget` dropped the four oldest blocks, one
+of which said the flag had to keep working for existing callers until the next
+release. The agent finished the job cleanly and deleted the compatibility path.
+Every check passed, the session file was complete, and nothing in the transcript
+said that sentence had ever been there.
 
 Trimming cannot fix this, and neither can a bigger window, because both are
 answers to the wrong question. The real problem is that one conversation is
@@ -1496,6 +1545,15 @@ so the run you just watched would have gone differently a second time with no
 change at all. You can run it twice and prefer the second, which is measuring
 noise. What you actually have is a feeling, and a feeling formed from two runs on
 one task, on one model, with one phrasing.
+
+One phrasing is where this gets expensive. Add the sentence about running the
+tests, try it on two repositories that both answer to `pytest`, watch it run the
+tests both times, and keep the sentence. Three weeks later the same agent is
+pointed at a repository whose tests run under a make target, and it burns six
+turns and eleven thousand tokens hunting for a test command that is not there,
+because the sentence told it to always run the tests and never told it what to do
+when it cannot find them. Two runs said yes. Neither run asked the question that
+mattered.
 
 That is not a small gap. It means every improvement you make to the most
 important text in the program is unfalsifiable. It means you cannot tell whether
