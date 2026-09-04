@@ -124,8 +124,27 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-Forty lines of plumbing over eight lessons of machinery. Section 3 goes through
-it line by line, including the two lines whose ordering is load bearing.
+Forty lines of plumbing over eight lessons of machinery. Here is what those
+forty lines connect to what.
+
+```mermaid
+flowchart TD
+    M["main.py<br/>workspace provider task"] --> SP["build_system_prompt<br/>lesson 10"]
+    M --> PR["OpenAICompatProvider<br/>or AnthropicProvider"]
+    SP --> R
+    PR --> R["run in agent.py<br/>the loop from lesson 04"]
+    R -->|"stream"| PR
+    R -->|"tools.run<br/>name and arguments"| T["FUNCTIONS in tools.py"]
+    T --> F["read_file write_file<br/>edit_file list_files<br/>glob_files grep_files"]
+    T --> S["run_shell"]
+    F --> G["resolve_inside<br/>lesson 07"]
+    S --> C["confirm<br/>lesson 08"]
+    G --> D["the folder on disk"]
+    C --> D
+```
+
+Section 3 goes through it line by line, including the two lines whose ordering
+is load bearing.
 
 ## 2. The thing worth noticing
 
@@ -409,6 +428,12 @@ path into an absolute one. Three separate things downstream need that.
 directory into the system prompt as a fact about the world, and a model told it
 is working in `.` has been told nothing.
 
+That third one is worse than merely useless. `Workspace directory .` reads to a
+model as a fact, so it reasons from it. In one session it will send
+`./src/app.py` and in the next `/app/src/app.py`, because both are consistent
+with what it was told and nothing in the prompt prefers either. The absolute
+path removes the choice.
+
 ### Why the provider is chosen at the command line
 
 ```python
@@ -430,6 +455,13 @@ compatible endpoint on `127.0.0.1` regardless of what is behind it. In every one
 of those cases the sniff picks the wrong wire format, and the failure is a
 confusing HTTP error about a field name rather than a message saying the format
 was wrong.
+
+Sit with one of those for a moment. Your company routes model traffic through
+`https://llm-gateway.corp.internal/v1`, which is Anthropic behind the scenes.
+Nothing in that host name says so, the sniff picks the OpenAI compatible class,
+and the first request posts to `/v1/chat/completions`. You get a 404 on a URL
+you can paste into a browser and a model name you know is real, and you spend
+the next twenty minutes checking your key.
 
 Making it an explicit flag has a second benefit that matters more for a course.
 Lesson 06 argued that the provider abstraction earns its keep because you can
@@ -944,6 +976,13 @@ things, reads the same files, and pays for all of it again. And when the agent
 does something baffling you have no way to look at what it actually saw, because
 the conversation that would explain it no longer exists.
 
+Price the repetition. The first task greps twice and reads six files, which is
+somewhere around nine thousand tokens before it starts thinking about your
+actual request. Ask a second question about the same project ten minutes later
+and it spends the same nine thousand tokens reaching the same place. The one
+sentence that would have saved all of it, naming the file the password check
+lives in, was in a message list that no longer exists.
+
 Lesson 13 adds sessions. The conversation written to a JSONL file as it happens,
 one message per line, and a way to resume from it. The format is deliberately
 boring, because the highest value of a session file turns out not to be resuming.
@@ -998,6 +1037,13 @@ blip, a gateway restart, a `500` from an overloaded endpoint, and `httpx` raises
 the exception travels up through `run` and out of `main`, and you get a
 traceback. Everything the agent had done in that conversation is lost, including
 the four files it had already read.
+
+Notice when that lands. Not on turn one, where you would lose nothing. It lands
+on turn nine, forty seconds in, after two greps and four reads and an edit that
+already changed a file on disk. A 429 that a two second wait would have cleared
+ends the run instead, and the only way to continue is to type the task again and
+pay for all nine turns a second time, against a workspace that is now half
+edited.
 
 The `raise RuntimeError` at the bottom of the loop is the same shape of problem.
 Hitting `max_turns` is not necessarily a failure. It frequently means the agent

@@ -254,6 +254,14 @@ are measurements taken at startup. Mixing them into one hand written string
 means somebody eventually hardcodes a directory into it and the agent quietly
 lies to the model on every other machine.
 
+That lie is quiet in a specific way. Somebody pastes
+`Workspace directory /Users/dana/code/agentpath` into the string because it was
+true on the laptop they wrote it on. A colleague clones the repository on
+Windows and runs it. The model reads the line, believes it, and asks for
+`/Users/dana/code/agentpath/tools.py`. `resolve_inside` refuses, correctly. The
+model tries a nearby spelling of the same wrong place, because the prompt still
+says that is where it is, and nothing in the session will ever contradict it.
+
 ### The behaviour block
 
 Here is the real text, exactly as it appears in the file.
@@ -574,6 +582,13 @@ looks like. If the workspace is in the prompt, that reasoning is immediate. If
 it is not, the model is guessing again, and a second guess after a refusal is
 often worse than the first because the model starts trying elaborate escapes.
 
+Watch the shape of those three turns. `read_file` on
+`/home/user/project/app.py` comes back outside the workspace. So the model
+tries `./../project/app.py`, reasoning that it must be one level off, and gets
+the same refusal. Then `workspace/app.py`, inventing a directory named after the
+word in the error message. Three refusals, three round trips, and the whole
+sequence is replaced by one line stating where it is standing.
+
 ### Facts, not instructions
 
 One last point about the shape of this block, because it is a habit worth
@@ -675,6 +690,14 @@ the code, will never see it again after this call, and cannot ask a follow up
 question. Nothing may be implied. If a constraint is not written down it does
 not exist as far as the caller is concerned.
 
+Here is one unwritten constraint doing damage. `read_file` truncates at 4000
+characters and its description says nothing about it. The model reads a nine
+hundred line module, gets the first hundred and twenty lines back ending part
+way through a function, and finds no `verify_credentials` in what it received.
+So it reports that the function does not exist and offers to write one. The
+truncation notice was in the result. The habit of narrowing when you see one
+was not in the description.
+
 ### It is read on every single request
 
 Here is the second property, and it is the one that makes descriptions
@@ -697,6 +720,14 @@ That adjacency is why the practical rule below holds so consistently.
 
 **If you want to change how a tool is used, change its description before you
 add a paragraph to the system prompt.**
+
+The difference is visible within one session. Put `Prefer edit_file over
+write_file` in the system prompt alone and the first several turns obey it.
+By turn twelve there are four file listings, two shell outputs and a stack
+trace between that sentence and the decision, and the model starts rewriting
+whole files again. Move the same sentence into `write_file`'s own description
+and it sits beside the call every time the call is considered, on turn twelve
+exactly as on turn one.
 
 The description is read at the moment of choosing, it applies to exactly the
 decision you care about, and it does not compete with anything except the other

@@ -187,7 +187,7 @@ OK the trap is real, the parent still believes 'original' while the file now say
 กรณีแบบนี้ thread (เธรด คือสายการทำงานคู่ขนานในโปรแกรมเดียว) จัดการได้ดี thread ที่บล็อกอ
 ยู่กินแค่ stack กับที่หนึ่งช่องในตารางของ scheduler ส่วน GIL (Global Interpreter Lock คือ
 กลไกที่ยอมให้ Python รัน bytecode ได้ทีละ thread เท่านั้น) ซึ่งเป็นสิ่งที่คนเตือนกันถูกต้
-องแล้ว จะถูกปล่อยระหว่างรอ I/O ดังนั้นสี่ thread ที่รอสี่ socket รอพร้อมกันได้จริง
+องแล้ว จะถูกปล่อยระหว่างรอ I/O สี่ thread ที่รอสี่ socket จึงรอพร้อมกันได้จริง
 
 multiprocessing ไม่ใช่คำตอบ เพราะ process มีไว้เลี่ยง GIL สำหรับงานที่ใช้ CPU จริงๆ การ
 จ่ายค่า interpreter สี่ตัว import สี่ชุด และการ pickle ข้อความข้ามท่อ เพื่อเร่งสี่อย่างที่

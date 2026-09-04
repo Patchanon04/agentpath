@@ -29,6 +29,11 @@ def main(argv=None):
     parser.add_argument("--epochs", type=float, default=2.0)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--merge", action="store_true", help="also write the merged model")
+    parser.add_argument(
+        "--cpu",
+        action="store_true",
+        help="run without a GPU, slowly, which is enough to watch it work once",
+    )
     arguments = parser.parse_args(argv)
 
     # Imported here so that the file lints and is readable without a GPU
@@ -69,7 +74,11 @@ def main(argv=None):
         gradient_accumulation_steps=4,
         logging_steps=10,
         save_strategy="epoch",
-        bf16=True,
+        # bf16 is a GPU number format, so asking for it without a card stops
+        # the run before it starts. --cpu turns it off and takes the hours
+        # that costs, which is worth it once to see the thing work.
+        bf16=not arguments.cpu,
+        use_cpu=arguments.cpu,
         max_length=2048,
         assistant_only_loss=True,
     )

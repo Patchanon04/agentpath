@@ -198,6 +198,14 @@ cut it in the wrong place. Code does not. A function body without its signature
 is not a slightly worse version of the function, it is a fragment that could
 belong to anything.
 
+Run the window over this project and see what falls out. `providers.py` from
+lesson 06 is about two hundred lines, so a five hundred word window lands its
+second cut somewhere inside `stream`. The chunk you get holds a `for` loop over
+lines beginning `data: `, an `if` on a key called `delta`, and no class name, no
+file path and no imports. There are two classes in that file with a method of
+that name and a loop of that shape. Nothing in the chunk says which one it came
+from.
+
 Function names are already excellent search keys. This is the point that does
 the most work. The whole reason embeddings are impressive is that they find
 text that means the same thing while using different words. That is a
@@ -220,6 +228,14 @@ version, which is a cache invalidation problem, which is the thing everybody
 quotes as one of the two hard problems in computer science. Compare that to
 `grep`, which has no index, cannot go stale, and sees the file the agent wrote
 one millisecond ago because it reads the file.
+
+Put a session against it. An agent working a bug for twenty minutes touches six
+files. A repository of three thousand chunks loses perhaps fifteen of them per
+edit, so somebody has to decide, ninety times, which fifteen. Rebuild the whole
+index instead and you are paying three thousand embedding calls and a couple of
+minutes, and by the time it is current the agent has edited three more files.
+The index is chasing a target that moves because the agent is the thing moving
+it.
 
 One similarity search cannot refine, and the agent can. A vector query is a
 single shot. You embed the question, you get your ten nearest chunks, and that
@@ -415,6 +431,12 @@ pattern behaves identically on every operating system. This is a small line
 that prevents a bug which is genuinely maddening to diagnose, because the tool
 works perfectly for the person who wrote it and silently returns nothing for
 half your readers.
+
+Picture the version without it. A reader on Windows asks the agent to look at
+the source, the model sends `src/*.py`, and the walk compares that against
+`src\main.py`. The backslash is not a slash, so nothing matches, and the tool
+answers `no files match src/*.py`. The model has no reason to doubt a tool. It
+concludes there is no `src` directory and offers to create one.
 
 ### Why we match three times
 
@@ -754,9 +776,26 @@ And there is no third clever variant. You cannot cancel a running regular
 expression from inside the process running it, because cancellation in Python is
 cooperative and this code never cooperates.
 
+Get a feel for the size of the thing you are trying to interrupt. `(a+)+$`
+against thirty characters of the letter `a` has roughly a billion ways to split
+that run between the two repeats, and the engine tries them. A machine getting
+through ten million of those a second is still working an hour later. Add one
+more character to the line and the hour becomes two. This is not a slow search
+that will finish if you are patient. It is a search that finishes after you have
+retired.
+
 What is left is the operating system. A separate process can be killed by
 something outside it, unconditionally, without its agreement. That is the only
 mechanism in the list that does not require the runaway code to volunteer.
+
+```mermaid
+flowchart LR
+    P["grep_files<br/>in the agent process"] -->|"one JSON object in"| W["grep_worker.py<br/>its own process"]
+    W --> L["_walk imported from tools.py"]
+    L --> M["re.search line by line"]
+    M -->|"one JSON array out"| P
+    P -.->|"after SEARCH_SECONDS<br/>kill the whole thing"| W
+```
 
 ```python
         completed = subprocess.run(
