@@ -13,9 +13,15 @@ rented by the hour it finishes in minutes. Install the extras first.
     pip install "agentpath-kit[training]"
     python train_lora.py clean.jsonl --output adapter
 
-The output is the adapter alone, a few megabytes, which is what LoRA
-buys you. merge_and_save folds it into the base model for serving, which
-is the merge function of lora.py at full size.
+The output is the adapter alone. Measured on the default model at rank
+sixteen it holds 8.8 million numbers and takes 35 megabytes, one and
+three quarter percent of the base. That is what LoRA buys you, and
+chapter 18 counts what it costs. merge_and_save folds it into the base
+model for serving, which is the merge function of lora.py at full size.
+
+--cpu runs it with no card at all. The same sixty five example file took
+an hour and eleven minutes that way against minutes on a rented card, so
+it is for watching the thing work once rather than for training anything.
 """
 import argparse
 
