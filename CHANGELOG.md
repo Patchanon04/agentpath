@@ -110,6 +110,74 @@ loop and a docstring in the MCP client now say what the code does. Nothing
 else in this section touches src/agentpath, and no release has been cut, so
 the wheel on PyPI is still 1.0.6.
 
+The book is a book. book/build_book.py turns the twenty eight chapters into
+one 354 page volume, 170 by 240 mm, with a cover, a contents page whose
+numbers are the pages the chapters landed on, running heads, page numbers,
+part openers on a right hand page, and the figures drawn rather than quoted.
+The markdown here is a small regular subset so it is converted directly
+rather than by taking a dependency, and paged.js in headless Chrome does the
+pagination. Two things about that library drop content with no error at all,
+a named page shared by consecutive blocks and a break inside a code block,
+so every block goes in stamped and book/audit.js checks that each stamp came
+out inside a page box. It reports 2050 of 2050.
+
+The layout was set from how books are set rather than from taste. Paragraphs
+are separated by space and never indented, because using both is a belt and
+braces pair and because Thai has no capital letters to mark a sentence start.
+The measure is about 66 characters, inside the 45 to 75 that reads well. The
+leading is 1.75 rather than the 1.2 to 1.45 Latin text is set at, because
+Thai stacks vowels above and tone marks above those.
+
+The explanations were rewritten. The style guide's own worked example of a
+gloss was a word for word rendering of the English term, and every chapter
+had copied the shape, so the guide now shows what a gloss should be and adds
+three rules. A gloss says what the thing does rather than translating its
+name, it is one short clause, and prose does not sit in the register of an
+official document. Against those, 175 of the book's 190 glosses and about
+ninety across the lessons were rewritten. gradient descent was การเดินลงตาม
+เกรเดียนต์ and now says it moves the numbers against the gradient one step at
+a time. Two were wrong rather than stiff, a token defined in terms of words
+in the chapter that disproves exactly that, and the mark ◌ั called สระอั in
+five places when its name is ไม้หันอากาศ.
+
+Then the concrete work. There were 21 uses of เช่น in 3931 lines of prose and
+twelve chapters had none, so the book asserted a great deal a newcomer could
+not picture. 121 examples were added to the book and about a hundred to the
+lessons, each a short situation with real numbers rather than the word for
+example bolted to a claim, and the figure count went from six to twenty in
+the book and from zero to twenty four in the lessons.
+
+Thai prose here carries no commas and no full stops, so a space is the only
+mark saying a thought has ended, and 130 stretches had run past seventy
+characters without one. 142 spaces went back in and nothing else changed,
+which a check confirms by removing every space from before and after and
+comparing.
+
+Last, the whole book was read start to finish for the first time, because
+each pass had worked on a range and none had listened to whether it is one
+voice. That found cross references that collided, บทที่ 4 meaning the
+learning chapter in one sentence and the context window chapter in the next,
+four references pointing at the wrong chapter outright, and openings that had
+settled into a formula.
+
+Three checks are new and all three now run in CI. ci/gloss_consistency.py
+reports a term explained two different ways, which nothing caught before and
+which drifted every time one side was edited. ci/long_runs.py reports Thai
+that has run on without the space that ends a thought. book/rewrap.py rewraps
+a paragraph an edit left too long, knowing where a Thai line may break and
+asserting the rendered paragraph is unchanged.
+
+Part 4's real scripts had never been run, only the numpy demos beside them.
+train_lora.py and train_dpo.py now take --cpu, since both set bf16
+unconditionally, which is a GPU number format, and a reader without a card
+was stopped before the run began. Run that way on the half billion parameter
+model, LoRA trains and writes an adapter, and it works with transformers
+5.16, trl 1.12 and peft 0.20, all far newer than the floors in pyproject. One
+claim did not survive the measurement. The adapter is 8.8 million numbers and
+35 megabytes at rank sixteen, not the few megabytes the docstring promised.
+launch.py prints the numbers chapter 21 quotes. load_4bit.py is still
+unverified, because four bit through bitsandbytes needs an NVIDIA card.
+
 ## 1.0.6
 
 The package has a front door. An import of agentpath gave you a version

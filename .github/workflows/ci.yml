@@ -33,6 +33,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: python ci/prose_lint.py
+      - run: python ci/gloss_consistency.py
+      - run: python ci/long_runs.py
 
   tests:
     strategy:

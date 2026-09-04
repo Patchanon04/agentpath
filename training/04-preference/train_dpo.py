@@ -8,7 +8,8 @@ and the training loop. The adapter from chapter 2 is the usual starting
 point, because preference tuning is the third round and instruction
 tuning is the second.
 
-It needs a GPU and is not run in CI.
+It needs a GPU and is not run in CI. --cpu runs it with no card, slowly,
+for watching it work once.
 
     pip install "agentpath-kit[training]"
     python train_dpo.py pairs.jsonl --model adapter-merged --output dpo-adapter
@@ -27,6 +28,11 @@ def main(argv=None):
     parser.add_argument("--output", default="dpo-adapter")
     parser.add_argument("--beta", type=float, default=0.1, help="the leash from dpo.py")
     parser.add_argument("--epochs", type=float, default=1.0)
+    parser.add_argument(
+        "--cpu",
+        action="store_true",
+        help="run without a GPU, slowly, which is enough to watch it work once",
+    )
     arguments = parser.parse_args(argv)
 
     from datasets import load_dataset
@@ -62,7 +68,11 @@ def main(argv=None):
         per_device_train_batch_size=2,
         gradient_accumulation_steps=8,
         logging_steps=10,
-        bf16=True,
+        # bf16 is a GPU number format, so asking for it without a card stops
+        # the run before it starts. --cpu turns it off, the same escape
+        # train_lora.py has, and it costs the same hours.
+        bf16=not arguments.cpu,
+        use_cpu=arguments.cpu,
         max_length=2048,
     )
     trainer = DPOTrainer(
