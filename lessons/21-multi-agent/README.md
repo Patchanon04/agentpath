@@ -173,6 +173,14 @@ the wrong currency. Threads let this chapter be about fan out, ordering,
 failure and shared state, which are the ideas that transfer, rather than about
 Python's concurrency syntax, which does not transfer anywhere.
 
+The forgotten `await` is not a hypothetical tax. One of these rewrites shipped
+with a single missing one in front of the call that reads the stream, so the
+function returned a coroutine object instead of text, the caller wrote that
+object into the message list, and the next request went out carrying
+`<coroutine object stream at 0x...>` where a file was supposed to be. No
+exception anywhere. It took two people an hour to find, and the bug had nothing
+to do with agents.
+
 Threads are not better than async. A service running thousands of concurrent
 agents would use async, and would be right to. At that scale the per thread
 stack cost and the context switching stop being noise, and an event loop holding
@@ -247,6 +255,20 @@ def run_in_parallel(jobs, workers=4):
 ```
 
 Forty lines. Take them in the order they matter.
+
+```mermaid
+flowchart LR
+  J[jobs list] --> P[(pending queue)]
+  P --> W1[worker thread one]
+  P --> W2[worker thread two]
+  P --> W3[worker thread three]
+  P --> W4[worker thread four]
+  W1 --> R[(results queue)]
+  W2 --> R
+  W3 --> R
+  W4 --> R
+  R --> M[main loop counts DONE and yields label with event]
+```
 
 ### What a job is
 
@@ -578,6 +600,13 @@ different story. Whether `auth` finished before `parser` is almost never
 information anybody needs, and the price of guaranteeing it is all of the
 speedup.
 
+Somebody does depend on it eventually, by accident. A caller wrote the merged
+events straight into a report in arrival order, ran the same four reviews twice,
+and got two reports whose sections came in different orders. The person reading
+them assumed the agent had changed its mind about what mattered most. Nothing had
+changed except which socket answered first. Sorting by label at the point of
+writing fixed it in one line, and finding it took an afternoon.
+
 ### The check that proves it
 
 `check.py` runs three jobs of three events each and then asserts on the
@@ -893,6 +922,13 @@ out over four modules in one package and they will all want to touch the shared
 config, the imports, the test helpers. The more useful your fan out is, the more
 the jobs are related, and the more related they are the more they overlap.
 
+Count the overlap once on a real package and the argument stops being abstract.
+Four jobs, one per module, and all four wanted `conftest.py`, because each one
+added a fixture for the module it was reviewing. Three of the four edits landed.
+The fourth was the one adding the fixture for the module whose tests then failed
+in CI two days later, with a message about a fixture that was missing and no
+clue in either session file, because both of them recorded a successful edit.
+
 Real harnesses answer this in two families, and both are real engineering
 rather than a flag.
 
@@ -962,6 +998,13 @@ race in section 8 with nobody having decided to. In this codebase the
 orchestrator is the parent from lesson 20, emitting several `run_subagent`
 calls in one turn, and the change is dispatching those calls through
 `run_in_parallel` rather than the sequential `for call in calls`.
+
+A planner emitting too many jobs is easy to see once you count. Asked to review
+a package of six files, one planner produced eleven jobs, because it made a job
+per file and then three more for the tests, the config and the docs. Eleven agent
+runs, eleven system prompts, eleven copies of forty schemas, to answer a question
+three jobs covered. The plan reads as thorough in the transcript. Thoroughness in
+a planner is priced per run.
 
 A reviewer that checks another agent's work is the last pattern. One agent
 does the job, a second agent with a fresh context is given the result and

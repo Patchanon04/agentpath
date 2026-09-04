@@ -296,6 +296,12 @@ and it is doing that for every client at once. The header is a coordination
 mechanism. Ignoring it is defection, and it makes the outage longer for
 everybody including you.
 
+The arithmetic is small and it runs the wrong way. The header says eight
+seconds. You come back at one, at two and at four, collect three more `429`
+answers, and your budget of four attempts is gone before the eight seconds the
+server asked for have passed. Waiting once, exactly as told, costs eight seconds
+and one request. Guessing costs you the call.
+
 ### The formula, when the server says nothing
 
 Most failures do not carry a `Retry-After`. A `500` from a crashed worker has no
@@ -545,6 +551,13 @@ adds a tool with a real side effect, and it appears as a duplicate action with n
 error message anywhere, because from the program's point of view nothing went
 wrong.
 
+It arrives looking like this. Somebody adds `send_email` in month four. The
+mail gateway accepts a message and then takes thirty one seconds to answer, the
+client gives up at thirty, and the generic wrapper tries three more times.
+Twelve hundred customers receive four copies of the same announcement. The log
+for that run records one call and no errors, because from where the wrapper
+stood the only thing that failed was a socket.
+
 When a tool genuinely needs retrying, the retry belongs inside that tool, next to
 the idempotency key that makes it correct. The helper stays where it is, wrapping
 the one operation this program has that is genuinely safe to repeat.
@@ -656,6 +669,13 @@ a lie that shipped in tools people use daily. The screen says stopped. The
 subprocess is still running. The file is still being written. You believe the
 agent stopped, so you edit the file it is still editing.
 
+The version of that which costs you an hour is quiet. You press Ctrl+C during
+a `pytest` run, read the word stopped, and open the file the agent had been
+editing so you can fix the line yourself. Forty seconds later the tool that was
+never stopped writes its own version over yours. Nothing in the terminal
+contradicts the word you read, because the layer that printed it was the only
+layer that heard the key.
+
 ### The press has to reach every layer
 
 When you press Ctrl+C, the agent could be in one of three places, and stopping
@@ -676,6 +696,16 @@ means the question goes away and the call it was guarding does not run.
 The failure that ships is when one layer hears the interrupt and the others do
 not. The display layer is the easiest one to wire up and the one you notice
 first, which is exactly why it is the one that gets wired up alone.
+
+```mermaid
+flowchart TD
+    K["Ctrl+C"] --> H["the handler in the command line"]
+    H --> C["one Cancellation token"]
+    H --> M["a second press<br/>raises KeyboardInterrupt"]
+    C --> L["the loop<br/>before each turn<br/>and before each tool call"]
+    C --> S["run_shell<br/>before it starts a process"]
+    C --> P["the pending question<br/>answers DENY"]
+```
 
 ### Why one shared token rather than a flag per layer
 
@@ -991,6 +1021,13 @@ count, says plainly that nothing has changed, and asks for a different approach.
 Given that, a model will usually widen the pattern, try a different tool, or say
 that it cannot find the thing and ask you. All three of those are better outcomes
 than a `RuntimeError` at turn ten, and the warning costs one turn.
+
+Here is one turn of it working. The model has asked `grep_files` for
+`def handle_payment` three times, gets the sentence instead of a fourth empty
+result, and searches for `payment` on its next turn. That returns
+`process_payment` on line 40 of `billing.py`, which was sitting there the whole
+time. One turn of being told plainly beat seven more turns of the same
+pattern.
 
 Note where the warning sits in the `if` chain. After `call["error"]`, before the
 permission check. A malformed call is a different problem with its own message,

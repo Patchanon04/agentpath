@@ -647,6 +647,13 @@ normal. The only symptom is that the bill is two or three times what it was, and
 the bill arrives at the end of the month with no per request breakdown that would
 point at a line of Python.
 
+The shape of the discovery is always the same. A session identifier goes into
+the top of the system prompt on the third of the month for a perfectly good
+reason, and it ships. The invoice on the first is four hundred and twelve
+dollars against a hundred and fifty the month before, on the same traffic and
+the same model. Nothing in that month's commits mentions cost, because the
+commit that did it was about logging.
+
 This is the reason the section is this long. A failure that crashes teaches you
 where it is. A failure that only costs money has to be looked for on purpose,
 which means you have to already know it exists. That is what you are reading
@@ -697,6 +704,12 @@ called with a budget just below the current size, it will shave one block off
 every turn forever, and that is close to the worst case available to you. Trim
 down to well below the budget when you trim at all, so the next several turns can
 run cached.
+
+Put the bad case in numbers. Your budget is eight thousand and the
+conversation sits at eight thousand one hundred, so every turn shaves one block
+off the front and every turn misses the cache. Twelve turns of that reprocess
+about ninety thousand tokens at full price. Trim once down to five thousand
+instead and eleven of those twelve turns read their prefix from cache.
 
 There is a floor, and short prompts do not cache. Providers only cache
 prefixes above a minimum length, on the order of a thousand tokens. Below that
@@ -917,6 +930,12 @@ An agent stuck on the same failing `run_shell` will burn all ten turns, and by
 section 2's arithmetic the last of those turns is the most expensive one in the
 run. Detecting the loop at turn three saves the seven most expensive requests.
 
+Watch the money in that. The agent runs `pytest -q`, gets the same three
+failures, and runs it again. The request at turn four is about nine thousand
+tokens and the one at turn ten is about fifteen thousand, so the seven turns
+after the loop was already obvious cost you roughly eighty four thousand prompt
+tokens to read the same three lines of output seven times.
+
 The model is told rather than the call being silently skipped. Same
 argument lesson 12 made about refusals. A model that does not know what happened
 cannot choose differently, so it tries again. Telling it plainly gives it a
@@ -984,6 +1003,13 @@ at the call site, which means somebody has to have looked. Passing `3.0` and
 `15.0` is a claim you are making with your eyes open, and if you got it from a
 price page six months ago that is at least your six month old claim rather than a
 stranger's.
+
+A stale table is worse than no table because of what happens downstream.
+Somebody writes `PRICES["big-model"] = 10.0` in a file, the vendor drops that
+model to 3.0 eight months later, and a report now says the nightly eval run
+costs a hundred and twenty dollars a month when it costs thirty six. The number
+is wrong in the direction that gets the work cancelled, and nobody doubts it
+because it came out of the code.
 
 The rule generalises. When a value is outside your control, changes without
 telling you, and produces a plausible answer when it is wrong, make the caller

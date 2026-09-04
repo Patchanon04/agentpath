@@ -116,6 +116,13 @@ the agent is worse than it was in lesson 18 and there is no way to find out
 which change did it. Reverting is no help, because you would have to revert
 eleven things to find the one.
 
+That is not a story about carelessness. A team that shipped nine prompt edits
+over three weeks noticed the agent had started rewriting whole files instead of
+editing lines, walked back through the nine commits, and could not reproduce the
+old behaviour from any of them, because every commit had also touched a tool
+description or the trimming budget. They reverted all nine, lost two changes that
+were fine, and never found out which sentence did it.
+
 What you need is an instrument, and an instrument has a very low bar. It has to
 produce a number, the same way, from the same inputs, before and after. That is
 all. This chapter builds one.
@@ -159,6 +166,13 @@ Put the two together and here is the honest description of what you learn from
 watching one run succeed. You learn that success is possible. You do not learn
 that it is likely, and likely is the thing you actually care about, because you
 are going to run this agent a hundred more times.
+
+Run the number once and it stops being a debate. The same task, the same prompt,
+the same model, twenty times, passed thirteen. Not thirteen because the task is
+hard, thirteen because on seven of the runs the agent opened a different file
+first and never came back to the right one. Watch a single run of that task and
+you have a two in three chance of concluding it works and a one in three chance
+of concluding it is broken, from the same code on the same day.
 
 The fix for both is the same and it is not clever. Fix a set of tasks. Run all
 of them. Count. Do it again after the change and compare the counts. Everything
@@ -271,6 +285,13 @@ against whatever the check measures. If the check measures the presence of a
 word, you are running a slow gradient descent towards a model that says that
 word, and it will get there. This is not hypothetical mischief. It is what
 optimising against a proxy always does.
+
+That descent has a visible end state. A suite scored on the word done went from
+nineteen of twenty five to twenty four of twenty five across four prompt edits,
+and the edit that moved it most added a sentence telling the agent to finish by
+confirming the work is done. Nothing about the agent's editing improved over
+those four weeks. The report went green because the report was measuring a habit
+the prompt could install directly.
 
 Now the other kind.
 
@@ -482,6 +503,17 @@ ordinary task and `run_one` never learns that a model was involved in grading
 it. That is the same seam as everywhere else in this project. The runner
 consults, and implements nothing.
 
+```mermaid
+flowchart TD
+  T[Task with a prompt and a check] --> A[run_agent returns answer and usage]
+  A --> C{check}
+  C -- a function reading the world --> V[passed plus one sentence]
+  C -- a judge asking a model --> J[provider.stream grades once]
+  J --> V
+  V --> R[Result with name verdict detail usage]
+  R --> P[one report row and the exit code]
+```
+
 ### What a judge gets wrong, and the swap that catches one of them
 
 A judge is wrong in three known ways, and two of them are cheap to defend
@@ -495,6 +527,14 @@ outside grader would, which is the reason the provider is a parameter. And a
 judge has a position bias. Shown two answers and asked which is better, it
 favours one position more often than that position deserves, usually the first,
 by an amount and in a direction that depend on the model and the wording.
+
+One of these moved a number six points for nothing. A judged suite scored a new
+prompt at thirty one of forty against the old prompt's twenty five, and the only
+real change in the new prompt was an instruction to explain the reasoning before
+answering. The answers came back about three times longer. Rerun with the grader
+told to ignore length and the two prompts scored twenty six and twenty five. The
+six point gap was the grader's taste, written into the report as if it were the
+agent's.
 
 The first two are reduced by how you use it, not removed. Criteria that name
 what a good answer contains help, and so does comparing answers of similar
@@ -792,6 +832,13 @@ better production values. They measure competition mathematics and multiple
 choice trivia. Your agent reads a stack trace, greps a repository, and edits
 one line without breaking the file, and the correlation between those is real
 but nothing like tight enough to pick on.
+
+The distance between a benchmark and your workload is measurable in an
+afternoon. A model that scored several points higher on a public coding benchmark
+took eleven turns to fix an off by one in a file it had already read, against
+four turns for the model it beat, because it kept re reading the file to check
+itself. Over forty tasks it passed two more and cost about two and a half times
+as much. The benchmark was not lying. It was answering a different question.
 
 You already have the apparatus. Look at what `run_one` takes.
 

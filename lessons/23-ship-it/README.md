@@ -704,6 +704,20 @@ promptly start talking to a model.
 Packaging metadata is a description. Publishing is the act. There are four
 steps, and the order of two of them is where people get hurt.
 
+```mermaid
+flowchart TD
+  S[source tree and pyproject.toml] --> B[python -m build]
+  B --> D1[sdist tar.gz]
+  B --> D2[wheel whl]
+  D1 --> L[look inside and count the files]
+  D2 --> L
+  L --> F[fresh venv installs the wheel by path]
+  F --> R{does the command run}
+  R -- no --> S
+  R -- yes --> T[upload to TestPyPI]
+  T --> P[upload to PyPI which goes one way only]
+```
+
 ### Build the artifacts
 
 ```bash
@@ -856,6 +870,14 @@ wheel, a dependency you use but never declared because it was already installed
 for something else, all of these work perfectly on the machine that built them
 and fail on the first machine that did not. Your development environment is the
 one place in the world that cannot detect this class of bug.
+
+The shape of it is always small and always embarrassing. A `1.0.0` went out that
+imported `yaml` in one module to read a config file, and `yaml` was in the
+author's environment because something else had pulled it in years earlier and it
+never reached `pyproject.toml`. The package installed cleanly everywhere and
+raised `ModuleNotFoundError` on the first command anybody ran. Seventeen minutes
+between the upload and the first issue, and that `1.0.0` is still on the index,
+still broken, and always will be.
 
 So build a venv with nothing in it, install the wheel by path, and drive the
 thing.
@@ -1053,6 +1075,13 @@ your files. A remote server is somebody else's code holding your requests, and
 every tool description it sends you goes straight into your model's context,
 which is a prompt injection surface owned by a third party.
 
+The version people meet first is duller than an attack. A hosted server changed
+one tool description overnight, from four words to a paragraph telling the model
+to prefer this tool for anything involving a file, and every agent in the company
+picked it up on its next request. Nobody deployed anything. Nobody reviewed
+anything either, because there was nothing in anybody's repository to review. The
+week's tool selection numbers moved and it took four days to work out why.
+
 ### Async
 
 The entire project is synchronous on purpose. `fanout.py` says why in its
@@ -1125,6 +1154,14 @@ centre. And the sharpest cost is privacy. A trace that captures prompts and tool
 results is a copy of every file your agent read, sitting in somebody else's
 system, and that decision has to be made deliberately rather than discovered.
 
+Discovered is the usual way it happens. Tracing went on for a week to find one
+slow step, and the spans captured tool results because that was the default, so
+the collector ended up holding the contents of every file the agents had read,
+including two customer configuration files with connection strings in them. The
+retention on that collector was ninety days. Nobody chose that either. Turning
+the tracing off took a minute and getting the stored data deleted took three
+weeks.
+
 ### Running the agent in a sandbox
 
 This is the one with the largest gap between what the harness promises and what
@@ -1149,6 +1186,13 @@ for an interactive session. And the sandbox has to actually be one, because
 network isolation, filesystem isolation and resource limits are three separate
 settings, and a container with the default network is not isolated from anything
 that matters.
+
+That last sentence has a bill attached. An agent given a container and one file
+to edit decided it needed a library, ran `pip install`, and got it, because the
+container had the default network and the default network reaches the whole
+internet. Four minutes and two hundred megabytes later it made the one line edit.
+Nothing was breached and nothing was logged as wrong. The isolation everybody
+believed in covered the filesystem and nothing else.
 
 ## 7. What this course did not cover, and why
 

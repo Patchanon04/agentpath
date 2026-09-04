@@ -150,6 +150,13 @@ tokens is found less reliably than the same fact in eight thousand. So "it fits"
 is not quite the test. "It fits with room to spare, and the model is still
 finding things in it" is the test, and you check the second half by trying it.
 
+You can watch that happen in an afternoon. Put the whole handbook in the
+prompt and ask forty questions you already know the answers to. The ones
+answered by the first ten pages come back right almost every time, and the ones
+answered by a paragraph sitting sixty thousand tokens in come back right about
+two times in three. Nothing in any of those answers tells you which kind of
+question you just asked.
+
 But try it. It costs an afternoon, it either works or it does not, and if it
 works you have finished.
 
@@ -300,6 +307,18 @@ That is all of it. Chunking is the part where you decide what a piece is.
 Embedding is one particular way of computing the score. A vector database is a
 way of computing that score quickly when there are ten million pieces. All three
 are implementations of a detail. The shape is score and sort.
+
+```mermaid
+flowchart LR
+    F["documents<br/>on disk"] --> P["split on blank lines<br/>one passage each"]
+    P --> W["lowercase words<br/>as a set"]
+    W --> R["rarity weight<br/>for every word"]
+    Q["the question"] --> S
+    R --> S["score each passage<br/>sum of shared weights"]
+    S --> K["sort and drop the zeros"]
+    K --> RR["rerank the top twenty"]
+    RR --> OUT["a few passages<br/>each with file and line"]
+```
 
 Here is `search_notes`, complete.
 
@@ -657,6 +676,13 @@ means more chances to overlap with the question, and this version has no length
 correction. That is the first of the two refinements section 4 said turns this
 into BM25, and it is the more important of them.
 
+The size of that advantage is easy to see on the fixture. A four hundred word
+section that happens to mention `refund` once alongside `card` and `days`
+collects three weights and scores about 5.4. The single sentence that actually
+states the thirty day window collects two and scores 4.2. The long passage wins,
+the answer is somewhere inside it, and the model reads four hundred words to
+find one line.
+
 Some documents have no paragraph structure at all. A minified file, a CSV, a
 transcript exported as one enormous block. Splitting on the blank line gives you
 one passage containing the whole file, which is useless. In practice you handle
@@ -727,6 +753,13 @@ fragments into fluent prose, and nothing anywhere records where those fragments
 came from, you have moved the trust problem rather than solved it. The output is
 now confident, specific and unverifiable, which is a worse position than an
 obvious guess, because an obvious guess gets checked.
+
+The answer that costs you is the one that reads well. Five fragments go in and
+out comes a sentence saying refunds are paid back to the original card within
+two working days. The refund half came from `refunds.md`. The two working days
+came from `shipping.md`, where it was about dispatch. With the sources printed
+in front of each passage you catch that in about two seconds. Without them it
+becomes a support article.
 
 With a source on every passage, the chain is intact. The model was given
 `refunds.md:3`. You can open `refunds.md`, go to line 3, and read what it
@@ -820,6 +853,12 @@ support complaint. So you need a rebuild strategy, which means either rebuilding
 everything on a schedule and accepting a staleness window, or tracking which
 chunks came from which version of which file and rebuilding incrementally, which
 is a cache invalidation problem. Compare the fifth of a second in section 3.
+
+The shape of that in one week is worth carrying. Legal shortens the refund
+window from thirty days to fourteen and the document is updated on Tuesday
+morning. Tuesday night's rebuild fails because a credential expired, and the job
+writes its error into a log nobody reads. For nine days the assistant answers
+every customer with thirty days, citing a file that says fourteen.
 
 The second is a model to run. Something has to turn text into vectors, at index time and
 again on every single query. Call an API and you have a second provider, a
