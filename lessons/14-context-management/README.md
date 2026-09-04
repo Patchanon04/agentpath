@@ -485,8 +485,7 @@ impossible to violate.
 
 ```mermaid
 flowchart LR
-    S["system<br/>never a candidate"] --> B1
-    B1 -->|"the only line a trim may cut"| B2
+    S["system<br/>never a candidate"]
     subgraph B1["block 1 costs 43"]
         direction TB
         U1["user<br/>first question"] --> A1["assistant<br/>calls c1"] --> T1["tool<br/>result of c1"] --> A2["assistant<br/>first answer"]
@@ -495,6 +494,8 @@ flowchart LR
         direction TB
         U2["user<br/>second question"] --> A3["assistant<br/>second answer"]
     end
+    S --> B1
+    B1 -->|"the only line a trim may cut"| B2
 ```
 
 ## 5. What must never be dropped

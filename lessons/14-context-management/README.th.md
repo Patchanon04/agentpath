@@ -452,8 +452,7 @@ def fit_to_budget(messages, budget: int):
 
 ```mermaid
 flowchart LR
-    S["system<br/>ไม่เคยเป็นตัวเลือกให้ตัด"] --> B1
-    B1 -->|"เส้นเดียวที่การตัดผ่านได้"| B2
+    S["system<br/>ไม่เคยเป็นตัวเลือกให้ตัด"]
     subgraph B1["block 1 ราคา 43"]
         direction TB
         U1["user<br/>คำถามแรก"] --> A1["assistant<br/>เรียก c1"] --> T1["tool<br/>ผลของ c1"] --> A2["assistant<br/>คำตอบแรก"]
@@ -462,6 +461,8 @@ flowchart LR
         direction TB
         U2["user<br/>คำถามที่สอง"] --> A3["assistant<br/>คำตอบที่สอง"]
     end
+    S --> B1
+    B1 -->|"เส้นเดียวที่การตัดผ่านได้"| B2
 ```
 
 ## 5. สิ่งที่ต้องไม่ถูกตัดทิ้งเด็ดขาด
