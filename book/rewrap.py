@@ -14,6 +14,9 @@ word or behind a vowel that cannot end one.
 
 wrap_paragraph asserts the rendered paragraph is unchanged, so a wrap that
 would alter a single character fails rather than ships.
+
+Run it from the repo root. Name the files to limit it to those, which matters
+when more than one person is editing the book at once.
 """
 
 import re
@@ -73,8 +76,10 @@ def wrap_paragraph(lines):
 
 
 def main():
+    """Re-wrap the files named on the command line, or the whole book."""
+    named = [Path(a) for a in sys.argv[1:]]
     total = 0
-    for path in sorted(Path("book").glob("*.md")):
+    for path in named or sorted(Path("book").glob("*.md")):
         lines = path.read_text(encoding="utf-8").split("\n")
         out, i, fence, touched = [], 0, False, 0
         while i < len(lines):

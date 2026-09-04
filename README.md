@@ -214,8 +214,9 @@ either layer.
 once and properly, with tests.
 
 `ci/` holds the script that runs every chapter check, the prose style check,
-and a check that a technical term is not explained two different ways in the
-book and in a lesson.
+a check that a technical term is not explained two different ways in the book
+and in a lesson, and a check for Thai that has run on without the space that
+marks where one thought ends.
 The fake model server it runs against lives in `src/agentpath/testing/`.
 
 `docs/` holds the design document, the implementation plans and the topic ideas
