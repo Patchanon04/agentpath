@@ -9,7 +9,11 @@ point, because preference tuning is the third round and instruction
 tuning is the second.
 
 It needs a GPU and is not run in CI. --cpu runs it with no card, slowly,
-for watching it work once.
+for watching it work once. One step on sixteen pairs took fifty nine
+minutes that way, about three and a half times a step of chapter 2,
+because a preference step runs both the model and the frozen reference.
+That one step reported a loss of 0.6914, which is the 0.693 chapter 20
+opens with, measured on a real model rather than on the demo.
 
     pip install "agentpath-kit[training]"
     python train_dpo.py pairs.jsonl --model adapter-merged --output dpo-adapter

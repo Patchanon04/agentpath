@@ -175,8 +175,11 @@ model, LoRA trains and writes an adapter, and it works with transformers
 5.16, trl 1.12 and peft 0.20, all far newer than the floors in pyproject. One
 claim did not survive the measurement. The adapter is 8.8 million numbers and
 35 megabytes at rank sixteen, not the few megabytes the docstring promised.
-launch.py prints the numbers chapter 21 quotes. load_4bit.py is still
-unverified, because four bit through bitsandbytes needs an NVIDIA card.
+launch.py prints the numbers chapter 21 quotes. train_dpo.py runs too, one
+step in fifty nine minutes on the CPU, and it reported a loss of 0.6914,
+which is the 0.693 chapter 20 opens with, measured on a real model instead
+of on the three pair demo. load_4bit.py is still unverified, because four
+bit through bitsandbytes needs an NVIDIA card.
 
 ## 1.0.6
 
